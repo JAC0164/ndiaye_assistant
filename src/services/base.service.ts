@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
-export abstract class BaseService<T> {
+export abstract class BaseService<T extends Record<string, unknown>> {
   protected readonly supabase: SupabaseClient
   protected readonly tableName: string
 
@@ -39,7 +39,7 @@ export abstract class BaseService<T> {
     return data as T | null
   }
 
-  async create(payload: Partial<T>): Promise<T> {
+  async create(payload: Record<string, unknown>): Promise<T> {
     const { data, error } = await this.supabase
       .from(this.tableName)
       .insert(payload)
@@ -53,7 +53,7 @@ export abstract class BaseService<T> {
     return data as T
   }
 
-  async update(id: string, payload: Partial<T>): Promise<T> {
+  async update(id: string, payload: Record<string, unknown>): Promise<T> {
     const { data, error } = await this.supabase
       .from(this.tableName)
       .update(payload)

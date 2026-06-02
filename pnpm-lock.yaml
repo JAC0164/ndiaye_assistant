@@ -14,6 +14,9 @@ importers:
       '@langchain/google-genai':
         specifier: ^2.1.31
         version: 2.1.31(@langchain/core@1.1.48)
+      '@next/swc-linux-x64-gnu':
+        specifier: ^16.2.7
+        version: 16.2.7
       '@supabase/ssr':
         specifier: ^0.10.3
         version: 0.10.3(@supabase/supabase-js@2.107.0)
@@ -2509,8 +2512,7 @@ snapshots:
   '@next/swc-linux-arm64-musl@16.2.7':
     optional: true
 
-  '@next/swc-linux-x64-gnu@16.2.7':
-    optional: true
+  '@next/swc-linux-x64-gnu@16.2.7': {}
 
   '@next/swc-linux-x64-musl@16.2.7':
     optional: true
