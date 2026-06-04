@@ -22,7 +22,6 @@ export const generatedSeanceSchema = z.object({
 
 export const visionAgentOutputSchema = z.object({
   isValid: z.boolean(),
-  errorReason: z.string().optional(),
   timetableMarkdown: z.string(),
 });
 

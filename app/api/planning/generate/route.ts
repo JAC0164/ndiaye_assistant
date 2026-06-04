@@ -127,7 +127,6 @@ export async function POST(request: NextRequest) {
           isValidTimetable: false,
           validationErrorMessage: result.validationErrorMessage,
           generatedPlanning: [],
-          insertedSeances: [],
         },
         { status: 422 }
       )
@@ -138,7 +137,6 @@ export async function POST(request: NextRequest) {
       extractedTimetableMarkdown: result.extractedTimetableMarkdown,
       studentProfileContext: result.studentProfileContext,
       generatedPlanning: result.generatedPlanning,
-      insertedSeances: result.insertedSeances,
     })
   } catch (error) {
     return jsonError(

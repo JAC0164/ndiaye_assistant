@@ -16,9 +16,7 @@ export type Seance = GeneratedSeance & {
   updated_at: string
 }
 
-export type PlanningWorkflowResult = PlanningGraphState & {
-  insertedSeances: Seance[]
-}
+export type PlanningWorkflowResult = PlanningGraphState
 
 export class SeanceService extends BaseService<Seance> {
   constructor(supabase: SupabaseClient) {
@@ -63,21 +61,6 @@ export class SeanceService extends BaseService<Seance> {
       onboardingData,
     })
 
-    if (!state.isValidTimetable) {
-      return {
-        ...state,
-        insertedSeances: [],
-      }
-    }
-
-    const insertedSeances = await this.createMany(
-      userId,
-      state.generatedPlanning
-    )
-
-    return {
-      ...state,
-      insertedSeances,
-    }
+    return state
   }
 }

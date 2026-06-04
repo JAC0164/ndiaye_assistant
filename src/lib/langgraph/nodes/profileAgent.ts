@@ -1,6 +1,6 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
-import { getModel } from "../model"
+import { getModel, createTokenLogger } from "../model"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
@@ -12,6 +12,13 @@ export async function profileAgent(
   state: PlanningGraphAnnotationState,
   modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
+  if (state.studentProfileContext) {
+    console.log("\x1b[33m[Skip] PROFILE  | Output already present in state, skipping LLM call.\x1b[0m")
+    return {
+      studentProfileContext: state.studentProfileContext,
+    }
+  }
+
   const model = getModel("profile", modelOverrides)
   const structuredModel = model.withStructuredOutput(profileAgentOutputSchema, {
     name: "analyze_student_learning_profile",
@@ -21,23 +28,32 @@ export async function profileAgent(
     [
       "system",
       [
-        "Tu es l'agent Profil de Ndiaye.",
-        "Analyse uniquement les données d'onboarding fournies.",
-        "Identifie les matières en souffrance en tenant compte des coefficients officiels déjà présents dans les données.",
-        "Déduis les contraintes cognitives, de transport, de fatigue et de disponibilité.",
-        "Formule des priorités textuelles claires pour le planificateur sans inventer de coefficients, de règles ou de matières absentes.",
-      ].join(" "),
+        "Role: Profile Agent. Extract student study priorities and constraints.",
+        "Output requirements (in studentProfileContext):",
+        "- Simple, extremely telegraphic markdown bullet points in French.",
+        "- STRICT: No raw JSON, no ```json blocks.",
+        "- Limit output length: keep bullet points short and concise (max 4 bullets, under 100 total tokens).",
+        "",
+        "Instructions:",
+        "1. Weak subjects: List subjects from `weakSubjects` needing extra focus.",
+        "2. Curfew: Note bedtime limit; strictly forbid study after this hour.",
+        "3. Unavailable slots: List each item from `blockedSlots` (day, hours, reason) and forbid scheduling there.",
+        "4. Track: Note focus based on track (S1/S2: science; L1/L2: humanities).",
+      ].join("\n"),
     ],
     [
       "human",
-      "Données d'onboarding typées: {onboardingDataJson}",
+      "Onboarding data: {onboardingDataJson}",
     ],
   ])
 
   const chain = prompt.pipe(structuredModel)
-  const result = await chain.invoke({
-    onboardingDataJson: JSON.stringify(state.onboardingData),
-  })
+  const result = await chain.invoke(
+    {
+      onboardingDataJson: JSON.stringify(state.onboardingData),
+    },
+    createTokenLogger("profile")
+  )
 
   return {
     studentProfileContext: result.studentProfileContext,

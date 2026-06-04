@@ -15,6 +15,9 @@ function passValidatedVision(): PlanningGraphAnnotationUpdate {
 }
 
 function routeAfterVision(state: PlanningGraphAnnotationState) {
+  if (process.env.STOP_AT_AGENT === "vision") {
+    return "stop"
+  }
   return state.isValidTimetable ? "valid" : "invalid"
 }
 
@@ -29,6 +32,7 @@ export function createPlanningGraph(modelOverrides?: ModelOverrides) {
     .addConditionalEdges("vision", routeAfterVision, {
       valid: "visionValidated",
       invalid: END,
+      stop: END,
     })
     .addEdge(["visionValidated", "profile"], "planner")
     .addEdge("planner", END)

@@ -1,6 +1,6 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
-import { getModel } from "../model"
+import { getModel, createTokenLogger } from "../model"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
@@ -18,6 +18,18 @@ export async function plannerAgent(
     }
   }
 
+  if (
+    process.env.STOP_AT_AGENT === "vision" ||
+    process.env.STOP_AT_AGENT === "profile"
+  ) {
+    console.log(
+      `\x1b[33m[Stop] PLANNER  | Halted because STOP_AT_AGENT="${process.env.STOP_AT_AGENT}".\x1b[0m`
+    )
+    return {
+      generatedPlanning: [],
+    }
+  }
+
   const model = getModel("planner", modelOverrides)
   const structuredModel = model.withStructuredOutput(plannerAgentOutputSchema, {
     name: "generate_weekly_study_sessions",
@@ -27,15 +39,15 @@ export async function plannerAgent(
     [
       "system",
       [
-        "Tu es l'agent Planificateur de Ndiaye.",
-        "Construis un gabarit hebdomadaire cyclique de 7 jours avec des séances de révision de 45 minutes.",
-        "Ne recopie jamais les créneaux de cours de l'emploi du temps comme résultat final: ils servent uniquement à trouver les moments libres et les révisions J-1.",
-        "Toutes les sorties doivent être des séances d'étude personnelles avec session_type égal à review.",
-        "Respecte strictement les règles Ndiaye: antécédence J-1 avant les cours, alerte composition quand elle est présente dans le contexte, alternance sciences/humanités, pas de surcharge après transport long, pause le dimanche après-midi.",
-        "Ne crée pas de lignes quotidiennes datées. Retourne uniquement des séances hebdomadaires prêtes pour la table sessions.",
-        "Chaque séance doit durer exactement 45 minutes.",
-        "Les horaires doivent être au format HH:mm et les jours en anglais selon l'enum PostgreSQL.",
-      ].join(" "),
+        "Rôle: Agent Planificateur. Construit gabarit hebdomadaire cyclique 7 jours (séances révision 45 minutes).",
+        "",
+        "Règles strictes :",
+        "1. Interdit: Ne pas recopier les cours de l'emploi du temps (sert uniquement à repérer les créneaux libres).",
+        "2. Interdit: Ne rien planifier pendant les indisponibilités (blockedSlots) ou après le couvre-feu (bedtime) définis dans le profil.",
+        "3. Type séance: Uniquement des séances d'étude personnelle avec session_type = 'review'.",
+        "4. Règles Ndiaye: Révisions J-1 (matières du lendemain), alternance sciences/humanités, pas de surcharge après transport, pause dimanche après-midi, sur-prioriser matières faibles (weakSubjects).",
+        "5. Format: Heures en HH:mm, jours en anglais (monday, tuesday, wednesday, thursday, friday, saturday, sunday).",
+      ].join("\n"),
     ],
     [
       "human",
@@ -50,10 +62,13 @@ export async function plannerAgent(
   ])
 
   const chain = prompt.pipe(structuredModel)
-  const result = await chain.invoke({
-    extractedTimetableMarkdown: state.extractedTimetableMarkdown,
-    studentProfileContext: state.studentProfileContext,
-  })
+  const result = await chain.invoke(
+    {
+      extractedTimetableMarkdown: state.extractedTimetableMarkdown,
+      studentProfileContext: state.studentProfileContext,
+    },
+    createTokenLogger("planner")
+  )
 
   return {
     generatedPlanning: result.sessions,

@@ -8,44 +8,132 @@ import type { GeneratedSeance } from "@/src/lib/langgraph/state"
 import type { ModelProvider, ModelProviderConfig, ModelOverrides } from "@/src/lib/langgraph/providers"
 import { getProviderLabel } from "@/src/lib/langgraph/providers"
 import WeeklySchedule from "@/src/components/WeeklySchedule"
+import { saveUserSessionsAction } from "./actions"
 
 type ApiResponse = {
   isValidTimetable: boolean
   extractedTimetableMarkdown?: string
   studentProfileContext?: string
   generatedPlanning: GeneratedSeance[]
-  insertedSeances: unknown[]
   validationErrorMessage?: string
 }
 
 const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
 
-const DEFAULT_AGENT_CONFIG: Record<string, { model: string }> = {
-  default: { model: "gemini-2.5-flash" },
-  vision: { model: "gemini-2.5-flash" },
-  profile: { model: "gemini-2.5-flash" },
-  planner: { model: "gemini-2.5-flash" },
+const SERIES_SUBJECTS: Record<string, string[]> = {
+  S1: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
+  S2: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
+  L1: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
+  L2: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
+  "L'": ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"]
 }
 
-const DEFAULT_ONBOARDING = JSON.stringify(
-  {
-    name: "Élève test",
-    class: "Terminale S1",
-    serie: "S1",
-    schoolLevel: "Lycee",
-    subjects: ["Mathématiques", "Physique", "SVT", "Français", "Anglais", "Histoire", "Philosophie"],
-    goals: ["Réussir le bac", "Progresser en maths"],
-    constraints: ["Transport 30min", "Pas de révisions après 21h"],
-  },
-  null,
-  2
-)
+const SERIES_INFO = [
+  { value: "S1", label: "S1", desc: "Maths & PC", focus: "Maths, PC, SVT" },
+  { value: "S2", label: "S2", desc: "Expérimentale", focus: "Maths, PC, SVT" },
+  { value: "L1", label: "L1", desc: "Langues/Lettres", focus: "Philo, Fr, Anglais" },
+  { value: "L2", label: "L2", desc: "Sciences Humaines", focus: "Philo, Fr, Hist-Géo" },
+  { value: "L'", label: "L'", desc: "Langues Vivantes", focus: "Philo, Fr, Langues" },
+]
+
+const BEDTIME_OPTIONS = ["20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"]
 
 type AgentSlot = "vision" | "profile" | "planner"
 
 interface AgentOverrideEntry {
   provider: ModelProvider
   model: string
+}
+
+export interface BlockedSlot {
+  id: string
+  day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+  startTime: string
+  endTime: string
+  reason: string
+}
+
+export interface OnboardingForm {
+  serie: 'S1' | 'S2' | 'L1' | 'L2' | "L'"
+  weakSubjects: string[]
+  bedtime: string
+  blockedSlots: BlockedSlot[]
+}
+
+const DEFAULT_ONBOARDING = JSON.stringify(
+  {
+    serie: "S1",
+    weakSubjects: ["Mathématiques", "Physique-Chimie"],
+    bedtime: "22:00",
+    blockedSlots: [
+      {
+        id: "1",
+        day: "tuesday",
+        startTime: "18:00",
+        endTime: "20:00",
+        reason: "Cours du soir"
+      },
+      {
+        id: "2",
+        day: "thursday",
+        startTime: "18:00",
+        endTime: "20:00",
+        reason: "Cours du soir"
+      }
+    ],
+  },
+  null,
+  2
+)
+
+function resizeImage(file: File, maxDim = 1568): Promise<Blob> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        let w = img.width
+        let h = img.height
+        
+        if (w > h) {
+          if (w > maxDim) {
+            h = Math.round((h * maxDim) / w)
+            w = maxDim
+          }
+        } else {
+          if (h > maxDim) {
+            w = Math.round((w * maxDim) / h)
+            h = maxDim
+          }
+        }
+        
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          resolve(file)
+          return
+        }
+        ctx.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob)
+            } else {
+              resolve(file)
+            }
+          },
+          file.type || "image/jpeg",
+          0.85
+        )
+      }
+      img.onerror = () => resolve(file)
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => resolve(file)
+    reader.readAsDataURL(file)
+  })
 }
 
 export default function PlanningPage() {
@@ -55,7 +143,30 @@ export default function PlanningPage() {
   const supabase = createClient()
 
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  
+  // Onboarding States
+  const [inputTab, setInputTab] = useState<"form" | "json">("form")
   const [onboardingData, setOnboardingData] = useState(DEFAULT_ONBOARDING)
+  const [formOnboarding, setFormOnboarding] = useState<OnboardingForm>(() => {
+    try {
+      return JSON.parse(DEFAULT_ONBOARDING)
+    } catch {
+      return {
+        serie: "S1",
+        weakSubjects: [],
+        bedtime: "22:00",
+        blockedSlots: [],
+      }
+    }
+  })
+
+  // Inputs for Blocked Slots Builder
+  const [blockDay, setBlockDay] = useState<BlockedSlot['day']>("monday")
+  const [blockStartTime, setBlockStartTime] = useState("18:00")
+  const [blockEndTime, setBlockEndTime] = useState("20:00")
+  const [blockReason, setBlockReason] = useState("Cours du soir")
+
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<ApiResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +182,18 @@ export default function PlanningPage() {
     planner: { provider: "gemini", model: "gemini-2.5-flash" },
   })
 
+  // Output view state
+  const [outputTab, setOutputTab] = useState<"schedule" | "markdown" | "profile">("schedule")
+
+  // Interactive Session Editing
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingSessionIndex, setEditingSessionIndex] = useState<number | null>(null)
+  const [editingSession, setEditingSession] = useState<GeneratedSeance | null>(null)
+
+  // Save to DB state
+  const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
+  const [savingError, setSavingError] = useState<string | null>(null)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
@@ -82,10 +205,151 @@ export default function PlanningPage() {
     })
   }, [router, supabase.auth])
 
+  // Image preview hook
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(imageFile)
+    setImagePreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push("/auth")
     router.refresh()
+  }
+
+  // Sync Form changes to JSON representation
+  const handleFormChange = (newForm: OnboardingForm) => {
+    setFormOnboarding(newForm)
+    setOnboardingData(JSON.stringify(newForm, null, 2))
+  }
+
+  // Sync JSON text area changes back to Form fields in background
+  const handleJsonChange = (jsonStr: string) => {
+    setOnboardingData(jsonStr)
+    try {
+      const parsed = JSON.parse(jsonStr)
+      if (parsed && typeof parsed === "object") {
+        setFormOnboarding({
+          serie: parsed.serie || "S1",
+          weakSubjects: Array.isArray(parsed.weakSubjects) ? parsed.weakSubjects : [],
+          bedtime: parsed.bedtime || "22:00",
+          blockedSlots: Array.isArray(parsed.blockedSlots) ? parsed.blockedSlots : [],
+        })
+      }
+    } catch {
+      // Don't sync invalid JSON to prevent editing cursor issues
+    }
+  }
+
+  const prettifyJson = () => {
+    try {
+      const parsed = JSON.parse(onboardingData)
+      setOnboardingData(JSON.stringify(parsed, null, 2))
+    } catch {
+      setError("Données JSON invalides. Impossible de formater.")
+    }
+  }
+
+  // Handlers for Onboarding Form fields
+  const handleToggleWeakSubject = (subject: string) => {
+    const isWeak = formOnboarding.weakSubjects.includes(subject)
+    const updated = isWeak
+      ? formOnboarding.weakSubjects.filter((s) => s !== subject)
+      : [...formOnboarding.weakSubjects, subject]
+    
+    handleFormChange({
+      ...formOnboarding,
+      weakSubjects: updated,
+    })
+  }
+
+  const handleAddBlockedSlot = () => {
+    const newSlot: BlockedSlot = {
+      id: Math.random().toString(36).substring(2, 11),
+      day: blockDay,
+      startTime: blockStartTime,
+      endTime: blockEndTime,
+      reason: blockReason,
+    }
+    handleFormChange({
+      ...formOnboarding,
+      blockedSlots: [...formOnboarding.blockedSlots, newSlot],
+    })
+  }
+
+  const handleRemoveBlockedSlot = (id: string) => {
+    handleFormChange({
+      ...formOnboarding,
+      blockedSlots: formOnboarding.blockedSlots.filter((s) => s.id !== id),
+    })
+  }
+
+  // Edit schedule session handlers
+  const handleStartEditSession = (session: GeneratedSeance, index: number) => {
+    setEditingSessionIndex(index)
+    setEditingSession({ ...session })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEditedSession = () => {
+    if (editingSessionIndex === null || !editingSession || !result) return
+    const updated = [...result.generatedPlanning]
+    updated[editingSessionIndex] = editingSession
+    setResult({
+      ...result,
+      generatedPlanning: updated,
+    })
+    setShowEditModal(false)
+  }
+
+  const handleDeleteSession = () => {
+    if (editingSessionIndex === null || !result) return
+    const updated = result.generatedPlanning.filter((_, idx) => idx !== editingSessionIndex)
+    setResult({
+      ...result,
+      generatedPlanning: updated,
+    })
+    setShowEditModal(false)
+  }
+
+  const handleAddSession = (day: string) => {
+    if (!result) return
+    const defaultSubject = (SERIES_SUBJECTS[formOnboarding.serie] || SERIES_SUBJECTS["S1"])[0] || "Mathématiques"
+    const newSession: GeneratedSeance = {
+      day_of_week: day as 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday',
+      start_time: "17:00",
+      end_time: "17:45",
+      subject: defaultSubject,
+      session_type: "review",
+      pedagogical_note: "Réviser le cours du jour",
+    }
+    setResult({
+      ...result,
+      generatedPlanning: [...result.generatedPlanning, newSession],
+    })
+  }
+
+  // Save changes back to Supabase via server action
+  const handleSaveToDatabase = async () => {
+    if (!result || result.generatedPlanning.length === 0) return
+    setSavingStatus("saving")
+    setSavingError(null)
+
+    try {
+      const response = await saveUserSessionsAction(result.generatedPlanning)
+      if (response.success) {
+        setSavingStatus("success")
+        setTimeout(() => setSavingStatus("idle"), 3000)
+      }
+    } catch (err) {
+      setSavingStatus("error")
+      setSavingError(err instanceof Error ? err.message : "Erreur de sauvegarde")
+    }
   }
 
   function buildModelOverridesPayload(): ModelOverrides | undefined {
@@ -94,7 +358,6 @@ export default function PlanningPage() {
 
     for (const agent of ["vision", "profile", "planner"] as AgentSlot[]) {
       const cfg = modelOverrides[agent]
-      // Only send override if it differs from default or is explicitly set
       if (cfg.provider !== defaultCfg.provider || cfg.model !== defaultCfg.model) {
         const partial: Partial<ModelProviderConfig> = {}
         if (cfg.provider !== defaultCfg.provider) partial.provider = cfg.provider
@@ -127,7 +390,17 @@ export default function PlanningPage() {
 
     try {
       const formData = new FormData()
-      formData.set("timetableImage", imageFile)
+      let uploadFile: Blob | File | null = imageFile
+      if (imageFile) {
+        try {
+          uploadFile = await resizeImage(imageFile, 1568)
+        } catch {
+          // Fallback
+        }
+      }
+      if (uploadFile) {
+        formData.set("timetableImage", uploadFile, imageFile?.name || "timetable.jpg")
+      }
       formData.set("onboardingData", JSON.stringify(parsedOnboarding))
 
       const payload = buildModelOverridesPayload()
@@ -155,6 +428,7 @@ export default function PlanningPage() {
       }
 
       setResult(body)
+      setOutputTab("schedule")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur réseau")
     } finally {
@@ -175,213 +449,746 @@ export default function PlanningPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-zinc-400">
-        Chargement...
+      <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 text-base font-semibold text-zinc-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+          <span>Initialisation du tableau de bord...</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Test Planning Ndiaye</h1>
-          <p className="text-sm text-zinc-500">{user?.email}</p>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm transition hover:bg-zinc-100"
-        >
-          Déconnexion
-        </button>
-      </div>
-
-      {/* Form */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Image upload */}
-        <div className="rounded-xl border border-zinc-200 p-5">
-          <h2 className="mb-3 text-sm font-semibold">Emploi du temps (image)</h2>
-          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 p-6 text-sm text-zinc-500 transition hover:border-zinc-400 hover:bg-zinc-50">
-            {imageFile ? (
-              <span className="text-zinc-800">{imageFile.name}</span>
-            ) : (
-              <>
-                <span className="text-lg">📷</span>
-                <span>Clique pour sélectionner une image</span>
-                <span className="text-xs text-zinc-400">
-                  WEBP, PNG ou JPEG
-                </span>
-              </>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/webp,image/png,image/jpeg"
-              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-              className="hidden"
-            />
-          </label>
-          {imageFile && (
-            <button
-              onClick={() => {
-                setImageFile(null)
-                if (fileRef.current) fileRef.current.value = ""
-              }}
-              className="mt-2 text-xs text-red-500 underline"
-            >
-              Retirer
-            </button>
-          )}
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-16">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl">🤖</span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                Ndiaye Assistant
+              </h1>
+              <span className="rounded-full bg-emerald-950/60 px-3 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-900/60">
+                Planning Dev-Harness
+              </span>
+            </div>
+            <p className="text-sm text-zinc-400 mt-1">{user?.email}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="self-start sm:self-center rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-white transition duration-200"
+          >
+            Se déconnecter
+          </button>
         </div>
 
-        {/* Onboarding data */}
-        <div className="rounded-xl border border-zinc-200 p-5">
-          <h2 className="mb-3 text-sm font-semibold">
-            Données d&apos;onboarding (JSON)
-          </h2>
-          <textarea
-            value={onboardingData}
-            onChange={(e) => setOnboardingData(e.target.value)}
-            rows={10}
-            className="w-full resize-none rounded-lg border border-zinc-300 p-3 font-mono text-xs focus:border-zinc-500 focus:outline-none"
-          />
-        </div>
-      </div>
+        {/* Form Inputs Grid */}
+        <div className="grid gap-6 md:grid-cols-2">
+          
+          {/* Timetable Upload Card */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6 flex flex-col">
+            <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+              <span>📅</span> Emploi du temps scolaire
+            </h2>
+            
+            <div className="flex-1 flex flex-col justify-center">
+              {imagePreviewUrl ? (
+                <div className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 flex flex-col items-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Timetable Preview"
+                    className="max-h-[220px] rounded-lg object-contain bg-zinc-900"
+                  />
+                  <div className="mt-4 flex w-full items-center justify-between px-2 py-1 text-sm">
+                    <span className="truncate text-zinc-400 font-mono text-xs">
+                      {imageFile?.name} ({Math.round((imageFile?.size ?? 0) / 1024)} KB)
+                    </span>
+                    <button
+                      onClick={() => {
+                        setImageFile(null)
+                        if (fileRef.current) fileRef.current.value = ""
+                      }}
+                      className="text-sm font-bold text-red-400 hover:text-red-300 transition"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-10 text-sm text-zinc-400 transition hover:border-emerald-500/50 hover:bg-zinc-900/20 hover:text-zinc-200">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-900 text-xl border border-zinc-800">
+                    📷
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-sm">Cliquez pour importer l&apos;image</p>
+                    <p className="text-xs text-zinc-500 mt-1">Glissez-déposez WEBP, PNG ou JPEG</p>
+                  </div>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/webp,image/png,image/jpeg"
+                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
 
-      {/* Model Overrides */}
-      <div className="rounded-xl border border-zinc-200">
-        <button
-          onClick={() => setShowModelConfig(!showModelConfig)}
-          className="flex w-full items-center justify-between px-5 py-3 text-sm font-semibold"
-        >
-          <span>Configuration des modèles LLM</span>
-          <span className="text-zinc-400">{showModelConfig ? "▲" : "▼"}</span>
-        </button>
-        {showModelConfig && (
-          <div className="border-t border-zinc-200 px-5 py-4">
-            <div className="grid gap-4">
-              {(["default", "vision", "profile", "planner"] as const).map((agent) => (
-                <div key={agent} className="grid grid-cols-3 gap-3 rounded-lg bg-zinc-50 p-3">
-                  <div className="flex items-center text-sm font-medium capitalize text-zinc-600">
-                    {agent === "default" ? "Défaut" : agent}
-                    {agent !== "default" && (
-                      <span className="ml-2 text-[10px] text-zinc-400">
-                        {modelOverrides[agent].provider !== modelOverrides.default.provider ||
-                        modelOverrides[agent].model !== modelOverrides.default.model
-                          ? "⚠️ override"
-                          : ""}
-                      </span>
+          {/* Onboarding Visual Form & JSON Code Editor */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6 flex flex-col">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                <span>👤</span> Profil & Contraintes
+              </h2>
+              
+              {/* Tab Selector */}
+              <div className="flex rounded-lg bg-zinc-950 p-1 border border-zinc-900 shrink-0">
+                <button
+                  onClick={() => setInputTab("form")}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-bold transition ${
+                    inputTab === "form" ? "bg-zinc-900 text-white shadow-sm border border-zinc-800" : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Formulaire
+                </button>
+                <button
+                  onClick={() => setInputTab("json")}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-bold transition ${
+                    inputTab === "json" ? "bg-zinc-900 text-white shadow-sm border border-zinc-800" : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  Code JSON
+                </button>
+              </div>
+            </div>
+
+            {/* Form Editor View */}
+            {inputTab === "form" ? (
+              <div className="flex flex-col gap-5 overflow-y-auto max-h-[420px] pr-1">
+                
+                {/* Track Selector (Série) */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Série / Filière</label>
+                  <div className="grid grid-cols-5 gap-2 mt-2">
+                    {SERIES_INFO.map((item) => {
+                      const isSelected = formOnboarding.serie === item.value
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onClick={() => {
+                            // Update track and reset weak subjects to avoid mismatch
+                            handleFormChange({
+                              ...formOnboarding,
+                              serie: item.value as any,
+                              weakSubjects: []
+                            })
+                          }}
+                          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition duration-150 cursor-pointer ${
+                            isSelected
+                              ? "bg-cyan-500/10 border-cyan-500 text-white shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                              : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-200"
+                          }`}
+                        >
+                          <span className="text-sm font-bold">{item.label}</span>
+                          <span className="text-[9px] mt-0.5 opacity-60 truncate max-w-full">{item.desc}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Weak Subjects Grid (Matières faibles) */}
+                <div className="border-t border-zinc-900 pt-4">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matières à renforcer</label>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Sélectionner pour prioriser</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {(SERIES_SUBJECTS[formOnboarding.serie] || SERIES_SUBJECTS["S1"]).map((sub) => {
+                      const isWeak = formOnboarding.weakSubjects.includes(sub)
+                      return (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => handleToggleWeakSubject(sub)}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition cursor-pointer ${
+                            isWeak
+                              ? "bg-amber-500/10 border-amber-500 text-amber-200"
+                              : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
+                          }`}
+                        >
+                          <span>{isWeak ? "⚠️" : "📚"}</span>
+                          <span>{sub}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Bedtime / Sleep Limit Slider */}
+                <div className="border-t border-zinc-900 pt-4">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Couvre-feu / Fin de révision</label>
+                    <span className="text-xs font-bold text-cyan-400 flex items-center gap-1">🌙 {formOnboarding.bedtime}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={BEDTIME_OPTIONS.length - 1}
+                    value={BEDTIME_OPTIONS.indexOf(formOnboarding.bedtime) !== -1 ? BEDTIME_OPTIONS.indexOf(formOnboarding.bedtime) : 4}
+                    onChange={(e) => {
+                      const val = BEDTIME_OPTIONS[parseInt(e.target.value)]
+                      handleFormChange({ ...formOnboarding, bedtime: val })
+                    }}
+                    className="w-full h-1 bg-zinc-850 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2"
+                  />
+                  <div className="flex justify-between text-[10px] text-zinc-550 mt-1">
+                    <span>20h00</span>
+                    <span>21h30</span>
+                    <span>23h30</span>
+                  </div>
+                </div>
+
+                {/* Time Blockers / Constraints Manager */}
+                <div className="border-t border-zinc-900 pt-4">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Créneaux indisponibles / Cours du soir</label>
+                  
+                  {/* Active Blocked Slots List */}
+                  <div className="space-y-2 mt-2">
+                    {formOnboarding.blockedSlots.map((slot) => {
+                      const dayLabel = {
+                        monday: "Lundi",
+                        tuesday: "Mardi",
+                        wednesday: "Mercredi",
+                        thursday: "Jeudi",
+                        friday: "Vendredi",
+                        saturday: "Samedi",
+                        sunday: "Dimanche",
+                      }[slot.day] || slot.day
+                      return (
+                        <div key={slot.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-400">🚫</span>
+                            <div>
+                              <span className="font-bold text-zinc-300">{dayLabel} {slot.startTime} - {slot.endTime}</span>
+                              <span className="text-zinc-550 block text-[10px]">{slot.reason}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBlockedSlot(slot.id)}
+                            className="text-[10px] font-bold text-zinc-500 hover:text-red-400 transition cursor-pointer"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {formOnboarding.blockedSlots.length === 0 && (
+                      <p className="text-xs text-zinc-650 italic">Aucun créneau d&apos;indisponibilité renseigné.</p>
                     )}
                   </div>
-                  <select
-                    value={modelOverrides[agent].provider}
-                    onChange={(e) => updateAgentOverride(agent, "provider", e.target.value)}
-                    className="rounded border border-zinc-300 px-2 py-1 text-xs"
-                  >
-                    {PROVIDERS.map((p) => (
-                      <option key={p} value={p}>
-                        {getProviderLabel(p)}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    value={modelOverrides[agent].model}
-                    onChange={(e) => updateAgentOverride(agent, "model", e.target.value)}
-                    placeholder={`Modèle pour ${agent}`}
-                    className="rounded border border-zinc-300 px-2 py-1 font-mono text-xs"
-                  />
+
+                  {/* Add Blocked Slot Form Row */}
+                  <div className="mt-3 bg-zinc-950/30 border border-zinc-900 rounded-xl p-3 flex flex-col gap-2.5">
+                    <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Ajouter une indisponibilité :</p>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Jour</label>
+                        <select
+                          value={blockDay}
+                          onChange={(e) => setBlockDay(e.target.value as any)}
+                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
+                        >
+                          <option value="monday">Lundi</option>
+                          <option value="tuesday">Mardi</option>
+                          <option value="wednesday">Mercredi</option>
+                          <option value="thursday">Jeudi</option>
+                          <option value="friday">Vendredi</option>
+                          <option value="saturday">Samedi</option>
+                          <option value="sunday">Dimanche</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Début</label>
+                        <input
+                          type="time"
+                          value={blockStartTime}
+                          onChange={(e) => setBlockStartTime(e.target.value)}
+                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Fin</label>
+                        <input
+                          type="time"
+                          value={blockEndTime}
+                          onChange={(e) => setBlockEndTime(e.target.value)}
+                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder="Raison (ex: Cours du soir, Football, Soutien)..."
+                          value={blockReason}
+                          onChange={(e) => setBlockReason(e.target.value)}
+                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddBlockedSlot}
+                        className="rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-xs font-bold text-cyan-400 hover:bg-cyan-500/10 transition cursor-pointer"
+                      >
+                        + Bloquer
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
-              Laisse &quot;Défaut&quot; pour utiliser le provider principal. Si un agent a les mêmes
-              valeurs que le défaut, il ne sera pas inclus dans la requête. Les clés API sont lues
-              depuis les variables d&apos;environnement (GOOGLE_API_KEY, OPENAI_API_KEY,
-              ANTHROPIC_API_KEY, DEEPSEEK_API_KEY).
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* Generate button */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={handleGenerate}
-          disabled={generating || !imageFile}
-          className="rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
-        >
-          {generating ? "Génération en cours..." : "Générer le planning"}
-        </button>
-        {error && (
-          <p className="rounded bg-red-50 px-3 py-1.5 text-sm text-red-600">
-            {error}
-          </p>
-        )}
-      </div>
-
-      {/* Results */}
-      {result && (
-        <div className="flex flex-col gap-6">
-          {/* Validation status */}
-          <div
-            className={`rounded-lg border p-4 ${
-              result.isValidTimetable
-                ? "border-green-200 bg-green-50 text-green-800"
-                : "border-red-200 bg-red-50 text-red-800"
-            }`}
-          >
-            <p className="text-sm font-semibold">
-              Emploi du temps {result.isValidTimetable ? "valide" : "invalide"}
-            </p>
-            {result.validationErrorMessage && (
-              <p className="mt-1 text-xs">{result.validationErrorMessage}</p>
+              </div>
+            ) : (
+              /* Raw JSON Textarea Editor */
+              <div className="flex flex-col flex-1 gap-3">
+                <textarea
+                  value={onboardingData}
+                  onChange={(e) => handleJsonChange(e.target.value)}
+                  rows={14}
+                  className="w-full flex-1 resize-none rounded-xl border border-zinc-900 bg-zinc-950 p-4 font-mono text-sm leading-relaxed text-emerald-400 focus:border-zinc-850 focus:outline-none"
+                  spellCheck="false"
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={prettifyJson}
+                    className="rounded-lg bg-zinc-900 border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 hover:bg-zinc-800 hover:text-white transition duration-150"
+                  >
+                    🎨 Formater le JSON
+                  </button>
+                </div>
+              </div>
             )}
           </div>
+        </div>
 
-          {/* Extracted timetable */}
-          {result.extractedTimetableMarkdown && (
-            <div className="rounded-xl border border-zinc-200 p-5">
-              <h2 className="mb-2 text-sm font-semibold">
-                Emploi du temps extrait
-              </h2>
-              <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-4 font-mono text-xs leading-relaxed text-zinc-700">
-                {result.extractedTimetableMarkdown}
-              </pre>
-            </div>
-          )}
-
-          {/* Student profile context */}
-          {result.studentProfileContext && (
-            <div className="rounded-xl border border-zinc-200 p-5">
-              <h2 className="mb-2 text-sm font-semibold">
-                Profil étudiant
-              </h2>
-              <p className="text-sm leading-relaxed text-zinc-600">
-                {result.studentProfileContext}
+        {/* Collapsible Model Config */}
+        <div className="rounded-2xl border border-zinc-900 bg-zinc-900/10">
+          <button
+            onClick={() => setShowModelConfig(!showModelConfig)}
+            className="flex w-full items-center justify-between px-6 py-4.5 text-sm font-bold uppercase tracking-wider text-zinc-300"
+          >
+            <span className="flex items-center gap-2">⚙️ Configuration des Modèles LLM</span>
+            <span className="text-xs text-zinc-500 font-bold">{showModelConfig ? "Fermer ▲" : "Configurer ▼"}</span>
+          </button>
+          {showModelConfig && (
+            <div className="border-t border-zinc-900 px-6 py-6 bg-zinc-955 bg-zinc-950/40 rounded-b-2xl">
+              <div className="grid gap-3.5">
+                {(["default", "vision", "profile", "planner"] as const).map((agent) => (
+                  <div key={agent} className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 rounded-xl bg-zinc-900/40 border border-zinc-900 p-4 items-center">
+                    <div className="flex items-center text-sm font-bold uppercase tracking-wider text-zinc-400">
+                      {agent === "default" ? "⚙️ Défaut" : `🤖 Agent ${agent}`}
+                      {agent !== "default" && (
+                        (modelOverrides[agent].provider !== modelOverrides.default.provider ||
+                        modelOverrides[agent].model !== modelOverrides.default.model) && (
+                          <span className="ml-2 rounded-full bg-amber-955 bg-amber-955 bg-amber-955 bg-amber-950/50 border border-amber-900 px-2 py-0.5 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">
+                            Surchargé
+                          </span>
+                        )
+                      )}
+                    </div>
+                    <select
+                      value={modelOverrides[agent].provider}
+                      onChange={(e) => updateAgentOverride(agent, "provider", e.target.value)}
+                      className="rounded-lg bg-zinc-950 border border-zinc-900 px-3.5 py-2.5 text-sm text-white focus:outline-none"
+                    >
+                      {PROVIDERS.map((p) => (
+                        <option key={p} value={p}>
+                          {getProviderLabel(p)}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={modelOverrides[agent].model}
+                      onChange={(e) => updateAgentOverride(agent, "model", e.target.value)}
+                      placeholder={`Modèle pour ${agent}`}
+                      className="rounded-lg bg-zinc-950 border border-zinc-900 px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+                Laisse &quot;Défaut&quot; pour utiliser le provider principal. Si un agent a les mêmes
+                valeurs que le défaut, il ne sera pas inclus dans la requête. Les clés API sont lues
+                depuis les variables d&apos;environnement (GOOGLE_API_KEY, OPENAI_API_KEY,
+                ANTHROPIC_API_KEY, DEEPSEEK_API_KEY).
               </p>
             </div>
           )}
+        </div>
 
-          {/* Generated planning */}
-          {result.generatedPlanning.length > 0 && (
-            <div className="rounded-xl border border-zinc-200 p-5">
-              <h2 className="mb-4 text-sm font-semibold">
-                Planning généré ({result.generatedPlanning.length} séances)
-              </h2>
-              <WeeklySchedule seances={result.generatedPlanning} />
+        {/* Generate triggers & Error Panel */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <button
+            onClick={handleGenerate}
+            disabled={generating || !imageFile}
+            className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-7 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-emerald-950/20 transition duration-205 hover:from-emerald-400 hover:to-teal-500 disabled:from-zinc-900 disabled:to-zinc-900 disabled:opacity-40 disabled:text-zinc-600"
+          >
+            {generating ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Analyse & Planification...
+              </span>
+            ) : (
+              "Générer le planning"
+            )}
+          </button>
+          
+          {error && (
+            <div className="rounded-xl bg-red-950/40 border border-red-900/60 px-4.5 py-3 text-sm text-red-400 w-full sm:w-auto font-medium">
+              ⚠️ {error}
             </div>
           )}
+        </div>
 
-          {/* Inserted seances count */}
-          {result.insertedSeances.length > 0 && (
-            <p className="text-xs text-zinc-400">
-              {result.insertedSeances.length} séances insérées en base.
-            </p>
-          )}
+        {/* Generation Results View */}
+        {result && (
+          <div className="flex flex-col gap-6 mt-4">
+            
+            {/* Validation Banner */}
+            <div
+              className={`rounded-2xl border p-4.5 ${
+                result.isValidTimetable
+                  ? "border-emerald-900/60 bg-emerald-950/20 text-emerald-400"
+                  : "border-red-900/60 bg-red-950/20 text-red-400"
+              }`}
+            >
+              <div className="flex items-center gap-2 font-bold text-sm uppercase tracking-wider">
+                <span>{result.isValidTimetable ? "✓" : "✕"}</span>
+                <span>Emploi du temps {result.isValidTimetable ? "valide" : "invalide"}</span>
+              </div>
+              {result.validationErrorMessage && (
+                <p className="mt-2 text-sm opacity-80 leading-relaxed font-mono">{result.validationErrorMessage}</p>
+              )}
+            </div>
+
+            {/* Result Navigation Tabs */}
+            <div className="flex border-b border-zinc-900">
+              <button
+                onClick={() => setOutputTab("schedule")}
+                className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
+                  outputTab === "schedule" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                📅 Planning
+              </button>
+              {result.extractedTimetableMarkdown && (
+                <button
+                  onClick={() => setOutputTab("markdown")}
+                  className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
+                    outputTab === "markdown" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  📝 Emploi Extrait (Markdown)
+                </button>
+              )}
+              {result.studentProfileContext && (
+                <button
+                  onClick={() => setOutputTab("profile")}
+                  className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
+                    outputTab === "profile" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  👤 Profil Élève
+                </button>
+              )}
+            </div>
+
+            {/* Tab content area */}
+            <div className="mt-2">
+              
+              {/* Schedule grid view with Save trigger */}
+              {outputTab === "schedule" && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">
+                      Calendrier hebdomadaire cyclique ({result.generatedPlanning.length} séances)
+                    </h3>
+                    
+                    {/* Database Commit Button */}
+                    <div className="flex items-center gap-3.5">
+                      {savingStatus === "success" && (
+                        <span className="text-sm font-bold text-emerald-400 animate-pulse">
+                          ✓ Enregistré avec succès !
+                        </span>
+                      )}
+                      {savingStatus === "error" && (
+                        <span className="text-sm font-bold text-red-400">
+                          ⚠️ {savingError}
+                        </span>
+                      )}
+                      
+                      <button
+                        onClick={handleSaveToDatabase}
+                        disabled={savingStatus === "saving" || result.generatedPlanning.length === 0}
+                        className="rounded-xl bg-zinc-900 border border-zinc-800 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-zinc-800 disabled:opacity-40 transition"
+                      >
+                        {savingStatus === "saving" ? "Sauvegarde..." : "Enregistrer dans la base"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 italic bg-zinc-900/10 border border-zinc-900/50 rounded-lg p-3 leading-relaxed">
+                    💡 <strong>Astuce UIX :</strong> Cliquez sur une séance de révision pour la modifier, ajuster ses horaires ou la supprimer directement du calendrier avant d&apos;enregistrer dans la base.
+                  </p>
+
+                  <WeeklySchedule
+                    seances={result.generatedPlanning}
+                    onEditSession={handleStartEditSession}
+                    onAddSession={handleAddSession}
+                  />
+                </div>
+              )}
+
+              {/* Markdown rendering view */}
+              {outputTab === "markdown" && result.extractedTimetableMarkdown && (
+                <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">
+                      Données extraites de l&apos;image
+                    </h3>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(result.extractedTimetableMarkdown ?? "")}
+                      className="rounded-lg bg-zinc-950 border border-zinc-900 px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition"
+                    >
+                      Copier le texte brut
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl bg-zinc-950 p-6 border border-zinc-900 max-h-[500px] overflow-y-auto">
+                    <MarkdownPreview content={result.extractedTimetableMarkdown} />
+                  </div>
+                </div>
+              )}
+
+              {/* Profile reasoning text view */}
+              {outputTab === "profile" && result.studentProfileContext && (
+                <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4">
+                    Synthèse cognitive & profil d&apos;apprentissage
+                  </h3>
+                  <div className="rounded-xl bg-zinc-950 p-5 border border-zinc-900 text-sm leading-relaxed text-zinc-300 space-y-2">
+                    {result.studentProfileContext.split("\n").map((line, idx) => (
+                      <p key={idx} className={line.trim() ? "mb-3" : "mb-1"}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Modal for Editing a Session */}
+      {showEditModal && editingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-900 bg-zinc-955 bg-zinc-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4">
+              <h3 className="text-base font-bold uppercase tracking-wider text-white">Modifier la séance</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-zinc-500 hover:text-white text-sm font-semibold"
+              >
+                Fermer
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              
+              {/* Subject */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matière</label>
+                <input
+                  type="text"
+                  value={editingSession.subject}
+                  onChange={(e) => setEditingSession({ ...editingSession, subject: e.target.value })}
+                  className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none focus:border-zinc-700"
+                />
+              </div>
+
+              {/* Type select */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Type de séance</label>
+                <select
+                  value={editingSession.session_type}
+                  onChange={(e) => setEditingSession({ ...editingSession, session_type: e.target.value as any })}
+                  className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
+                >
+                  <option value="review">Révision (Review)</option>
+                  <option value="course">Cours (Course)</option>
+                  <option value="td">TD</option>
+                  <option value="tp">TP</option>
+                  <option value="break">Pause (Break)</option>
+                </select>
+              </div>
+
+              {/* Time inputs */}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Heure Début</label>
+                  <input
+                    type="text"
+                    value={editingSession.start_time}
+                    placeholder="HH:mm"
+                    onChange={(e) => setEditingSession({ ...editingSession, start_time: e.target.value })}
+                    className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Heure Fin</label>
+                  <input
+                    type="text"
+                    value={editingSession.end_time}
+                    placeholder="HH:mm"
+                    onChange={(e) => setEditingSession({ ...editingSession, end_time: e.target.value })}
+                    className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Pedagogical notes */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Note pédagogique</label>
+                <textarea
+                  value={editingSession.pedagogical_note || ""}
+                  rows={3}
+                  onChange={(e) => setEditingSession({ ...editingSession, pedagogical_note: e.target.value })}
+                  className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none focus:border-zinc-700"
+                />
+              </div>
+
+              {/* Action triggers */}
+              <div className="flex items-center justify-between border-t border-zinc-900 pt-4 mt-3">
+                <button
+                  onClick={handleDeleteSession}
+                  className="rounded-lg bg-red-955 bg-red-950/40 border border-red-900/60 px-4 py-2.5 text-sm font-bold text-red-400 hover:bg-red-900/50"
+                >
+                  Supprimer
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="rounded-lg bg-zinc-900 border border-zinc-800 px-4.5 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleSaveEditedSession}
+                    className="rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-4.5 py-2.5 text-sm font-bold text-white hover:from-emerald-400 hover:to-teal-500"
+                  >
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
     </div>
+  )
+}
+
+interface MarkdownPreviewProps {
+  content: string
+}
+
+function MarkdownPreview({ content }: MarkdownPreviewProps) {
+  const parseMarkdown = (text: string) => {
+    // Échapper le HTML brut pour des raisons de sécurité
+    let html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+
+    // Gras (**texte**)
+    html = html.replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-white'>$1</strong>")
+
+    // Titres (#, ##, ###)
+    html = html.replace(/^### (.*?)$/gm, "<h4 class='text-sm font-bold text-emerald-400 mt-5 mb-2'>$1</h4>")
+    html = html.replace(/^## (.*?)$/gm, "<h3 class='text-base font-bold text-white mt-6 mb-3 border-b border-zinc-900 pb-1.5'>$1</h3>")
+    html = html.replace(/^# (.*?)$/gm, "<h2 class='text-lg font-extrabold text-white mt-8 mb-4'>$1</h2>")
+
+    // Listes à puces (- élément)
+    html = html.replace(/^\s*-\s+(.*?)$/gm, "<li class='list-disc list-inside text-zinc-300 ml-4 mb-2 text-sm leading-relaxed'>$1</li>")
+
+    // Parsing des tableaux Markdown en tableaux HTML stylisés
+    const lines = html.split("\n")
+    let inTable = false
+    const processedLines: string[] = []
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (line.startsWith("|") && line.endsWith("|")) {
+        // Sauter les séparateurs comme |---|---|
+        if (line.replace(/[\s|:-]/g, "").length === 0) {
+          continue
+        }
+        
+        const cells = line.split("|").slice(1, -1).map((c) => c.trim())
+        let rowHtml = ""
+        if (!inTable) {
+          inTable = true
+          rowHtml += "<div class='overflow-x-auto my-4'><table class='min-w-full border-collapse border border-zinc-900 text-sm'><thead class='bg-zinc-900/80 text-zinc-200'><tr>"
+          cells.forEach((cell) => {
+            rowHtml += `<th class='border border-zinc-900 px-4 py-2.5 text-left font-bold uppercase tracking-wider text-xs'>${cell}</th>`
+          })
+          rowHtml += "</tr></thead><tbody class='divide-y divide-zinc-900'>"
+        } else {
+          rowHtml += "<tr class='hover:bg-zinc-900/30 transition-colors'>"
+          cells.forEach((cell) => {
+            rowHtml += `<td class='border border-zinc-900 px-4 py-2.5 text-zinc-300 leading-relaxed'>${cell}</td>`
+          })
+          rowHtml += "</tr>"
+        }
+        processedLines.push(rowHtml)
+      } else {
+        if (inTable) {
+          inTable = false
+          processedLines.push("</tbody></table></div>")
+        }
+        processedLines.push(lines[i])
+      }
+    }
+    if (inTable) {
+      processedLines.push("</tbody></table></div>")
+    }
+    
+    html = processedLines.join("\n")
+    
+    // Paragraphes
+    html = html.replace(/\n\n/g, "</p><p class='mb-3 text-sm text-zinc-300 leading-relaxed'>")
+    
+    return html
+  }
+
+  return (
+    <div 
+      className="prose prose-invert max-w-none text-zinc-300"
+      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+    />
   )
 }
