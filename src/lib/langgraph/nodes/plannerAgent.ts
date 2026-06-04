@@ -1,14 +1,16 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
-import { createGeminiFlashModel } from "../model"
+import { getModel } from "../model"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
   plannerAgentOutputSchema,
 } from "../state"
+import type { ModelProviderConfig } from "../providers"
 
 export async function plannerAgent(
-  state: PlanningGraphAnnotationState
+  state: PlanningGraphAnnotationState,
+  modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
   if (!state.isValidTimetable) {
     return {
@@ -16,7 +18,7 @@ export async function plannerAgent(
     }
   }
 
-  const model = createGeminiFlashModel()
+  const model = getModel("planner", modelOverrides)
   const structuredModel = model.withStructuredOutput(plannerAgentOutputSchema, {
     name: "generate_weekly_study_sessions",
   })

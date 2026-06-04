@@ -1,17 +1,12 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
+import { BaseChatModel } from "@langchain/core/language_models/chat_models"
+import { createModel } from "./providers/factory"
+import { getModelConfigForAgent } from "./providers"
+import type { AgentName, ModelProviderConfig } from "./providers"
 
-export function createGeminiFlashModel() {
-  const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY
-
-  if (!apiKey) {
-    throw new Error(
-      "GOOGLE_API_KEY ou GEMINI_API_KEY doit être défini côté serveur."
-    )
-  }
-
-  return new ChatGoogleGenerativeAI({
-    apiKey,
-    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
-    temperature: 0,
-  })
+export function getModel(
+  agentName?: AgentName,
+  overrides?: Partial<ModelProviderConfig>
+): BaseChatModel {
+  const config = getModelConfigForAgent(agentName ?? "planner", overrides)
+  return createModel(config)
 }

@@ -5,6 +5,7 @@ import {
   GeneratedSeance,
   PlanningGraphState,
 } from "@/src/lib/langgraph/state"
+import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 
 import { BaseService } from "./base.service"
 
@@ -52,9 +53,10 @@ export class SeanceService extends BaseService<Seance> {
     userId: string,
     imageBuffer: Buffer,
     onboardingData: unknown,
-    imageMimeType = "image/jpeg"
+    imageMimeType = "image/jpeg",
+    modelOverrides?: ModelOverrides
   ): Promise<PlanningWorkflowResult> {
-    const graph = createPlanningGraph()
+    const graph = createPlanningGraph(modelOverrides)
     const state = await graph.invoke({
       timetableImage: imageBuffer,
       timetableImageMimeType: imageMimeType,

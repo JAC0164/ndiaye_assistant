@@ -1,11 +1,12 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
-import { createGeminiFlashModel } from "../model"
+import { getModel } from "../model"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
   visionAgentOutputSchema,
 } from "../state"
+import type { ModelProviderConfig } from "../providers"
 
 function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string {
   if (Buffer.isBuffer(image)) {
@@ -20,9 +21,10 @@ function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string 
 }
 
 export async function visionAgent(
-  state: PlanningGraphAnnotationState
+  state: PlanningGraphAnnotationState,
+  modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
-  const model = createGeminiFlashModel()
+  const model = getModel("vision", modelOverrides)
   const structuredModel = model.withStructuredOutput(visionAgentOutputSchema, {
     name: "validate_and_extract_senegalese_timetable",
   })

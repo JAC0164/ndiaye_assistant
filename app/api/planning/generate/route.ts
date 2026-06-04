@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/src/lib/supabase/server"
 import { SeanceService } from "@/src/services/seance.service"
+import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 
 export const runtime = "nodejs"
 
@@ -19,15 +20,14 @@ function jsonError(status: number, error: string) {
   return NextResponse.json<ErrorResponse>({ error }, { status })
 }
 
-function parseOnboardingData(value: FormDataEntryValue | null): unknown {
+function parseJSONField<T>(value: FormDataEntryValue | null): T | undefined {
   if (typeof value !== "string" || value.trim().length === 0) {
-    return {}
+    return undefined
   }
-
   try {
-    return JSON.parse(value)
+    return JSON.parse(value) as T
   } catch {
-    throw new Error("Le champ onboardingData doit être un JSON valide.")
+    return undefined
   }
 }
 
@@ -97,11 +97,13 @@ export async function POST(request: NextRequest) {
 
   let imageUpload: ImageUpload
   let onboardingData: unknown
+  let modelOverrides: ModelOverrides | undefined
 
   try {
     const formData = await request.formData()
     imageUpload = await fileToBuffer(formData.get("timetableImage"))
-    onboardingData = parseOnboardingData(formData.get("onboardingData"))
+    onboardingData = parseJSONField(formData.get("onboardingData")) ?? {}
+    modelOverrides = parseJSONField<ModelOverrides>(formData.get("modelOverrides"))
   } catch (error) {
     return jsonError(
       400,
@@ -115,7 +117,8 @@ export async function POST(request: NextRequest) {
       user.id,
       imageUpload.buffer,
       onboardingData,
-      imageUpload.mimeType
+      imageUpload.mimeType,
+      modelOverrides
     )
 
     if (!result.isValidTimetable) {

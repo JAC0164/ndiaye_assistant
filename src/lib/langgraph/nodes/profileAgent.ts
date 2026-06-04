@@ -1,16 +1,18 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
-import { createGeminiFlashModel } from "../model"
+import { getModel } from "../model"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
   profileAgentOutputSchema,
 } from "../state"
+import type { ModelProviderConfig } from "../providers"
 
 export async function profileAgent(
-  state: PlanningGraphAnnotationState
+  state: PlanningGraphAnnotationState,
+  modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
-  const model = createGeminiFlashModel()
+  const model = getModel("profile", modelOverrides)
   const structuredModel = model.withStructuredOutput(profileAgentOutputSchema, {
     name: "analyze_student_learning_profile",
   })

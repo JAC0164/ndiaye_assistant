@@ -8,6 +8,7 @@ import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
 } from "./state"
+import type { ModelOverrides } from "./providers"
 
 function passValidatedVision(): PlanningGraphAnnotationUpdate {
   return {}
@@ -17,12 +18,12 @@ function routeAfterVision(state: PlanningGraphAnnotationState) {
   return state.isValidTimetable ? "valid" : "invalid"
 }
 
-export function createPlanningGraph() {
+export function createPlanningGraph(modelOverrides?: ModelOverrides) {
   return new StateGraph(PlanningGraphAnnotation)
-    .addNode("vision", visionAgent)
-    .addNode("profile", profileAgent)
+    .addNode("vision", (state) => visionAgent(state, modelOverrides?.vision))
+    .addNode("profile", (state) => profileAgent(state, modelOverrides?.profile))
     .addNode("visionValidated", passValidatedVision)
-    .addNode("planner", plannerAgent)
+    .addNode("planner", (state) => plannerAgent(state, modelOverrides?.planner))
     .addEdge(START, "vision")
     .addEdge(START, "profile")
     .addConditionalEdges("vision", routeAfterVision, {
