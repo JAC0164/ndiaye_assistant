@@ -17,17 +17,7 @@ export async function saveUserSessionsAction(seances: GeneratedSeance[]) {
 
   const service = new SeanceService(supabase)
   
-  // Supprimer les séances existantes de l'utilisateur
-  const { error: deleteError } = await supabase
-    .from("sessions")
-    .delete()
-    .eq("user_id", user.id)
-
-  if (deleteError) {
-    throw new Error(`Erreur lors de la réinitialisation du planning: ${deleteError.message}`)
-  }
-
-  // Insérer les nouvelles séances modifiées
-  const inserted = await service.createMany(user.id, seances)
+  // Remplacer les séances de l'utilisateur via le service dédié
+  const inserted = await service.replaceAll(user.id, seances)
   return { success: true, count: inserted.length }
 }

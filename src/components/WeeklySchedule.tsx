@@ -1,15 +1,5 @@
 import type { GeneratedSeance } from "@/src/lib/langgraph/state"
-
-const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
-const DAY_LABELS: Record<string, string> = {
-  monday: "Lun",
-  tuesday: "Mar",
-  wednesday: "Mer",
-  thursday: "Jeu",
-  friday: "Ven",
-  saturday: "Sam",
-  sunday: "Dim",
-}
+import { DAYS, DAY_LABELS, TYPE_LABELS } from "@/src/lib/planning/constants"
 
 const TYPE_COLORS: Record<string, string> = {
   course: "bg-blue-50/50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/40",
@@ -19,13 +9,6 @@ const TYPE_COLORS: Record<string, string> = {
   break: "bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/50 dark:hover:bg-zinc-900/60",
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  course: "Cours",
-  td: "TD",
-  tp: "TP",
-  review: "Révision",
-  break: "Pause",
-}
 
 interface SortedSeance extends GeneratedSeance {
   index: number

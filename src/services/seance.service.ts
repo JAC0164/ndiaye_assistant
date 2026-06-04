@@ -1,11 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
-import { createPlanningGraph } from "@/src/lib/langgraph/graph"
-import {
-  GeneratedSeance,
-  PlanningGraphState,
-} from "@/src/lib/langgraph/state"
-import type { ModelOverrides } from "@/src/lib/langgraph/providers"
+import { GeneratedSeance } from "@/src/lib/langgraph/state"
 
 import { BaseService } from "./base.service"
 
@@ -15,8 +10,6 @@ export type Seance = GeneratedSeance & {
   created_at: string
   updated_at: string
 }
-
-export type PlanningWorkflowResult = PlanningGraphState
 
 export class SeanceService extends BaseService<Seance> {
   constructor(supabase: SupabaseClient) {
@@ -47,20 +40,18 @@ export class SeanceService extends BaseService<Seance> {
     return data as Seance[]
   }
 
-  async generateFullPlanningWorkflow(
-    userId: string,
-    imageBuffer: Buffer,
-    onboardingData: unknown,
-    imageMimeType = "image/jpeg",
-    modelOverrides?: ModelOverrides
-  ): Promise<PlanningWorkflowResult> {
-    const graph = createPlanningGraph(modelOverrides)
-    const state = await graph.invoke({
-      timetableImage: imageBuffer,
-      timetableImageMimeType: imageMimeType,
-      onboardingData,
-    })
+  async replaceAll(userId: string, sessions: GeneratedSeance[]): Promise<Seance[]> {
+    const { error: deleteError } = await this.supabase
+      .from(this.tableName)
+      .delete()
+      .eq("user_id", userId)
 
-    return state
+    if (deleteError) {
+      throw new Error(
+        `Erreur lors de la réinitialisation du planning: ${deleteError.message}`
+      )
+    }
+
+    return this.createMany(userId, sessions)
   }
 }

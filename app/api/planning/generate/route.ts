@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/src/lib/supabase/server"
-import { SeanceService } from "@/src/services/seance.service"
+import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 
 export const runtime = "nodejs"
@@ -112,9 +112,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const service = new SeanceService(supabase)
-    const result = await service.generateFullPlanningWorkflow(
-      user.id,
+    const result = await runPlanningWorkflow(
       imageUpload.buffer,
       onboardingData,
       imageUpload.mimeType,

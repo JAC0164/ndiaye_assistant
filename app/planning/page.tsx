@@ -8,6 +8,7 @@ import type { GeneratedSeance } from "@/src/lib/langgraph/state"
 import type { ModelProvider, ModelProviderConfig, ModelOverrides } from "@/src/lib/langgraph/providers"
 import { getProviderLabel } from "@/src/lib/langgraph/providers"
 import WeeklySchedule from "@/src/components/WeeklySchedule"
+import MarkdownPreview from "@/src/components/planning/MarkdownPreview"
 import { saveUserSessionsAction } from "./actions"
 
 type ApiResponse = {
@@ -20,23 +21,9 @@ type ApiResponse = {
 
 const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
 
-const SERIES_SUBJECTS: Record<string, string[]> = {
-  S1: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
-  S2: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
-  L1: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-  L2: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-  "L'": ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"]
-}
-
-const SERIES_INFO = [
-  { value: "S1", label: "S1", desc: "Maths & PC", focus: "Maths, PC, SVT" },
-  { value: "S2", label: "S2", desc: "Expérimentale", focus: "Maths, PC, SVT" },
-  { value: "L1", label: "L1", desc: "Langues/Lettres", focus: "Philo, Fr, Anglais" },
-  { value: "L2", label: "L2", desc: "Sciences Humaines", focus: "Philo, Fr, Hist-Géo" },
-  { value: "L'", label: "L'", desc: "Langues Vivantes", focus: "Philo, Fr, Langues" },
-]
-
-const BEDTIME_OPTIONS = ["20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"]
+import { SERIES_SUBJECTS, SERIES_INFO, BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
+import OnboardingFormPanel from "@/src/components/planning/OnboardingFormPanel"
+import SessionEditModal from "@/src/components/planning/SessionEditModal"
 
 type AgentSlot = "vision" | "profile" | "planner"
 
@@ -140,7 +127,8 @@ export default function PlanningPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
@@ -161,11 +149,6 @@ export default function PlanningPage() {
     }
   })
 
-  // Inputs for Blocked Slots Builder
-  const [blockDay, setBlockDay] = useState<BlockedSlot['day']>("monday")
-  const [blockStartTime, setBlockStartTime] = useState("18:00")
-  const [blockEndTime, setBlockEndTime] = useState("20:00")
-  const [blockReason, setBlockReason] = useState("Cours du soir")
 
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<ApiResponse | null>(null)
@@ -255,39 +238,6 @@ export default function PlanningPage() {
     }
   }
 
-  // Handlers for Onboarding Form fields
-  const handleToggleWeakSubject = (subject: string) => {
-    const isWeak = formOnboarding.weakSubjects.includes(subject)
-    const updated = isWeak
-      ? formOnboarding.weakSubjects.filter((s) => s !== subject)
-      : [...formOnboarding.weakSubjects, subject]
-    
-    handleFormChange({
-      ...formOnboarding,
-      weakSubjects: updated,
-    })
-  }
-
-  const handleAddBlockedSlot = () => {
-    const newSlot: BlockedSlot = {
-      id: Math.random().toString(36).substring(2, 11),
-      day: blockDay,
-      startTime: blockStartTime,
-      endTime: blockEndTime,
-      reason: blockReason,
-    }
-    handleFormChange({
-      ...formOnboarding,
-      blockedSlots: [...formOnboarding.blockedSlots, newSlot],
-    })
-  }
-
-  const handleRemoveBlockedSlot = (id: string) => {
-    handleFormChange({
-      ...formOnboarding,
-      blockedSlots: formOnboarding.blockedSlots.filter((s) => s.id !== id),
-    })
-  }
 
   // Edit schedule session handlers
   const handleStartEditSession = (session: GeneratedSeance, index: number) => {
@@ -568,197 +518,7 @@ export default function PlanningPage() {
 
             {/* Form Editor View */}
             {inputTab === "form" ? (
-              <div className="flex flex-col gap-5 overflow-y-auto max-h-[420px] pr-1">
-                
-                {/* Track Selector (Série) */}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Série / Filière</label>
-                  <div className="grid grid-cols-5 gap-2 mt-2">
-                    {SERIES_INFO.map((item) => {
-                      const isSelected = formOnboarding.serie === item.value
-                      return (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => {
-                            // Update track and reset weak subjects to avoid mismatch
-                            handleFormChange({
-                              ...formOnboarding,
-                              serie: item.value as any,
-                              weakSubjects: []
-                            })
-                          }}
-                          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition duration-150 cursor-pointer ${
-                            isSelected
-                              ? "bg-cyan-500/10 border-cyan-500 text-white shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                              : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-200"
-                          }`}
-                        >
-                          <span className="text-sm font-bold">{item.label}</span>
-                          <span className="text-[9px] mt-0.5 opacity-60 truncate max-w-full">{item.desc}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Weak Subjects Grid (Matières faibles) */}
-                <div className="border-t border-zinc-900 pt-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matières à renforcer</label>
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Sélectionner pour prioriser</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {(SERIES_SUBJECTS[formOnboarding.serie] || SERIES_SUBJECTS["S1"]).map((sub) => {
-                      const isWeak = formOnboarding.weakSubjects.includes(sub)
-                      return (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => handleToggleWeakSubject(sub)}
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition cursor-pointer ${
-                            isWeak
-                              ? "bg-amber-500/10 border-amber-500 text-amber-200"
-                              : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
-                          }`}
-                        >
-                          <span>{isWeak ? "⚠️" : "📚"}</span>
-                          <span>{sub}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Bedtime / Sleep Limit Slider */}
-                <div className="border-t border-zinc-900 pt-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Couvre-feu / Fin de révision</label>
-                    <span className="text-xs font-bold text-cyan-400 flex items-center gap-1">🌙 {formOnboarding.bedtime}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={BEDTIME_OPTIONS.length - 1}
-                    value={BEDTIME_OPTIONS.indexOf(formOnboarding.bedtime) !== -1 ? BEDTIME_OPTIONS.indexOf(formOnboarding.bedtime) : 4}
-                    onChange={(e) => {
-                      const val = BEDTIME_OPTIONS[parseInt(e.target.value)]
-                      handleFormChange({ ...formOnboarding, bedtime: val })
-                    }}
-                    className="w-full h-1 bg-zinc-850 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2"
-                  />
-                  <div className="flex justify-between text-[10px] text-zinc-550 mt-1">
-                    <span>20h00</span>
-                    <span>21h30</span>
-                    <span>23h30</span>
-                  </div>
-                </div>
-
-                {/* Time Blockers / Constraints Manager */}
-                <div className="border-t border-zinc-900 pt-4">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Créneaux indisponibles / Cours du soir</label>
-                  
-                  {/* Active Blocked Slots List */}
-                  <div className="space-y-2 mt-2">
-                    {formOnboarding.blockedSlots.map((slot) => {
-                      const dayLabel = {
-                        monday: "Lundi",
-                        tuesday: "Mardi",
-                        wednesday: "Mercredi",
-                        thursday: "Jeudi",
-                        friday: "Vendredi",
-                        saturday: "Samedi",
-                        sunday: "Dimanche",
-                      }[slot.day] || slot.day
-                      return (
-                        <div key={slot.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="text-red-400">🚫</span>
-                            <div>
-                              <span className="font-bold text-zinc-300">{dayLabel} {slot.startTime} - {slot.endTime}</span>
-                              <span className="text-zinc-550 block text-[10px]">{slot.reason}</span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBlockedSlot(slot.id)}
-                            className="text-[10px] font-bold text-zinc-500 hover:text-red-400 transition cursor-pointer"
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      )
-                    })}
-                    {formOnboarding.blockedSlots.length === 0 && (
-                      <p className="text-xs text-zinc-650 italic">Aucun créneau d&apos;indisponibilité renseigné.</p>
-                    )}
-                  </div>
-
-                  {/* Add Blocked Slot Form Row */}
-                  <div className="mt-3 bg-zinc-950/30 border border-zinc-900 rounded-xl p-3 flex flex-col gap-2.5">
-                    <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Ajouter une indisponibilité :</p>
-                    
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Jour</label>
-                        <select
-                          value={blockDay}
-                          onChange={(e) => setBlockDay(e.target.value as any)}
-                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
-                        >
-                          <option value="monday">Lundi</option>
-                          <option value="tuesday">Mardi</option>
-                          <option value="wednesday">Mercredi</option>
-                          <option value="thursday">Jeudi</option>
-                          <option value="friday">Vendredi</option>
-                          <option value="saturday">Samedi</option>
-                          <option value="sunday">Dimanche</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Début</label>
-                        <input
-                          type="time"
-                          value={blockStartTime}
-                          onChange={(e) => setBlockStartTime(e.target.value)}
-                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Fin</label>
-                        <input
-                          type="time"
-                          value={blockEndTime}
-                          onChange={(e) => setBlockEndTime(e.target.value)}
-                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          placeholder="Raison (ex: Cours du soir, Football, Soutien)..."
-                          value={blockReason}
-                          onChange={(e) => setBlockReason(e.target.value)}
-                          className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2.5 py-1.5 text-xs text-white focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddBlockedSlot}
-                        className="rounded-lg bg-zinc-900 border border-zinc-800 px-3 text-xs font-bold text-cyan-400 hover:bg-cyan-500/10 transition cursor-pointer"
-                      >
-                        + Bloquer
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+              <OnboardingFormPanel form={formOnboarding} onChange={handleFormChange} />
             ) : (
               /* Raw JSON Textarea Editor */
               <div className="flex flex-col flex-1 gap-3">
@@ -1003,192 +763,15 @@ export default function PlanningPage() {
       </div>
 
       {/* Interactive Modal for Editing a Session */}
-      {showEditModal && editingSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-900 bg-zinc-955 bg-zinc-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4">
-              <h3 className="text-base font-bold uppercase tracking-wider text-white">Modifier la séance</h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-zinc-500 hover:text-white text-sm font-semibold"
-              >
-                Fermer
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              
-              {/* Subject */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matière</label>
-                <input
-                  type="text"
-                  value={editingSession.subject}
-                  onChange={(e) => setEditingSession({ ...editingSession, subject: e.target.value })}
-                  className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none focus:border-zinc-700"
-                />
-              </div>
-
-              {/* Type select */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Type de séance</label>
-                <select
-                  value={editingSession.session_type}
-                  onChange={(e) => setEditingSession({ ...editingSession, session_type: e.target.value as any })}
-                  className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
-                >
-                  <option value="review">Révision (Review)</option>
-                  <option value="course">Cours (Course)</option>
-                  <option value="td">TD</option>
-                  <option value="tp">TP</option>
-                  <option value="break">Pause (Break)</option>
-                </select>
-              </div>
-
-              {/* Time inputs */}
-              <div className="grid grid-cols-2 gap-3.5">
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Heure Début</label>
-                  <input
-                    type="text"
-                    value={editingSession.start_time}
-                    placeholder="HH:mm"
-                    onChange={(e) => setEditingSession({ ...editingSession, start_time: e.target.value })}
-                    className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Heure Fin</label>
-                  <input
-                    type="text"
-                    value={editingSession.end_time}
-                    placeholder="HH:mm"
-                    onChange={(e) => setEditingSession({ ...editingSession, end_time: e.target.value })}
-                    className="mt-1 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Pedagogical notes */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Note pédagogique</label>
-                <textarea
-                  value={editingSession.pedagogical_note || ""}
-                  rows={3}
-                  onChange={(e) => setEditingSession({ ...editingSession, pedagogical_note: e.target.value })}
-                  className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none focus:border-zinc-700"
-                />
-              </div>
-
-              {/* Action triggers */}
-              <div className="flex items-center justify-between border-t border-zinc-900 pt-4 mt-3">
-                <button
-                  onClick={handleDeleteSession}
-                  className="rounded-lg bg-red-955 bg-red-950/40 border border-red-900/60 px-4 py-2.5 text-sm font-bold text-red-400 hover:bg-red-900/50"
-                >
-                  Supprimer
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowEditModal(false)}
-                    className="rounded-lg bg-zinc-900 border border-zinc-800 px-4.5 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleSaveEditedSession}
-                    className="rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-4.5 py-2.5 text-sm font-bold text-white hover:from-emerald-400 hover:to-teal-500"
-                  >
-                    Enregistrer
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      )}
+      <SessionEditModal
+        isOpen={showEditModal}
+        session={editingSession}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveEditedSession}
+        onDelete={handleDeleteSession}
+      />
     </div>
   )
 }
 
-interface MarkdownPreviewProps {
-  content: string
-}
 
-function MarkdownPreview({ content }: MarkdownPreviewProps) {
-  const parseMarkdown = (text: string) => {
-    // Échapper le HTML brut pour des raisons de sécurité
-    let html = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-
-    // Gras (**texte**)
-    html = html.replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-white'>$1</strong>")
-
-    // Titres (#, ##, ###)
-    html = html.replace(/^### (.*?)$/gm, "<h4 class='text-sm font-bold text-emerald-400 mt-5 mb-2'>$1</h4>")
-    html = html.replace(/^## (.*?)$/gm, "<h3 class='text-base font-bold text-white mt-6 mb-3 border-b border-zinc-900 pb-1.5'>$1</h3>")
-    html = html.replace(/^# (.*?)$/gm, "<h2 class='text-lg font-extrabold text-white mt-8 mb-4'>$1</h2>")
-
-    // Listes à puces (- élément)
-    html = html.replace(/^\s*-\s+(.*?)$/gm, "<li class='list-disc list-inside text-zinc-300 ml-4 mb-2 text-sm leading-relaxed'>$1</li>")
-
-    // Parsing des tableaux Markdown en tableaux HTML stylisés
-    const lines = html.split("\n")
-    let inTable = false
-    const processedLines: string[] = []
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (line.startsWith("|") && line.endsWith("|")) {
-        // Sauter les séparateurs comme |---|---|
-        if (line.replace(/[\s|:-]/g, "").length === 0) {
-          continue
-        }
-        
-        const cells = line.split("|").slice(1, -1).map((c) => c.trim())
-        let rowHtml = ""
-        if (!inTable) {
-          inTable = true
-          rowHtml += "<div class='overflow-x-auto my-4'><table class='min-w-full border-collapse border border-zinc-900 text-sm'><thead class='bg-zinc-900/80 text-zinc-200'><tr>"
-          cells.forEach((cell) => {
-            rowHtml += `<th class='border border-zinc-900 px-4 py-2.5 text-left font-bold uppercase tracking-wider text-xs'>${cell}</th>`
-          })
-          rowHtml += "</tr></thead><tbody class='divide-y divide-zinc-900'>"
-        } else {
-          rowHtml += "<tr class='hover:bg-zinc-900/30 transition-colors'>"
-          cells.forEach((cell) => {
-            rowHtml += `<td class='border border-zinc-900 px-4 py-2.5 text-zinc-300 leading-relaxed'>${cell}</td>`
-          })
-          rowHtml += "</tr>"
-        }
-        processedLines.push(rowHtml)
-      } else {
-        if (inTable) {
-          inTable = false
-          processedLines.push("</tbody></table></div>")
-        }
-        processedLines.push(lines[i])
-      }
-    }
-    if (inTable) {
-      processedLines.push("</tbody></table></div>")
-    }
-    
-    html = processedLines.join("\n")
-    
-    // Paragraphes
-    html = html.replace(/\n\n/g, "</p><p class='mb-3 text-sm text-zinc-300 leading-relaxed'>")
-    
-    return html
-  }
-
-  return (
-    <div 
-      className="prose prose-invert max-w-none text-zinc-300"
-      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
-    />
-  )
-}
