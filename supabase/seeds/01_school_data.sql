@@ -11,7 +11,7 @@ TRUNCATE TABLE coefficients, sessions, profiles, classes, series, school_levels 
 -- ============================================================
 -- 1. SCHOOL LEVELS
 -- ============================================================
-INSERT INTO school_levels (id, name, ord)
+INSERT INTO school_levels (id, name, sort_order)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'Collège',     1),
   ('00000000-0000-0000-0000-000000000002', 'Lycée',       2);

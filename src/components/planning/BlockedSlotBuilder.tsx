@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { BlockedSlot } from "@/app/planning/page"
+import type { BlockedSlot } from "@/src/types/planning.types"
 
 interface BlockedSlotBuilderProps {
   onAdd: (slot: {

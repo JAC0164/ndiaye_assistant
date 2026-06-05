@@ -10,14 +10,7 @@ import { getProviderLabel } from "@/src/lib/langgraph/providers"
 import WeeklySchedule from "@/src/components/WeeklySchedule"
 import MarkdownPreview from "@/src/components/planning/MarkdownPreview"
 import { saveUserSessionsAction } from "./actions"
-
-type ApiResponse = {
-  isValidTimetable: boolean
-  extractedTimetableMarkdown?: string
-  studentProfileContext?: string
-  generatedPlanning: GeneratedSeance[]
-  validationErrorMessage?: string
-}
+import type { BlockedSlot, OnboardingForm, ApiResponse } from "@/src/types/planning.types"
 
 const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
 
@@ -32,20 +25,6 @@ interface AgentOverrideEntry {
   model: string
 }
 
-export interface BlockedSlot {
-  id: string
-  day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
-  startTime: string
-  endTime: string
-  reason: string
-}
-
-export interface OnboardingForm {
-  serie: 'S1' | 'S2' | 'L1' | 'L2' | "L'"
-  weakSubjects: string[]
-  bedtime: string
-  blockedSlots: BlockedSlot[]
-}
 
 const DEFAULT_ONBOARDING = JSON.stringify(
   {
@@ -294,6 +273,8 @@ export default function PlanningPage() {
       const response = await saveUserSessionsAction(result.generatedPlanning)
       if (response.success) {
         setSavingStatus("success")
+        // Trigger overlay refresh
+        window.dispatchEvent(new Event("ndiaye-sessions-saved"))
         setTimeout(() => setSavingStatus("idle"), 3000)
       }
     } catch (err) {

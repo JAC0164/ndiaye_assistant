@@ -1,6 +1,6 @@
 "use client"
 
-import type { OnboardingForm, BlockedSlot } from "@/app/planning/page"
+import type { OnboardingForm, BlockedSlot } from "@/src/types/planning.types"
 import { SERIES_SUBJECTS, SERIES_INFO, BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
 import BlockedSlotBuilder from "./BlockedSlotBuilder"
 
