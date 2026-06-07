@@ -1,5 +1,11 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
+export type QueryOptions = {
+  limit?: number
+  offset?: number
+  orderBy?: { column: string; ascending: boolean }
+}
+
 export abstract class BaseService<T extends Record<string, unknown>> {
   protected readonly supabase: SupabaseClient
   protected readonly tableName: string
@@ -9,10 +15,28 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     this.tableName = tableName
   }
 
-  async getAll(): Promise<T[]> {
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .select("*")
+  async getAll(userId?: string, options?: QueryOptions): Promise<T[]> {
+    let query = this.supabase.from(this.tableName).select("*")
+
+    if (userId) {
+      query = query.eq("user_id", userId)
+    }
+
+    if (options?.orderBy) {
+      query = query.order(options.orderBy.column, {
+        ascending: options.orderBy.ascending,
+      })
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit)
+    }
+
+    if (options?.offset) {
+      query = query.range(options.offset, options.offset + (options.limit || 50) - 1)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       throw new Error(

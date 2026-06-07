@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react"
 import { useDisplayMode } from "@/src/components/providers/DisplayModeProvider"
 import { createClient } from "@/src/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import type { Session } from "@/src/services/semaine.service"
+import type { DbSession as Session } from "@/src/services/session.service"
 
 export default function PlanningOverlay() {
   const { mode, setDisplayMode } = useDisplayMode()

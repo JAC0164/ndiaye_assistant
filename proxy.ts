@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -31,7 +31,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // This will refresh the session if it's expired
   await supabase.auth.getUser()
 
   return response
@@ -39,7 +38,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude static assets and API routes from middleware execution
     "/((?!_next/static|_next/image|favicon.ico|api/).*)",
   ],
 }

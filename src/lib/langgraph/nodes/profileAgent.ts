@@ -7,6 +7,7 @@ import {
   profileAgentOutputSchema,
 } from "../state"
 import type { ModelProviderConfig } from "../providers"
+import { withRetry } from "./withRetry"
 
 export async function profileAgent(
   state: PlanningGraphAnnotationState,
@@ -48,11 +49,15 @@ export async function profileAgent(
   ])
 
   const chain = prompt.pipe(structuredModel)
-  const result = await chain.invoke(
-    {
-      onboardingDataJson: JSON.stringify(state.onboardingData),
-    },
-    createTokenLogger("profile")
+  const result = await withRetry(
+    () =>
+      chain.invoke(
+        {
+          onboardingDataJson: JSON.stringify(state.onboardingData),
+        },
+        createTokenLogger("profile")
+      ),
+    "profile"
   )
 
   return {

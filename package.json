@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.107.0",
     "langchain": "^1.4.4",
     "next": "16.2.7",
+    "sharp": "^0.34.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^3.22.0"

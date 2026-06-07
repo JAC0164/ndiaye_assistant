@@ -7,6 +7,13 @@ import {
   visionAgentOutputSchema,
 } from "../state"
 import type { ModelProviderConfig } from "../providers"
+import { withRetry } from "./withRetry"
+
+const MAX_IMAGE_DIMENSION = 1024
+
+function resizeImage(buffer: Buffer, mimeType: string): Buffer {
+  return buffer
+}
 
 function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string {
   if (Buffer.isBuffer(image)) {
@@ -44,26 +51,24 @@ export async function visionAgent(
       [
         "Rôle: Agent Vision. Extrait et valide l'emploi du temps secondaire Sénégal.",
         "Format de sortie :",
-        "- `timetableMarkdown` doit contenir UNIQUEMENT une liste chronologique explicite jour par jour (pas de tableau Markdown).",
+        "- `timetableMarkdown` : une liste chronologique explicite jour par jour, pas de tableau Markdown.",
         "- Format attendu :",
         "  LUNDI :",
         "  - 08:00-09:30 : Développement Personnel",
         "  - 09:40-11:10 : Mathématiques",
         "  - 11:20-12:50 : Français",
-        "  - 14:00-15:30 : Français",
-        "  - 15:40-17:10 : Espagnol",
         "  MARDI :",
         "  - ...",
         "- Garde uniquement le nom de la matière. Supprime les noms de professeurs et les numéros de salle.",
-        "- N'inclus PAS les créneaux vides (si pas de cours, passe au suivant).",
+        "- N'inclus PAS les créneaux vides.",
         "- Pas de titre, pas d'intro, pas de notes additionnelles.",
         "",
         "Validation Sénégal (si anomalie, `isValid = false`) :",
         "Rejeter si :",
         "- Cours le dimanche.",
-        "- Cours d'une même matière > 3h consécutives sans pause (ex: 08h-12h d'affilée).",
+        "- Cours d'une même matière > 3h consécutives sans pause.",
         "- Horaires hors 08:00 - 19:00.",
-        "- Matières hors secondaire (Valides: Maths, PC, SVT, Français, Anglais, Histoire-Géo, Philo, EPS, Allemand, Espagnol, Arabe, etc. Rejeter si matières universitaires, pro ou étrangères).",
+        "- Matières hors secondaire (Valides: Maths, PC, SVT, Français, Anglais, Histoire-Géo, Philo, EPS, Allemand, Espagnol, Arabe, etc.)",
         "- Document autre qu'un emploi du temps de classe.",
       ].join("\n"),
     ],
@@ -72,7 +77,7 @@ export async function visionAgent(
       [
         {
           type: "text",
-          text: "Analyse cette image et extrais l'emploi du temps complet sous forme de tableau Markdown.",
+          text: "Analyse cette image et extrais l'emploi du temps complet sous forme de liste chronologique jour par jour.",
         },
         {
           type: "image_url",
@@ -85,14 +90,18 @@ export async function visionAgent(
   ])
 
   const chain = prompt.pipe(structuredModel)
-  const result = await chain.invoke(
-    {
-      imageDataUrl: toBase64Image(
-        state.timetableImage,
-        state.timetableImageMimeType
+  const result = await withRetry(
+    () =>
+      chain.invoke(
+        {
+          imageDataUrl: toBase64Image(
+            state.timetableImage,
+            state.timetableImageMimeType
+          ),
+        },
+        createTokenLogger("vision")
       ),
-    },
-    createTokenLogger("vision")
+    "vision"
   )
 
   return {

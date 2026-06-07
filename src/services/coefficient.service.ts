@@ -14,6 +14,7 @@ export class CoefficientService extends BaseService<Coefficient> {
       .from(this.tableName)
       .select("*")
       .eq("class_id", classId)
+      .order("coefficient", { ascending: false })
 
     if (error) {
       throw new Error(`Erreur lors de la récupération des coefficients pour la classe ${classId}: ${error.message}`)
@@ -23,16 +24,13 @@ export class CoefficientService extends BaseService<Coefficient> {
   }
 
   async getCoefficientsByClassName(className: string): Promise<Coefficient[]> {
-    const { data: classData, error: classError } = await this.supabase
-      .from("classes")
-      .select("id")
-      .eq("name", className)
-      .maybeSingle()
+    const { data: coefficients, error } = await this.supabase
+      .rpc("get_coefficients_by_class_name", { p_class_name: className })
 
-    if (classError || !classData) {
+    if (error || !coefficients) {
       return []
     }
 
-    return this.getByClassId(classData.id)
+    return coefficients as Coefficient[]
   }
 }

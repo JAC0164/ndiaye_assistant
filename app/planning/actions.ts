@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/src/lib/supabase/actions"
-import { SeanceService } from "@/src/services/seance.service"
+import { SessionService } from "@/src/services/session.service"
 import type { GeneratedSeance } from "@/src/lib/langgraph/state"
 import { revalidatePath } from "next/cache"
 
@@ -16,7 +16,7 @@ export async function saveUserSessionsAction(seances: GeneratedSeance[]) {
     throw new Error("Authentification requise.")
   }
 
-  const service = new SeanceService(supabase)
+  const service = new SessionService(supabase)
   
   // Remplacer les séances de l'utilisateur via le service dédié
   const inserted = await service.replaceAll(user.id, seances)

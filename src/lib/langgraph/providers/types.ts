@@ -7,6 +7,7 @@ export interface ModelProviderConfig {
   model: string
   temperature: number
   baseUrl?: string
+  timeout?: number
 }
 
 export interface ProvidersConfig {
