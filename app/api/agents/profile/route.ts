@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/src/lib/supabase/server"
+import { checkRateLimit } from "@/src/lib/rate-limit"
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
 import { ProfileService } from "@/src/services/profile.service"
 
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: "Trop de requêtes. Veuillez réessayer dans une minute." }, { status: 429 })
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
@@ -29,6 +35,7 @@ export async function POST(request: NextRequest) {
       extractedTimetableMarkdown: "",
       studentProfileContext: "",
       subjectCoefficients: "",
+      weeklyStats: "",
       isValidTimetable: true,
       validationErrorMessage: undefined,
       generatedPlanning: [],

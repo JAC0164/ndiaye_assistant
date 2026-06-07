@@ -64,6 +64,12 @@ export async function plannerAgent(
         "4. Saturday Cumulative Review: 1h30 study block (2 consecutive 45-min sessions + 10-min 'break') on Saturday morning.",
         "5. Weak Subjects Focus: Higher priority for weakSubjects and higher coefficient subjects.",
         "6. Active Recall Note Structure: Write pedagogical_note in French. For 'review'/'tp': 35 min active practice, 10 min synthesis. For 'break': short relaxation note.",
+        "",
+        "FEEDBACK LOOP (Données des 7 derniers jours) :",
+        "- Une matière avec auto-évaluation basse ou absente du feedback doit être priorisée.",
+        "- Si une matière a été complètement négligée (0 session), ajouter une session de rattrapage.",
+        "- Si une matière montre un bon rythme (sessions régulières), maintenir ce créneau.",
+        "- Ne pas empiler plus de 2 sessions sur une même matière par semaine.",
       ].join("\n"),
     ],
     [
@@ -77,6 +83,9 @@ export async function plannerAgent(
         "",
         "Official class subject coefficients:",
         "{subjectCoefficients}",
+        "",
+        "Weekly study feedback (last 7 days):",
+        "{weeklyStats}",
       ].join("\n"),
     ],
   ])
@@ -89,6 +98,7 @@ export async function plannerAgent(
           extractedTimetableMarkdown: state.extractedTimetableMarkdown,
           studentProfileContext: state.studentProfileContext,
           subjectCoefficients: state.subjectCoefficients || "Aucun coefficient spécifique disponible.",
+          weeklyStats: state.weeklyStats || "Aucune session complétée cette semaine.",
         },
         createTokenLogger("planner")
       ),

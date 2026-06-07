@@ -12,16 +12,6 @@ export type Seance = GeneratedSeance & {
   updated_at: string
 }
 
-const daysOrder: Record<string, number> = {
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-  sunday: 7,
-}
-
 export class SessionService extends BaseService<DbSession> {
   constructor(supabase: SupabaseClient) {
     super(supabase, "sessions")

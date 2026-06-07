@@ -14,7 +14,7 @@ export async function profileAgent(
   modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
   if (state.studentProfileContext) {
-    console.log("\x1b[33m[Skip] PROFILE  | Output already present in state, skipping LLM call.\x1b[0m")
+    console.log(`\x1b[33m[Skip] PROFILE\x1b[0m (context=${state.studentProfileContext.length}c)`)
     return {
       studentProfileContext: state.studentProfileContext,
     }

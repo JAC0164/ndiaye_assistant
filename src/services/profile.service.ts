@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 import { Database } from "@/src/types/database.types"
-import { OnboardingForm } from "@/src/types/planning.types"
+import { OnboardingForm, ProfileMetadata } from "@/src/types/planning.types"
 import { BaseService } from "./base.service"
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
@@ -36,7 +36,7 @@ export class ProfileService extends BaseService<Profile> {
       throw new Error(`Profil non trouvé pour l'utilisateur: ${userId}`)
     }
 
-    const existingMetadata = (currentProfile.metadata as Record<string, any>) || {}
+    const existingMetadata = (currentProfile.metadata as ProfileMetadata) || {}
     const updatedMetadata = {
       ...existingMetadata,
       serie: onboarding.serie,
@@ -66,7 +66,7 @@ export class ProfileService extends BaseService<Profile> {
     const profile = await this.getByUserId(userId)
     if (!profile?.metadata) return null
 
-    const meta = profile.metadata as Record<string, any>
+    const meta = profile.metadata as ProfileMetadata
 
     const timetable = meta.cachedExtractedTimetable
     const profileCtx = meta.cachedProfileContext
@@ -89,7 +89,7 @@ export class ProfileService extends BaseService<Profile> {
     const profile = await this.getByUserId(userId)
     if (!profile) return
 
-    const meta = (profile.metadata as Record<string, any>) || {}
+    const meta = (profile.metadata as ProfileMetadata) || {}
     if (timetable !== undefined) meta.cachedExtractedTimetable = timetable
     if (isValid !== undefined) meta.cachedTimetableValid = isValid
     if (context !== undefined) meta.cachedProfileContext = context

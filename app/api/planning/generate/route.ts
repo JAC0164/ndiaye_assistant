@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 
 import { createClient } from "@/src/lib/supabase/server"
+import { checkRateLimit } from "@/src/lib/rate-limit"
 import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 
@@ -10,10 +11,6 @@ export const runtime = "nodejs"
 export const maxDuration = 120
 
 const REQUEST_TIMEOUT = 60_000
-
-const RATE_LIMIT_WINDOW = 60_000
-const RATE_LIMIT_MAX = 10
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
 type ErrorResponse = {
   error: string
@@ -90,6 +87,10 @@ async function fileToBuffer(
     throw new Error("Le fichier timetableImage doit être une image.")
   }
 
+  if (value.size > 10 * 1024 * 1024) {
+    throw new Error("L'image ne doit pas dépasser 10 Mo.")
+  }
+
   return {
     buffer: Buffer.from(await value.arrayBuffer()),
     mimeType: value.type,
@@ -133,20 +134,6 @@ async function createAuthenticatedSupabase(request: NextRequest) {
   } = await supabase.auth.getUser(bearerToken)
 
   return { supabase, user, error }
-}
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW })
-    return true
-  }
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return false
-  }
-  entry.count++
-  return true
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

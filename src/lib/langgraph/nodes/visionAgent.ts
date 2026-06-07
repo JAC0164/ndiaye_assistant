@@ -9,12 +9,6 @@ import {
 import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 
-const MAX_IMAGE_DIMENSION = 1024
-
-function resizeImage(buffer: Buffer, mimeType: string): Buffer {
-  return buffer
-}
-
 function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string {
   if (Buffer.isBuffer(image)) {
     return `data:${mimeType};base64,${image.toString("base64")}`
@@ -32,7 +26,7 @@ export async function visionAgent(
   modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
   if (state.extractedTimetableMarkdown) {
-    console.log("\x1b[33m[Skip] VISION   | Output already present in state, skipping LLM call.\x1b[0m")
+    console.log(`\x1b[33m[Skip] VISION\x1b[0m (timetable=${state.extractedTimetableMarkdown.length}c valid=${state.isValidTimetable})`)
     return {
       extractedTimetableMarkdown: state.extractedTimetableMarkdown,
       isValidTimetable: state.isValidTimetable,

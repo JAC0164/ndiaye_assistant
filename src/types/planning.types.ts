@@ -15,6 +15,16 @@ export interface OnboardingForm {
   blockedSlots: BlockedSlot[]
 }
 
+export interface ProfileMetadata {
+  serie?: string
+  weakSubjects?: string[]
+  bedtime?: string
+  blockedSlots?: BlockedSlot[]
+  cachedExtractedTimetable?: string
+  cachedTimetableValid?: boolean
+  cachedProfileContext?: string
+}
+
 export type ApiResponse = {
   isValidTimetable: boolean
   extractedTimetableMarkdown?: string

@@ -42,6 +42,7 @@ export interface PlanningGraphState {
   extractedTimetableMarkdown: string;
   studentProfileContext: string;
   subjectCoefficients: string;
+  weeklyStats: string;
   isValidTimetable: boolean;
   validationErrorMessage?: string;
   generatedPlanning: GeneratedSeance[];
@@ -63,6 +64,10 @@ export const PlanningGraphAnnotation = Annotation.Root({
     default: () => '',
   }),
   subjectCoefficients: Annotation<string>({
+    value: (_current, update) => update,
+    default: () => '',
+  }),
+  weeklyStats: Annotation<string>({
     value: (_current, update) => update,
     default: () => '',
   }),
