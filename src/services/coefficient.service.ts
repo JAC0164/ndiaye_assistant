@@ -24,13 +24,17 @@ export class CoefficientService extends BaseService<Coefficient> {
   }
 
   async getCoefficientsByClassName(className: string): Promise<Coefficient[]> {
-    const { data: coefficients, error } = await this.supabase
-      .rpc("get_coefficients_by_class_name", { p_class_name: className })
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("*, classes!inner(name)")
+      .eq("classes.name", className)
+      .order("coefficient", { ascending: false })
 
-    if (error || !coefficients) {
+    if (error) {
+      console.error("Failed to fetch coefficients by class name:", error.message)
       return []
     }
 
-    return coefficients as Coefficient[]
+    return data as Coefficient[]
   }
 }
