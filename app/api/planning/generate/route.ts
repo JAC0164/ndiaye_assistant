@@ -191,6 +191,8 @@ export async function POST(request: NextRequest) {
   try {
     const result = await withTimeout(
       runPlanningWorkflow(
+        supabase,
+        user.id,
         imageUpload.buffer,
         onboardingData,
         imageUpload.mimeType,

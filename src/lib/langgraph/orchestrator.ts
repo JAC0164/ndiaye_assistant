@@ -1,5 +1,6 @@
-import { createClient } from "@/src/lib/supabase/server"
+import { SupabaseClient } from "@supabase/supabase-js"
 import { CoefficientService } from "@/src/services/coefficient.service"
+import { ProfileService } from "@/src/services/profile.service"
 import { createPlanningGraph } from "./graph"
 import type { PlanningGraphState } from "./state"
 import type { ModelOverrides } from "./providers"
@@ -18,9 +19,7 @@ function getClassNameFromSerie(serie: string): string {
 
 function getCachedCoefficients(className: string): string | null {
   const entry = coefficientsCache.get(className)
-  if (entry && Date.now() < entry.expiry) {
-    return entry.data
-  }
+  if (entry && Date.now() < entry.expiry) return entry.data
   coefficientsCache.delete(className)
   return null
 }
@@ -33,25 +32,36 @@ function setCachedCoefficients(className: string, data: string): void {
 }
 
 export async function runPlanningWorkflow(
+  supabase: SupabaseClient,
+  userId: string,
   imageBuffer: Buffer,
   onboardingData: unknown,
   imageMimeType = "image/jpeg",
   modelOverrides?: ModelOverrides
 ): Promise<PlanningWorkflowResult> {
+  let extractedTimetable = ""
+  let isValidTimetable = true
+  let studentProfileContext = ""
   let subjectCoefficientsStr = ""
+
+  const profileService = new ProfileService(supabase)
+  const cached = await profileService.getCachedAnalysis(userId)
+  if (cached) {
+    extractedTimetable = cached.extractedTimetableMarkdown
+    isValidTimetable = cached.isValidTimetable
+    studentProfileContext = cached.studentProfileContext
+  }
 
   try {
     const data = onboardingData as Record<string, any>
     if (data && typeof data.serie === "string") {
       const className = getClassNameFromSerie(data.serie)
-      const cached = getCachedCoefficients(className)
-      if (cached) {
-        subjectCoefficientsStr = cached
+      const cachedStr = getCachedCoefficients(className)
+      if (cachedStr) {
+        subjectCoefficientsStr = cachedStr
       } else {
-        const supabase = await createClient()
         const coeffService = new CoefficientService(supabase)
         const coeffs = await coeffService.getCoefficientsByClassName(className)
-
         if (coeffs.length > 0) {
           subjectCoefficientsStr = coeffs
             .map((c) => `${c.subject} (coefficient ${c.coefficient})`)
@@ -64,17 +74,28 @@ export async function runPlanningWorkflow(
     console.error("Failed to fetch coefficients for AI workflow:", err)
   }
 
-  if (!compiledGraph) {
-    compiledGraph = createPlanningGraph()
-  }
-
+  if (!compiledGraph) compiledGraph = createPlanningGraph()
   const graph = modelOverrides ? createPlanningGraph(modelOverrides) : compiledGraph
+
   const state = await graph.invoke({
     timetableImage: imageBuffer,
     timetableImageMimeType: imageMimeType,
     onboardingData,
     subjectCoefficients: subjectCoefficientsStr,
+    extractedTimetableMarkdown: extractedTimetable,
+    isValidTimetable,
+    studentProfileContext,
   })
+
+  if (
+    state.extractedTimetableMarkdown !== extractedTimetable ||
+    state.studentProfileContext !== studentProfileContext
+  ) {
+    const newTimetable = state.extractedTimetableMarkdown !== extractedTimetable ? state.extractedTimetableMarkdown : undefined
+    const newValid = state.extractedTimetableMarkdown !== extractedTimetable ? state.isValidTimetable : undefined
+    const newContext = state.studentProfileContext !== studentProfileContext ? state.studentProfileContext : undefined
+    await profileService.saveAnalysisCache(userId, newTimetable, newValid, newContext)
+  }
 
   return state
 }
