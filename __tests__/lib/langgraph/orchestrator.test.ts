@@ -5,6 +5,7 @@ const mockGetCachedAnalysis = vi.hoisted(() => vi.fn())
 const mockSaveAnalysisCache = vi.hoisted(() => vi.fn())
 const mockGetCoefficientsByClassName = vi.hoisted(() => vi.fn())
 const mockGetWeeklyStats = vi.hoisted(() => vi.fn())
+const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
 const mockCreatePlanningGraph = vi.hoisted(() =>
   vi.fn(() => ({ invoke: mockInvoke }))
@@ -31,6 +32,14 @@ vi.mock("@/src/services/historique.service", () => ({
   HistoriqueService: vi.fn(function () {
     return {
       getWeeklyStats: mockGetWeeklyStats,
+    }
+  }),
+}))
+
+vi.mock("@/src/services/echeance.service", () => ({
+  EcheanceService: vi.fn(function () {
+    return {
+      getUpcoming: mockGetUpcoming,
     }
   }),
 }))
@@ -509,6 +518,94 @@ describe("runPlanningWorkflow", () => {
     mockGetCachedAnalysis.mockResolvedValue(null)
     mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockRejectedValue(new Error("Stats error"))
+    mockInvoke.mockResolvedValue({
+      extractedTimetableMarkdown: "",
+      studentProfileContext: "",
+      isValidTimetable: true,
+      generatedPlanning: [],
+    })
+
+    await expect(
+      runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    ).resolves.toBeDefined()
+  })
+
+  it("fetches upcoming echeances and passes formatted string to graph", async () => {
+    mockGetCachedAnalysis.mockResolvedValue(null)
+    mockGetCoefficientsByClassName.mockResolvedValue([])
+    mockGetWeeklyStats.mockResolvedValue({
+      sessionCount: 0,
+      totalMinutes: 0,
+      averageRating: null,
+      completedBySubject: {},
+    })
+    mockGetUpcoming.mockResolvedValue([
+      { subject: "Maths", title: "Contrôle continu", echeance_type: "devoir", due_date: "2026-06-12" },
+      { subject: "Anglais", title: "Final Exam", echeance_type: "examen", due_date: "2026-06-15" },
+    ])
+    mockInvoke.mockResolvedValue({
+      extractedTimetableMarkdown: "",
+      studentProfileContext: "",
+      isValidTimetable: true,
+      generatedPlanning: [],
+    })
+
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+
+    expect(mockGetUpcoming).toHaveBeenCalledWith("user-1", 7)
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upcomingEcheances: expect.stringContaining("Maths"),
+      })
+    )
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upcomingEcheances: expect.stringContaining("Anglais"),
+      })
+    )
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upcomingEcheances: expect.stringContaining("devoir"),
+      })
+    )
+  })
+
+  it("passes empty upcomingEcheances when no echeances exist", async () => {
+    mockGetCachedAnalysis.mockResolvedValue(null)
+    mockGetCoefficientsByClassName.mockResolvedValue([])
+    mockGetWeeklyStats.mockResolvedValue({
+      sessionCount: 0,
+      totalMinutes: 0,
+      averageRating: null,
+      completedBySubject: {},
+    })
+    mockGetUpcoming.mockResolvedValue([])
+    mockInvoke.mockResolvedValue({
+      extractedTimetableMarkdown: "",
+      studentProfileContext: "",
+      isValidTimetable: true,
+      generatedPlanning: [],
+    })
+
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upcomingEcheances: "",
+      })
+    )
+  })
+
+  it("handles echeance fetch errors gracefully (does not propagate)", async () => {
+    mockGetCachedAnalysis.mockResolvedValue(null)
+    mockGetCoefficientsByClassName.mockResolvedValue([])
+    mockGetWeeklyStats.mockResolvedValue({
+      sessionCount: 0,
+      totalMinutes: 0,
+      averageRating: null,
+      completedBySubject: {},
+    })
+    mockGetUpcoming.mockRejectedValue(new Error("DB error"))
     mockInvoke.mockResolvedValue({
       extractedTimetableMarkdown: "",
       studentProfileContext: "",

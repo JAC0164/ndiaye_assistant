@@ -343,6 +343,17 @@ describe("PlanningGraphAnnotation", () => {
     expect(entry.value).toEqual([])
   })
 
+  it("upcomingEcheances replaces with update and defaults to empty string", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.upcomingEcheances
+    expect(typeof entry.operator).toBe("function")
+    expect(entry.operator("old", "new")).toBe("new")
+    expect(entry.operator("", "échéances")).toBe("échéances")
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toBe("")
+    expect(entry.value).toBe("")
+  })
+
   describe("type exports", () => {
     it("PlanningGraphAnnotationState type is valid", () => {
       const _check: PlanningGraphAnnotationState = {} as PlanningGraphAnnotationState
