@@ -153,12 +153,8 @@ export default function PlanningOverlay() {
   // Get badge color based on session type
   const getSessionTypeStyles = (type: string) => {
     switch (type) {
-      case "course":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20"
       case "td":
         return "bg-purple-500/10 text-purple-400 border-purple-500/20"
-      case "tp":
-        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
       case "review":
         return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
       case "break":
@@ -170,9 +166,7 @@ export default function PlanningOverlay() {
 
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
-      case "course": return "Cours"
       case "td": return "TD"
-      case "tp": return "TP"
       case "review": return "Révision"
       case "break": return "Pause"
       default: return type

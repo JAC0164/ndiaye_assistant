@@ -65,6 +65,7 @@ const baseState: PlanningGraphAnnotationState = {
   subjectCoefficients: "Maths (coeff 5), PC (coeff 4)",
   weeklyStats: "Total: 120 min (2 sessions)",
   isValidTimetable: true,
+  upcomingEcheances: "",
   generatedPlanning: [],
 }
 
@@ -121,13 +122,14 @@ describe("plannerAgent", () => {
     expect(result.generatedPlanning).toHaveLength(2)
   })
 
-  it("includes timetable, profile, coefficients, and weekly stats in model input", async () => {
+  it("includes all context fields in model input", async () => {
     await plannerAgent(baseState)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
     expect(callArg.extractedTimetableMarkdown).toBe(baseState.extractedTimetableMarkdown)
     expect(callArg.studentProfileContext).toBe(baseState.studentProfileContext)
     expect(callArg.subjectCoefficients).toBe(baseState.subjectCoefficients)
     expect(callArg.weeklyStats).toBe(baseState.weeklyStats)
+    expect(callArg.upcomingEcheances).toBe("Aucune échéance à venir.")
   })
 
   it("uses default fallbacks when coefficients and weekly stats are empty", async () => {
@@ -140,6 +142,7 @@ describe("plannerAgent", () => {
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
     expect(callArg.subjectCoefficients).toBe("Aucun coefficient spécifique disponible.")
     expect(callArg.weeklyStats).toBe("Aucune session complétée cette semaine.")
+    expect(callArg.upcomingEcheances).toBe("Aucune échéance à venir.")
   })
 
   it("passes modelOverrides to getModel", async () => {

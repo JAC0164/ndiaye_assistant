@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 import { CoefficientService } from "@/src/services/coefficient.service"
+import { EcheanceService } from "@/src/services/echeance.service"
 import { HistoriqueService } from "@/src/services/historique.service"
 import { ProfileService } from "@/src/services/profile.service"
 import { createPlanningGraph } from "./graph"
@@ -98,6 +99,22 @@ export async function runPlanningWorkflow(
     console.error("Failed to fetch weekly stats:", err)
   }
 
+  let upcomingEcheancesStr = ""
+  try {
+    const echeanceService = new EcheanceService(supabase)
+    const echeances = await echeanceService.getUpcoming(userId, 7)
+    if (echeances.length > 0) {
+      upcomingEcheancesStr = echeances
+        .map(
+          (e) =>
+            `- ${e.subject}: "${e.title}" (${e.echeance_type}) — à rendre le ${new Date(e.due_date).toLocaleDateString("fr-FR")}`
+        )
+        .join("\n")
+    }
+  } catch (err) {
+    console.error("Failed to fetch upcoming echeances:", err)
+  }
+
   if (!compiledGraph) compiledGraph = createPlanningGraph()
   const graph = modelOverrides ? createPlanningGraph(modelOverrides) : compiledGraph
 
@@ -107,6 +124,7 @@ export async function runPlanningWorkflow(
     onboardingData,
     subjectCoefficients: subjectCoefficientsStr,
     weeklyStats,
+    upcomingEcheances: upcomingEcheancesStr,
     extractedTimetableMarkdown: extractedTimetable,
     isValidTimetable,
     studentProfileContext,

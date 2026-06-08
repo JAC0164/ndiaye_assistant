@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const dayOfWeekSchema = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 
-export const sessionTypeSchema = z.enum(['course', 'td', 'tp', 'review', 'break']);
+export const sessionTypeSchema = z.enum(['td', 'review', 'break']);
 
 export const generatedSeanceSchema = z.object({
   day_of_week: dayOfWeekSchema.describe('Jour de la semaine cyclique.'),
@@ -43,6 +43,7 @@ export interface PlanningGraphState {
   studentProfileContext: string;
   subjectCoefficients: string;
   weeklyStats: string;
+  upcomingEcheances: string;
   isValidTimetable: boolean;
   validationErrorMessage?: string;
   generatedPlanning: GeneratedSeance[];
@@ -68,6 +69,10 @@ export const PlanningGraphAnnotation = Annotation.Root({
     default: () => '',
   }),
   weeklyStats: Annotation<string>({
+    value: (_current, update) => update,
+    default: () => '',
+  }),
+  upcomingEcheances: Annotation<string>({
     value: (_current, update) => update,
     default: () => '',
   }),

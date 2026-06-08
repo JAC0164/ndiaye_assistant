@@ -39,9 +39,7 @@ export const SERIES_INFO = [
 export const BEDTIME_OPTIONS = ["20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"]
 
 export const TYPE_LABELS: Record<string, string> = {
-  course: "Cours",
   td: "TD",
-  tp: "TP",
   review: "Révision",
   break: "Pause",
 }

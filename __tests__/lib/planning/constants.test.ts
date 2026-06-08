@@ -198,15 +198,13 @@ describe("planning constants", () => {
   })
 
   describe("TYPE_LABELS", () => {
-    it("has 5 entries", () => {
-      expect(Object.keys(TYPE_LABELS)).toHaveLength(5)
+    it("has 3 entries", () => {
+      expect(Object.keys(TYPE_LABELS)).toHaveLength(3)
     })
 
     it("maps each type to correct French label", () => {
       expect(TYPE_LABELS).toEqual({
-        course: "Cours",
         td: "TD",
-        tp: "TP",
         review: "Révision",
         break: "Pause",
       })

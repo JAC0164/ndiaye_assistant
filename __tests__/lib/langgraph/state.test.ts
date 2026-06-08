@@ -35,7 +35,7 @@ describe("dayOfWeekSchema", () => {
 
 describe("sessionTypeSchema", () => {
   it("accepts all valid session types", () => {
-    const valid = ["course", "td", "tp", "review", "break"] as const
+    const valid = ["td", "review", "break"] as const
     for (const t of valid) {
       expect(sessionTypeSchema.parse(t)).toBe(t)
     }
@@ -59,7 +59,7 @@ describe("generatedSeanceSchema", () => {
     start_time: "08:00",
     end_time: "09:30",
     subject: "Mathématiques",
-    session_type: "course",
+    session_type: "td",
     pedagogical_note: "Réviser les dérivées.",
   }
 
@@ -69,7 +69,7 @@ describe("generatedSeanceSchema", () => {
     expect(result.start_time).toBe("08:00")
     expect(result.end_time).toBe("09:30")
     expect(result.subject).toBe("Mathématiques")
-    expect(result.session_type).toBe("course")
+    expect(result.session_type).toBe("td")
     expect(result.pedagogical_note).toBe("Réviser les dérivées.")
   })
 
@@ -213,8 +213,8 @@ describe("GeneratedSeance type", () => {
       start_time: "14:00",
       end_time: "14:45",
       subject: "Physique-Chimie",
-      session_type: "tp",
-      pedagogical_note: "TP sur les circuits",
+      session_type: "td",
+      pedagogical_note: "TD sur les circuits",
     }
     expect(generatedSeanceSchema.parse(seance)).toEqual(seance)
   })
@@ -252,7 +252,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(PlanningGraphAnnotation).toHaveProperty("spec")
   })
 
-  it("has a spec with all 10 fields", () => {
+  it("has a spec with all 11 fields", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const keys = Object.keys(spec)
     expect(keys).toContain("timetableImage")
@@ -262,10 +262,11 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("studentProfileContext")
     expect(keys).toContain("subjectCoefficients")
     expect(keys).toContain("weeklyStats")
+    expect(keys).toContain("upcomingEcheances")
     expect(keys).toContain("isValidTimetable")
     expect(keys).toContain("validationErrorMessage")
     expect(keys).toContain("generatedPlanning")
-    expect(keys).toHaveLength(10)
+    expect(keys).toHaveLength(11)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -334,8 +335,8 @@ describe("PlanningGraphAnnotation", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const entry = spec.generatedPlanning
     expect(typeof entry.operator).toBe("function")
-    const old = [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "course" as const, pedagogical_note: "" }]
-    const updated = [{ day_of_week: "tuesday" as const, start_time: "09:00", end_time: "10:00", subject: "Physics", session_type: "course" as const, pedagogical_note: "" }]
+    const old = [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "td" as const, pedagogical_note: "" }]
+    const updated = [{ day_of_week: "tuesday" as const, start_time: "09:00", end_time: "10:00", subject: "Physics", session_type: "td" as const, pedagogical_note: "" }]
     expect(entry.operator(old, updated)).toBe(updated)
     expect(typeof entry.initialValueFactory).toBe("function")
     expect(entry.initialValueFactory()).toEqual([])

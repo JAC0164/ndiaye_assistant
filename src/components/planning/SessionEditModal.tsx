@@ -59,9 +59,7 @@ export default function SessionEditModal({
               className="mt-1.5 w-full rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-sm text-white focus:outline-none"
             >
               <option value="review">Révision (Review)</option>
-              <option value="course">Cours (Course)</option>
               <option value="td">TD</option>
-              <option value="tp">TP</option>
               <option value="break">Pause (Break)</option>
             </select>
           </div>

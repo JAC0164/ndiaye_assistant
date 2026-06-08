@@ -14,7 +14,7 @@ describe("SessionService", () => {
     start_time: "08:00",
     end_time: "09:00",
     subject: "Maths",
-    session_type: "course",
+    session_type: "td",
     pedagogical_note: null,
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -126,7 +126,7 @@ describe("SessionService", () => {
         start_time: "08:00",
         end_time: "09:00",
         subject: "Maths",
-        session_type: "course",
+        session_type: "td",
         pedagogical_note: "Focus on algebra",
       },
       {
@@ -189,7 +189,7 @@ describe("SessionService", () => {
         start_time: "08:00",
         end_time: "09:00",
         subject: "Maths",
-        session_type: "course",
+        session_type: "td",
         pedagogical_note: "Algebra review",
       },
     ]

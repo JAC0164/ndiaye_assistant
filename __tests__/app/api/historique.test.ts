@@ -105,7 +105,7 @@ describe("Historique API", () => {
   describe("POST /api/historique", () => {
     const validBody = {
       subject: "Maths",
-      session_type: "course" as const,
+      session_type: "td" as const,
       duration_minutes: 90,
       self_rating: 4,
       notes: "Bien compris les fonctions",
@@ -167,7 +167,7 @@ describe("Historique API", () => {
       })
 
       const request = createMockRequest("POST", {
-        body: { session_type: "course" },
+        body: { session_type: "td" },
       })
       const response = await POST(request)
 
@@ -199,7 +199,7 @@ describe("Historique API", () => {
       })
 
       const request = createMockRequest("POST", {
-        body: { subject: "Maths", session_type: "course", duration_minutes: 0 },
+        body: { subject: "Maths", session_type: "td", duration_minutes: 0 },
       })
       const response = await POST(request)
 
@@ -215,7 +215,7 @@ describe("Historique API", () => {
       })
 
       const request = createMockRequest("POST", {
-        body: { subject: "Maths", session_type: "course", self_rating: 6 },
+        body: { subject: "Maths", session_type: "td", self_rating: 6 },
       })
       const response = await POST(request)
 

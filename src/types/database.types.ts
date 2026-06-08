@@ -275,7 +275,7 @@ export interface Database {
         | "friday"
         | "saturday"
         | "sunday"
-      session_type: "course" | "td" | "tp" | "review" | "break"
+      session_type: "td" | "review" | "break"
     }
   }
 }
