@@ -8,7 +8,7 @@ export default function DisplayModeToggle() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-zinc-400">Mode d'affichage:</span>
+      <span className="text-xs text-zinc-400">Mode d&apos;affichage:</span>
       <button
         onClick={toggleDisplayMode}
         className={`relative flex items-center h-6 w-12 rounded-full p-0.5 transition-colors duration-300 focus:outline-none ${

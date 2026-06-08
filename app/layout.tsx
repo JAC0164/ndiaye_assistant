@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,18 +35,18 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col bg-zinc-950 text-zinc-150">
         <DisplayModeProvider>
           <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-6 py-3 backdrop-blur-md sticky top-0 z-40">
-            <a href="/" className="text-sm font-semibold tracking-tight text-zinc-100 hover:text-emerald-400 transition-colors">
+            <Link href="/" className="text-sm font-semibold tracking-tight text-zinc-100 hover:text-emerald-400 transition-colors">
               Ndiaye Test
-            </a>
+            </Link>
             <div className="flex items-center gap-6">
               <DisplayModeToggle />
               <nav className="flex gap-4 text-sm text-zinc-400">
-                <a href="/auth" className="hover:text-zinc-100 transition-colors">
+                <Link href="/auth" className="hover:text-zinc-100 transition-colors">
                   Auth
-                </a>
-                <a href="/planning" className="hover:text-zinc-100 transition-colors">
+                </Link>
+                <Link href="/planning" className="hover:text-zinc-100 transition-colors">
                   Planning
-                </a>
+                </Link>
               </nav>
             </div>
           </header>

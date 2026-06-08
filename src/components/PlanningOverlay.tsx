@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef } from "react"
+import React, { useEffect, useState, useRef, useCallback } from "react"
 import { useDisplayMode } from "@/src/components/providers/DisplayModeProvider"
 import { createClient } from "@/src/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
@@ -18,7 +18,30 @@ export default function PlanningOverlay() {
   const [elementStart, setElementStart] = useState({ x: 0, y: 0 })
   
   const containerRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+
+  const fetchTodaySessions = useCallback(async (userId: string) => {
+    try {
+      setLoading(true)
+      const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+      const todayEnglish = days[new Date().getDay()]
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("day_of_week", todayEnglish)
+        .order("start_time", { ascending: true })
+
+      if (error) throw error
+      setSessions(data || [])
+    } catch (err) {
+      console.error("Error fetching daily sessions for overlay:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase])
 
   // Track authentication state
   useEffect(() => {
@@ -42,6 +65,7 @@ export default function PlanningOverlay() {
     })
 
     return () => subscription.unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Refetch when planning page revalidates or saving is complete (simple custom event or short polling fallback)
@@ -53,29 +77,7 @@ export default function PlanningOverlay() {
     }
     window.addEventListener("ndiaye-sessions-saved", handleSessionsSaved)
     return () => window.removeEventListener("ndiaye-sessions-saved", handleSessionsSaved)
-  }, [user])
-
-  const fetchTodaySessions = async (userId: string) => {
-    try {
-      setLoading(true)
-      const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-      const todayEnglish = days[new Date().getDay()]
-
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("day_of_week", todayEnglish)
-        .order("start_time", { ascending: true })
-
-      if (error) throw error
-      setSessions(data || [])
-    } catch (err) {
-      console.error("Error fetching daily sessions for overlay:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [user, fetchTodaySessions])
 
   // Handle dragging
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -263,7 +265,7 @@ export default function PlanningOverlay() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-xs text-zinc-500">Aucune séance prévue aujourd'hui !</p>
+            <p className="text-xs text-zinc-500">Aucune séance prévue aujourd&apos;hui !</p>
             <button
               onClick={() => {
                 setDisplayMode("standard")
@@ -320,7 +322,7 @@ export default function PlanningOverlay() {
           }}
           className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-all hover:underline"
         >
-          Ouvrir l'éditeur
+          Ouvrir l&apos;éditeur
         </button>
       </div>
     </div>

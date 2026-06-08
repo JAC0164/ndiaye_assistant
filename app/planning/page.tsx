@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/src/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
@@ -10,11 +10,11 @@ import { getProviderLabel } from "@/src/lib/langgraph/providers"
 import WeeklySchedule from "@/src/components/WeeklySchedule"
 import MarkdownPreview from "@/src/components/planning/MarkdownPreview"
 import { saveUserSessionsAction } from "./actions"
-import type { BlockedSlot, OnboardingForm, ApiResponse } from "@/src/types/planning.types"
+import type { OnboardingForm, ApiResponse } from "@/src/types/planning.types"
 
 const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
 
-import { SERIES_SUBJECTS, SERIES_INFO, BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
+import { SERIES_SUBJECTS } from "@/src/lib/planning/constants"
 import OnboardingFormPanel from "@/src/components/planning/OnboardingFormPanel"
 import SessionEditModal from "@/src/components/planning/SessionEditModal"
 
@@ -110,7 +110,6 @@ export default function PlanningPage() {
   const supabase = supabaseRef.current
 
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   
   // Onboarding States
   const [inputTab, setInputTab] = useState<"form" | "json">("form")
@@ -165,18 +164,22 @@ export default function PlanningPage() {
       setUser(user)
       setLoading(false)
     })
-  }, [router, supabase.auth])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router])
 
   // Image preview hook
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreviewUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(imageFile)
-    setImagePreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
+  const imagePreviewUrl = useMemo(() => {
+    if (!imageFile) return null
+    return URL.createObjectURL(imageFile)
   }, [imageFile])
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl)
+      }
+    }
+  }, [imagePreviewUrl])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -745,6 +748,7 @@ export default function PlanningPage() {
 
       {/* Interactive Modal for Editing a Session */}
       <SessionEditModal
+        key={editingSessionIndex}
         isOpen={showEditModal}
         session={editingSession}
         onClose={() => setShowEditModal(false)}

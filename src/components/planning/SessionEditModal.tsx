@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { GeneratedSeance } from "@/src/lib/langgraph/state"
 
 interface SessionEditModalProps {
@@ -18,15 +18,9 @@ export default function SessionEditModal({
   onSave,
   onDelete,
 }: SessionEditModalProps) {
-  const [editingSession, setEditingSession] = useState<GeneratedSeance | null>(null)
-
-  useEffect(() => {
-    if (session) {
-      setEditingSession({ ...session })
-    } else {
-      setEditingSession(null)
-    }
-  }, [session])
+  const [editingSession, setEditingSession] = useState<GeneratedSeance | null>(
+    () => session ? { ...session } : null
+  )
 
   if (!isOpen || !editingSession) return null
 
