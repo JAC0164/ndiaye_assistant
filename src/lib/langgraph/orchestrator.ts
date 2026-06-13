@@ -36,7 +36,7 @@ function setCachedCoefficients(className: string, data: string): void {
         oldestKey = k
       }
     }
-    if (oldestKey) coefficientsCache.delete(oldestKey)
+    coefficientsCache.delete(oldestKey!)
   }
   coefficientsCache.set(className, {
     data,

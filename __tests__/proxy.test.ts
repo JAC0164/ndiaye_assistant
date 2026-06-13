@@ -48,6 +48,11 @@ describe("proxy", () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null })
   })
 
+  afterEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://test.supabase.co")
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key")
+  })
+
   it("creates a Supabase server client with correct env vars", async () => {
     const request = createMockRequest()
     await proxy(request)
@@ -149,6 +154,18 @@ describe("proxy", () => {
 
     const request = createMockRequest()
     await expect(proxy(request)).rejects.toThrow("Network error")
+  })
+
+  it("throws when NEXT_PUBLIC_SUPABASE_URL env var is missing (requireEnv)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "")
+    const request = createMockRequest()
+    await expect(proxy(request)).rejects.toThrow("Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL")
+  })
+
+  it("throws when NEXT_PUBLIC_SUPABASE_ANON_KEY env var is missing (requireEnv)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    const request = createMockRequest()
+    await expect(proxy(request)).rejects.toThrow("Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY")
   })
 
   it("forwards cookies from request to supabase on read", async () => {

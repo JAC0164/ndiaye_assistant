@@ -89,10 +89,6 @@ export function computeBudgets(
     // tdMinutes gets the remainder (which is automatically a multiple of 5)
     let tdMinutes = roundedTotal - reviewMinutes
 
-    // Ensure we don't have negative durations
-    if (reviewMinutes < 0) reviewMinutes = 0
-    if (tdMinutes < 0) tdMinutes = 0
-
     result.set(subject.name, {
       totalMinutes: roundedTotal,
       reviewMinutes,

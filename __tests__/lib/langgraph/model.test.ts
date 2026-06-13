@@ -8,7 +8,14 @@ vi.mock("@/src/lib/langgraph/providers/factory", () => ({
   createModel: vi.fn(),
 }))
 
-import { getModel } from "@/src/lib/langgraph/model"
+vi.mock("@/src/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+  },
+}))
+
+import { getModel, createTokenLogger } from "@/src/lib/langgraph/model"
+import { logger } from "@/src/lib/logger"
 import { getModelConfigForAgent } from "@/src/lib/langgraph/providers"
 import { createModel } from "@/src/lib/langgraph/providers/factory"
 
@@ -45,5 +52,116 @@ describe("getModel", () => {
     vi.mocked(getModelConfigForAgent).mockReturnValue(mockConfig)
     getModel("planner")
     expect(createModel).toHaveBeenCalledWith(mockConfig)
+  })
+})
+
+describe("createTokenLogger", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("returns an object with callbacks array containing handleLLMEnd", () => {
+    const result = createTokenLogger("test-agent")
+    expect(result).toHaveProperty("callbacks")
+    expect(Array.isArray(result.callbacks)).toBe(true)
+    expect(result.callbacks).toHaveLength(1)
+    expect(typeof result.callbacks[0].handleLLMEnd).toBe("function")
+  })
+
+  it("handleLLMEnd logs token usage from llmOutput.tokenUsage", () => {
+    const output = {
+      generations: [[{ text: "" }]],
+      llmOutput: {
+        tokenUsage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      },
+    }
+
+    const result = createTokenLogger("test-agent")
+    result.callbacks[0].handleLLMEnd(output as any)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { promptTokens: 10, completionTokens: 20, totalTokens: 30, duration: expect.any(String), agent: "test-agent" },
+      "Token usage"
+    )
+  })
+
+  it("handleLLMEnd logs token usage from llmOutput.estimatedTokenUsage", () => {
+    const output = {
+      generations: [[{ text: "" }]],
+      llmOutput: {
+        estimatedTokenUsage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
+      },
+    }
+
+    const result = createTokenLogger("test-agent")
+    result.callbacks[0].handleLLMEnd(output as any)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { promptTokens: 15, completionTokens: 25, totalTokens: 40, duration: expect.any(String), agent: "test-agent" },
+      "Token usage"
+    )
+  })
+
+  it("handleLLMEnd falls back to usage_metadata on the message when llmOutput has no tokenUsage", () => {
+    const output = {
+      generations: [
+        [
+          {
+            text: "",
+            message: {
+              usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
+            },
+          },
+        ],
+      ],
+      llmOutput: {},
+    }
+
+    const result = createTokenLogger("test-agent")
+    result.callbacks[0].handleLLMEnd(output as any)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { promptTokens: 100, completionTokens: 50, totalTokens: 150, duration: expect.any(String), agent: "test-agent" },
+      "Token usage"
+    )
+  })
+
+  it("handleLLMEnd falls back to 0 when no token usage info is available at all (lines 47-49)", () => {
+    const output = {
+      generations: [[{ text: "" }]],
+      llmOutput: {},
+    }
+
+    const result = createTokenLogger("test-agent")
+    result.callbacks[0].handleLLMEnd(output as any)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { promptTokens: 0, completionTokens: 0, totalTokens: 0, duration: expect.any(String), agent: "test-agent" },
+      "Token usage"
+    )
+  })
+
+  it("handleLLMEnd falls back to promptTokens + completionTokens for totalTokens", () => {
+    const output = {
+      generations: [
+        [
+          {
+            text: "",
+            message: {
+              usage_metadata: { input_tokens: 100, output_tokens: 50 },
+            },
+          },
+        ],
+      ],
+      llmOutput: {},
+    }
+
+    const result = createTokenLogger("test-agent")
+    result.callbacks[0].handleLLMEnd(output as any)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { promptTokens: 100, completionTokens: 50, totalTokens: 150, duration: expect.any(String), agent: "test-agent" },
+      "Token usage"
+    )
   })
 })

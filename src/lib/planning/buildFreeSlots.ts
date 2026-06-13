@@ -83,11 +83,9 @@ export function buildFreeSlots(
         const currentEnd = parseTime(sortedSlots[i].end)
         const nextStart = parseTime(sortedSlots[i + 1].start)
         const gap = nextStart - currentEnd
-        if (gap >= 120) {
+        if (gap >= 120 && gap > PLANNING_CONFIG.mandatoryBreakAfterClassMinutes) {
           const gapStart = currentEnd + PLANNING_CONFIG.mandatoryBreakAfterClassMinutes
-          if (gapStart < nextStart) {
-            rawWindows.push({ start: gapStart, end: nextStart })
-          }
+          rawWindows.push({ start: gapStart, end: nextStart })
         }
       }
     } else {

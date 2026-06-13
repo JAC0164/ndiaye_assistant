@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createMockSupabase } from "@/src/test/utils/mock-supabase"
+import { logger } from "@/src/lib/logger"
+
+vi.mock("@/src/lib/logger", () => ({
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+}))
 
 const mockGetByUserId = vi.hoisted(() => vi.fn())
 const mockGetCachedAnalysis = vi.hoisted(() => vi.fn())
@@ -11,6 +16,15 @@ const mockGetDaysSinceLastRevisionBySubject = vi.hoisted(() => vi.fn())
 const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
 const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvoke })))
+const mockValidatePlanning = vi.hoisted(() =>
+  vi.fn(() => ({
+    validatedPlanning: [],
+    wasRepaired: false,
+    errors: [],
+    warnings: [],
+    removedSessions: [],
+  }))
+)
 
 vi.mock("@/src/services/profile.service", () => ({
   ProfileService: vi.fn(function () {
@@ -50,6 +64,10 @@ vi.mock("@/src/services/echeance.service", () => ({
 
 vi.mock("@/src/lib/langgraph/graph", () => ({
   createPlanningGraph: mockCreatePlanningGraph,
+}))
+
+vi.mock("@/src/lib/planning/validatePlanning", () => ({
+  validatePlanning: mockValidatePlanning,
 }))
 
 // runPlanningWorkflow imported dynamically in beforeEach
@@ -302,6 +320,129 @@ describe("runPlanningWorkflow", () => {
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
         upcomingEcheances: expect.stringContaining("Maths"),
+      })
+    )
+  })
+
+  it("should log error when historiqueService.getDaysSinceLastRevisionBySubject throws", async () => {
+    mockGetDaysSinceLastRevisionBySubject.mockRejectedValue(new Error("DB error"))
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to fetch days since last revision"
+    )
+  })
+
+  it("should use cached Terminale S1 coefficients when class_id is null on second call", async () => {
+    await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
+    expect(mockGetCoefficientsByClassName).toHaveBeenCalledTimes(1)
+
+    mockGetCoefficientsByClassName.mockClear()
+    await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
+    expect(mockGetCoefficientsByClassName).not.toHaveBeenCalled()
+  })
+
+  it("should log error when echeanceService.getUpcoming throws", async () => {
+    mockGetUpcoming.mockRejectedValue(new Error("Echeance error"))
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to fetch upcoming echeances"
+    )
+  })
+
+  it("should log error when post-graph validatePlanning throws", async () => {
+    mockValidatePlanning.mockImplementationOnce(() => {
+      throw new Error("Validation failed")
+    })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to run post-graph planning validation"
+    )
+  })
+
+  it("should log warn when cached analysis JSON fails to parse", async () => {
+    mockGetCachedAnalysis.mockResolvedValue({
+      extractedTimetableMarkdown: "{broken json}",
+      isValidTimetable: true,
+      studentProfileContext: "test",
+    })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(logger.warn).toHaveBeenCalledWith("Failed to parse cached analysis JSON, invalidating cache")
+  })
+
+  it("evicts oldest cache entries when coefficients cache exceeds max size", async () => {
+    const allUsers = Array.from({ length: 52 }, (_, i) => `evict-user-${i}`)
+    mockGetByUserId.mockImplementation(async (uid: string) => ({
+      id: uid,
+      email: `${uid}@test.com`,
+      display_name: `Test ${uid}`,
+      class_id: uid === "user-2" ? null : `class-${uid}`,
+      metadata: {},
+    }))
+    mockGetByClassId.mockResolvedValue([{ subject: "Maths", coefficient: 5 }])
+
+    for (const uid of allUsers) {
+      await runPlanningWorkflow(supabase, uid, buffer, onboardingData)
+    }
+  })
+
+  it("handles empty coefficients from getByClassId (line 107 false branch)", async () => {
+    mockGetByClassId.mockResolvedValue([])
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  it("handles empty coefficients from getCoefficientsByClassName (line 121 false branch)", async () => {
+    mockGetCoefficientsByClassName.mockResolvedValue([])
+    await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
+    expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  it("falls back to default bedtime when onboarding omits it (line 202)", async () => {
+    const partialOnboarding = { weakSubjects: ["Maths"], blockedSlots: [] }
+    await runPlanningWorkflow(supabase, "user-1", buffer, partialOnboarding)
+    expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  it("falls back to default blockedSlots when onboarding omits it (line 203)", async () => {
+    const partialOnboarding = { weakSubjects: ["Maths"], bedtime: "22:00" }
+    await runPlanningWorkflow(supabase, "user-1", buffer, partialOnboarding)
+    expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  it("handles null state.extractedTimetable in cache comparison (line 213 false branch)", async () => {
+    mockInvoke.mockResolvedValue({
+      extractedTimetable: null,
+      extractedTimetableMarkdown: "",
+      studentProfileContext: "",
+      isValidTimetable: true,
+      generatedPlanning: [],
+    })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(mockSaveAnalysisCache).not.toHaveBeenCalled()
+  })
+
+  it("handles null profile (line 66 false branch)", async () => {
+    mockGetByUserId.mockResolvedValue(null)
+    await runPlanningWorkflow(supabase, "non-existent", buffer, onboardingData)
+    expect(mockGetCachedAnalysis).not.toHaveBeenCalled()
+    expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  it("skips JSON parse when cached timetable is not JSON (line 70 false branch)", async () => {
+    mockGetCachedAnalysis.mockResolvedValue({
+      extractedTimetableMarkdown: "Markdown text not JSON",
+      isValidTimetable: true,
+      studentProfileContext: "test context",
+    })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extractedTimetable: null,
+        studentProfileContext: "",
+        extractedTimetableMarkdown: "",
       })
     )
   })

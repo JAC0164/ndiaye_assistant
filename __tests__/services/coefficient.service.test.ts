@@ -104,5 +104,21 @@ describe("CoefficientService", () => {
 
       expect(result).toEqual([])
     })
+
+    it("should log error and return empty array when setResult has db error", async () => {
+      mock.builder.then.mockImplementation((resolve) => {
+        resolve({ data: null, error: new Error("db error") })
+      })
+      const result = await service.getCoefficientsByClassName("Terminale S1")
+
+      expect(result).toEqual([])
+    })
+
+    it("should handle promise rejection from Supabase for getCoefficientsByClassName", async () => {
+      mock.builder.then.mockImplementation((_resolve, reject) => {
+        reject(new Error("rejection error"))
+      })
+      await expect(service.getCoefficientsByClassName("Terminale S1")).rejects.toThrow("rejection error")
+    })
   })
 })

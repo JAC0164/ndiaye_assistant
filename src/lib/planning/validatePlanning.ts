@@ -1,6 +1,7 @@
 import { GeneratedSeance } from "@/src/lib/langgraph/state"
 import { BlockedSlot, ValidationError, ValidationResult } from "@/src/types/planning.types"
 import { parseTime } from "./buildFreeSlots"
+import { PLANNING_CONFIG } from "./planningConfig"
 
 /**
  * Post-LLM hard constraint validator.
@@ -104,6 +105,31 @@ export function validatePlanning(
     }
 
     validatedPlanning.push(sessionCopy)
+  }
+
+  // 5. Free day session cap (saturday, sunday)
+  const freeDays = ["saturday", "sunday"]
+  for (const day of freeDays) {
+    const daySessions = validatedPlanning.filter(
+      (s) => s.day_of_week.toLowerCase() === day && s.session_type !== "break"
+    )
+    const excess = daySessions.length - PLANNING_CONFIG.maxSessionsPerFreeDay
+    if (excess > 0) {
+      const toRemove = daySessions.slice(-excess)
+      const removeSet = new Set(toRemove)
+      for (let i = validatedPlanning.length - 1; i >= 0; i--) {
+        if (removeSet.has(validatedPlanning[i])) {
+          validatedPlanning.splice(i, 1)
+        }
+      }
+      removedSessions.push(...toRemove)
+      wasRepaired = true
+      errors.push({
+        check: "free_day_session_cap",
+        severity: "error",
+        message: `Le ${day === "saturday" ? "samedi" : "dimanche"} a ${daySessions.length} séances (max ${PLANNING_CONFIG.maxSessionsPerFreeDay}). ${excess} séance(s) supprimée(s).`,
+      })
+    }
   }
 
   return {

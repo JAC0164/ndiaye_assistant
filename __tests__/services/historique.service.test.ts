@@ -266,5 +266,34 @@ describe("HistoriqueService", () => {
         "Erreur lors de la récupération de l'historique par matière: db error"
       )
     })
+
+    it("should handle null data gracefully (line 107 || [] fallback)", async () => {
+      mock.builder.then.mockImplementation((resolve) => {
+        resolve({ data: null, error: null })
+      })
+      const result = await service.getDaysSinceLastRevisionBySubject("user-1")
+      expect(result.size).toBe(0)
+    })
+
+    it("should skip rows with null subject (line 108 continue)", async () => {
+      const now = new Date()
+      const threeDaysAgo = new Date(now.getTime() - 3 * 86400000).toISOString()
+      mock.setResult([
+        { subject: null, completed_at: threeDaysAgo },
+        { subject: "Maths", completed_at: threeDaysAgo },
+      ])
+      const result = await service.getDaysSinceLastRevisionBySubject("user-1")
+      expect(result.get("Maths")).toBe(3)
+      expect(result.size).toBe(1)
+    })
+
+    it("should skip rows with null completed_at (line 108 continue)", async () => {
+      mock.setResult([
+        { subject: "Maths", completed_at: null },
+        { subject: "Physics", completed_at: null },
+      ])
+      const result = await service.getDaysSinceLastRevisionBySubject("user-1")
+      expect(result.size).toBe(0)
+    })
   })
 })

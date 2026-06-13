@@ -99,5 +99,14 @@ describe("planning constants", () => {
       const map = parseCoefficientTable("")
       expect(map.size).toBe(0)
     })
+
+    it("skips lines that don't match the coefficient pattern (line 37 false branch)", () => {
+      const table = `- MATH: 8\ninvalid line without dashes\n- PC: 8`
+      const map = parseCoefficientTable(table)
+      expect(map.size).toBe(2)
+      expect(map.get("MATH")).toBe(8)
+      expect(map.get("PC")).toBe(8)
+      expect(map.has("INVALID LINE WITHOUT DASHES")).toBe(false)
+    })
   })
 })

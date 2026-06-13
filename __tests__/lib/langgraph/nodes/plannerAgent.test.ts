@@ -155,7 +155,7 @@ describe("plannerAgent", () => {
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
     expect(systemMessage).toContain("Planner Agent")
     expect(systemMessage).toContain("allowlist")
-    expect(systemMessage).toContain("Same-day consolidation")
+    expect(systemMessage).toContain("same-day consolidation")
     expect(systemMessage).toContain("Cognitive alternation")
   })
 })

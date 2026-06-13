@@ -53,7 +53,7 @@ const TEST_BLOCKED: BlockedSlot[] = [
 ]
 
 describe("validatePlanning", () => {
-  it("removes unauthorized subjects, corrects casing, flags bedtime/blocked slot overlaps, and fills empty notes", () => {
+  it("removes unauthorized subjects, corrects casing, flags bedtime/blocked slot overlaps, fills empty notes, and caps free day sessions", () => {
     const result = validatePlanning(TEST_PLANNING, ALLOWED_SUBJECTS, "22:00", TEST_BLOCKED)
 
     // Verify repairs
@@ -86,5 +86,103 @@ describe("validatePlanning", () => {
     const pc = result.validatedPlanning.find((s) => s.subject === "PC")
     expect(pc).toBeDefined()
     expect(result.errors.some((e) => e.check === "bedtime_boundary")).toBe(true)
+  })
+
+  it("removes excess sessions on free days beyond maxSessionsPerFreeDay", () => {
+    const subjects = Array.from({ length: 8 }, (_, i) => `S${i}`)
+    const sessions: GeneratedSeance[] = [
+      ...subjects.map((s, i) => ({
+        day_of_week: "saturday" as const,
+        start_time: `${String(9 + i).padStart(2, "0")}:00`,
+        end_time: `${String(9 + i).padStart(2, "0")}:45`,
+        subject: s,
+        session_type: "review" as const,
+        pedagogical_note: "test",
+      })),
+      {
+        day_of_week: "saturday" as const,
+        start_time: "12:00",
+        end_time: "12:30",
+        subject: "Pause",
+        session_type: "break" as const,
+        pedagogical_note: "",
+      },
+    ]
+
+    const result = validatePlanning(sessions, subjects, "22:00", [])
+
+    const satStudySessions = result.validatedPlanning.filter(
+      (s) => s.day_of_week === "saturday" && s.session_type !== "break"
+    )
+    expect(satStudySessions).toHaveLength(6)
+    expect(result.wasRepaired).toBe(true)
+    expect(result.removedSessions.length).toBeGreaterThanOrEqual(2)
+    expect(result.errors.some((e) => e.check === "free_day_session_cap")).toBe(true)
+  })
+
+  it("caps sunday sessions independently of saturday", () => {
+    const subjects = Array.from({ length: 7 }, (_, i) => `Sub${i}`)
+    const sessions: GeneratedSeance[] = subjects.map((s, i) => ({
+      day_of_week: "sunday" as const,
+      start_time: `${String(9 + i).padStart(2, "0")}:00`,
+      end_time: `${String(9 + i).padStart(2, "0")}:45`,
+      subject: s,
+      session_type: "review" as const,
+      pedagogical_note: "test",
+    }))
+
+    const result = validatePlanning(sessions, subjects, "22:00", [])
+    const sunStudy = result.validatedPlanning.filter((s) => s.day_of_week === "sunday" && s.session_type !== "break")
+    expect(sunStudy).toHaveLength(6)
+    expect(result.removedSessions).toHaveLength(1)
+  })
+
+  it("does not cap free days already under maxSessionsPerFreeDay", () => {
+    const sessions: GeneratedSeance[] = Array.from({ length: 4 }, (_, i) => ({
+      day_of_week: "saturday" as const,
+      start_time: `${String(9 + i).padStart(2, "0")}:00`,
+      end_time: `${String(9 + i).padStart(2, "0")}:45`,
+      subject: `X${i}`,
+      session_type: "review" as const,
+      pedagogical_note: "test",
+    }))
+    const result = validatePlanning(sessions, ["X0", "X1", "X2", "X3"], "22:00", [])
+    expect(result.validatedPlanning).toHaveLength(4)
+    expect(result.wasRepaired).toBe(false)
+    expect(result.removedSessions).toHaveLength(0)
+  })
+
+  it("does not flag sessions that don't overlap with blocked slots on the same day (line 78 false branch)", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "tuesday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "test",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", TEST_BLOCKED)
+    expect(result.validatedPlanning).toHaveLength(1)
+    expect(result.errors.filter((e) => e.check === "blocked_slot_overlap")).toHaveLength(0)
+  })
+
+  it("fills empty pedagogical note for study session with whitespace-only note (lines 90-92 false branch)", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "   ",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    const mathSession = result.validatedPlanning[0]
+    expect(mathSession.pedagogical_note).toBe("Révise tes notes et refais les exercices clés.")
+    expect(result.wasRepaired).toBe(true)
+    expect(result.warnings.some((w) => w.check === "empty_pedagogical_note")).toBe(true)
   })
 })

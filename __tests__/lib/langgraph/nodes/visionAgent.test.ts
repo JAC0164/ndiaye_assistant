@@ -47,7 +47,7 @@ vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
   withRetry: vi.fn(async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()),
 }))
 
-import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
+import { visionAgent, timetableToMarkdown } from "@/src/lib/langgraph/nodes/visionAgent"
 
 const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("fake-image-bytes"),
@@ -182,5 +182,52 @@ describe("visionAgent", () => {
     expect(getModelSpy).toHaveBeenCalledWith("vision", overrides)
 
     getModelSpy.mockRestore()
+  })
+
+  it("uses fallback filiere S1 when onboarding has no serie", async () => {
+    await visionAgent(baseState)
+    const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
+    const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
+    expect(systemMessage).toContain('Set filiere to "S1"')
+  })
+})
+
+describe("timetableToMarkdown", () => {
+  it("returns empty string for null timetable", () => {
+    expect(timetableToMarkdown(null as any)).toBe("")
+  })
+
+  it("returns empty string for timetable without days", () => {
+    expect(timetableToMarkdown({ filiere: "S1" } as any)).toBe("")
+  })
+
+  it("falls back to uppercase day name for unknown day (line 34)", () => {
+    const timetable = {
+      filiere: "S1",
+      days: [
+        {
+          day: "funday",
+          slots: [
+            { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+          ],
+        },
+      ],
+    }
+    const result = timetableToMarkdown(timetable)
+    expect(result).toContain("FUNDAY")
+  })
+})
+
+describe("visionAgent coefficientTable fallback", () => {
+  it("uses fallback text when coefficientTable is empty (line 62)", async () => {
+    vi.clearAllMocks()
+    const stateWithoutCoeffs: PlanningGraphAnnotationState = {
+      ...baseState,
+      coefficientTable: "",
+    }
+    await visionAgent(stateWithoutCoeffs)
+    const lastCall = mockFromMessages.mock.calls[mockFromMessages.mock.calls.length - 1][0] as Array<[string, string]>
+    const systemMessage = lastCall.find(([role]) => role === "system")?.[1] ?? ""
+    expect(systemMessage).toContain("No coefficient table provided.")
   })
 })

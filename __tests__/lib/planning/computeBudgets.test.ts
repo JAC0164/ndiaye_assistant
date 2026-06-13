@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { computeBudgets } from "../../../src/lib/planning/computeBudgets"
 import { SubjectInfo } from "../../../src/types/planning.types"
+import { AcademicPeriod } from "../../../src/lib/planning/planningConfig"
 
 const TEST_SUBJECTS: SubjectInfo[] = [
   { name: "FR", coefficient: 5, subjectType: "literary", daysPresent: ["monday", "wednesday", "friday"] },
@@ -66,6 +67,33 @@ describe("computeBudgets", () => {
 
     expect(fPre).toBeGreaterThanOrEqual(fMilieu)
     expect(fMilieu).toBeGreaterThanOrEqual(fPost)
+  })
+
+  it("returns empty map for empty subjects (line 15 true branch)", () => {
+    const budgets = computeBudgets([], 600, "milieu_trimestre")
+    expect(budgets.size).toBe(0)
+  })
+
+  it("returns empty map when sum of coefficients is zero (line 25 true branch)", () => {
+    const subjects: SubjectInfo[] = [
+      { name: "ART", coefficient: 0, subjectType: "other", daysPresent: ["monday"] },
+      { name: "SPORT", coefficient: 0, subjectType: "other", daysPresent: ["tuesday"] },
+    ]
+    const budgets = computeBudgets(subjects, 600, "milieu_trimestre")
+    expect(budgets.size).toBe(0)
+  })
+
+  it("falls back to multiplier 1.0 for unknown period (line 19 ?? fallback)", () => {
+    const budgets = computeBudgets(TEST_SUBJECTS, 600, undefined as unknown as AcademicPeriod)
+    expect(budgets.size).toBeGreaterThan(0)
+  })
+
+  it("falls back to other review/td ratio for unknown subjectType (line 85 || fallback)", () => {
+    const subjects: SubjectInfo[] = [
+      { name: "ART", coefficient: 2, subjectType: "" as SubjectInfo["subjectType"], daysPresent: ["monday"] },
+    ]
+    const budgets = computeBudgets(subjects, 600, "milieu_trimestre")
+    expect(budgets.size).toBe(1)
   })
 
   it("splits budgets into review and td according to subjectType ratios", () => {

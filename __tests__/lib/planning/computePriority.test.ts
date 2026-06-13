@@ -33,6 +33,18 @@ describe("computePriority", () => {
     expect(priority.get("MATH")).toBe(8.25)
   })
 
+  it("returns empty map for null subjects (line 15 true branch)", () => {
+    const priority = computePriority(null as unknown as SubjectInfo[], new Map(), new Map())
+    expect(priority.size).toBe(0)
+  })
+
+  it("falls back to multiplier 1.0 for unknown performance level (line 29 ?? fallback)", () => {
+    const perfLevels = new Map<string, PerformanceLevel>([["MATH", "unknown" as PerformanceLevel]])
+    const priority = computePriority(TEST_SUBJECTS, new Map(), perfLevels)
+    // MATH coeff 4, default days=7, multiplier 1.0 → 4 * (1 + 3/8) * 1.0 = 4 * 1.375 = 5.5
+    expect(priority.get("MATH")).toBe(5.5)
+  })
+
   it("incorporates days since last revision correctly", () => {
     const daysSince = new Map<string, number>([
       ["FR", 1], // D_S = 1, coeff = 5, perf = neutral (1.0) -> 5 * (1 + 3 / 2) * 1 = 12.5

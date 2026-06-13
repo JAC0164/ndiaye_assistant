@@ -79,6 +79,20 @@ describe("POST /api/agents/vision", () => {
   })
 
   describe("Input validation", () => {
+    it("returns 400 when image file exceeds maximum size", async () => {
+      const largeSize = 11 * 1024 * 1024
+      const formData = new FormData()
+      const largeFile = new File([new ArrayBuffer(largeSize)], "large.jpg", { type: "image/jpeg" })
+      formData.append("timetableImage", largeFile)
+
+      const request = createMockRequest("POST", { formData })
+      const response = await POST(request)
+
+      expect(response.status).toBe(400)
+      const data = await response.json()
+      expect(data).toHaveProperty("error")
+    })
+
     it("returns 400 when no image file is provided", async () => {
       const request = createMockRequest("POST", { formData: new FormData() })
       const response = await POST(request)

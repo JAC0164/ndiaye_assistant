@@ -96,6 +96,110 @@ describe("extractSubjects", () => {
     expect(eco?.daysPresent).toHaveLength(2)
   })
 
+  it("updates null coefficient from a later occurrence of the same subject (line 48 true branch)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "monday",
+          slots: [{ start: "08:00", end: "09:30", subject: "MATH", coefficient: null, subject_type: "scientific" }],
+        },
+        {
+          day: "tuesday",
+          slots: [{ start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" }],
+        },
+      ],
+    }
+    const subjects = extractSubjects(timetable)
+    expect(subjects).toHaveLength(1)
+    expect(subjects[0].coefficient).toBe(4)
+  })
+
+  it("updates subjectType from other when a later occurrence has a real type (line 52 true branch)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "monday",
+          slots: [{ start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "other" }],
+        },
+        {
+          day: "tuesday",
+          slots: [{ start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" }],
+        },
+      ],
+    }
+    const subjects = extractSubjects(timetable)
+    expect(subjects).toHaveLength(1)
+    expect(subjects[0].subjectType).toBe("scientific")
+  })
+
+  it("handles null timetable (line 25 false branch)", () => {
+    const subjects = extractSubjects(null as unknown as ExtractedTimetable)
+    expect(subjects).toHaveLength(0)
+  })
+
+  it("skips slot with null subject (line 29 true branch)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "monday",
+          slots: [
+            {
+              start: "08:00",
+              end: "09:30",
+              subject: null as unknown as string,
+              coefficient: 4,
+              subject_type: "scientific",
+            },
+            { start: "09:40", end: "11:10", subject: "MATH", coefficient: 4, subject_type: "scientific" },
+          ],
+        },
+      ],
+    }
+    const subjects = extractSubjects(timetable)
+    expect(subjects).toHaveLength(1)
+    expect(subjects[0].name).toBe("MATH")
+  })
+
+  it("handles timetable without days key (line 25 false branch)", () => {
+    const subjects = extractSubjects({ filiere: "L2" } as ExtractedTimetable)
+    expect(subjects).toHaveLength(0)
+  })
+
+  it("skips day entry with null slots (line 27 true branch)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [{ day: "monday", slots: null as unknown as ExtractedTimetable["days"][0]["slots"] }],
+    }
+    const subjects = extractSubjects(timetable)
+    expect(subjects).toHaveLength(0)
+  })
+
+  it("defaults to other subjectType when slot has no subject_type (line 40 || fallback)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "monday",
+          slots: [
+            {
+              start: "08:00",
+              end: "09:30",
+              subject: "MATH",
+              coefficient: 4,
+              subject_type: undefined as unknown as string,
+            },
+          ],
+        },
+      ],
+    }
+    const subjects = extractSubjects(timetable)
+    expect(subjects).toHaveLength(1)
+    expect(subjects[0].subjectType).toBe("other")
+  })
+
   it("sorts subjects by coefficient descending, then alphabetically", () => {
     const subjects = extractSubjects(TEST_TIMETABLE)
     // Coeffs:

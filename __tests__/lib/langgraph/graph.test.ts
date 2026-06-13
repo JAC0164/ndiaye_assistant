@@ -73,6 +73,12 @@ vi.mock("@/src/lib/langgraph/nodes/plannerAgent", () => ({
   plannerAgent: vi.fn(),
 }))
 
+const mockComputePriority = vi.hoisted(() => vi.fn())
+
+vi.mock("@/src/lib/planning/computePriority", () => ({
+  computePriority: mockComputePriority,
+}))
+
 import { createPlanningGraph, prePlannerNode } from "@/src/lib/langgraph/graph"
 import { StateGraph } from "@langchain/langgraph"
 import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
@@ -287,6 +293,16 @@ describe("createPlanningGraph", () => {
   })
 
   describe("prePlannerNode", () => {
+    beforeEach(() => {
+      mockComputePriority.mockImplementation((subjects: { name: string; coefficient: number | null }[]) => {
+        const map = new Map<string, number>()
+        for (const s of subjects) {
+          map.set(s.name, s.coefficient ?? 1)
+        }
+        return map
+      })
+    })
+
     it("should compute constraints and return formatted preplannerConstraints string", () => {
       // prePlannerNode is imported at the top
       const state = {
@@ -315,6 +331,145 @@ describe("createPlanningGraph", () => {
       expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
       expect(result.preplannerConstraints).toContain("MATH")
       expect(result.preplannerConstraints).toContain("FREE SLOTS")
+    })
+
+    it("should return 'No timetable available.' when extractedTimetable is null", () => {
+      const state = {
+        extractedTimetable: null,
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state)
+      expect(result).toEqual({ preplannerConstraints: "No timetable available." })
+    })
+
+    it("should update slot coefficient when subject is found in coefficient map", () => {
+      const state = {
+        coefficientTable: "- MATH: 6",
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday" as const,
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("MATH")
+      expect(state.extractedTimetable.days[0].slots[0].coefficient).toBe(6)
+    })
+
+    it("should handle subject with zero budget", () => {
+      const state = {
+        coefficientTable: "- MATH: 0",
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday" as const,
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("budget: 0 min")
+    })
+
+    it("should handle no free slots available", () => {
+      const state = {
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday" as const,
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {
+          bedtime: "00:00",
+          blockedSlots: [],
+        },
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("(No free slots available.")
+    })
+
+    it("should handle null days in timetable (line 45 false branch)", () => {
+      const state = {
+        coefficientTable: "- MATH: 6",
+        extractedTimetable: {
+          filiere: "S1",
+          days: null,
+        },
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state as any)
+      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+    })
+
+    it("should handle day with null slots (line 47 false branch)", () => {
+      const state = {
+        extractedTimetable: {
+          filiere: "S1",
+          days: [{ day: "monday", slots: null } as any],
+        },
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+    })
+
+    it("should handle null onboardingData (line 59 fallback)", () => {
+      const state = {
+        coefficientTable: "- MATH: 6",
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday",
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: null,
+      }
+      const result = prePlannerNode(state as any)
+      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+      expect(result.preplannerConstraints).toContain("FREE SLOTS")
+    })
+
+    it("should fall back to ?? 0 when priority not found for a subject (line 92)", () => {
+      mockComputePriority.mockReturnValueOnce(new Map())
+      const state = {
+        coefficientTable: "- MATH: 6",
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday",
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {},
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("priority: 0")
     })
   })
 })

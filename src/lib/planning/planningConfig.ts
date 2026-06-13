@@ -29,6 +29,7 @@ export const PLANNING_CONFIG = {
   lunchBreakEnd: "14:00",
   schoolDayLunchBreakEnd: "14:00",
   schoolDayLunchBreakMorningCutoff: "13:30",
+  maxSessionsPerFreeDay: 6,
   maxSundaySessions: 3,
 
   // Subjects excluded from revision scheduling

@@ -23,6 +23,7 @@ vi.mock("@langchain/ollama", () => ({
 }))
 
 import { createModel } from "@/src/lib/langgraph/providers/factory"
+import { logger } from "@/src/lib/logger"
 
 function makeConfig(overrides: Partial<ModelProviderConfig> = {}): ModelProviderConfig {
   return {
@@ -232,5 +233,45 @@ describe("createModel", () => {
       temperature: 0,
     })
     expect(mockChatGoogleGenerativeAI.mock.calls[0][0]).not.toHaveProperty("timeout")
+  })
+
+  it("handles invalid baseUrl that triggers catch block in isAllowedBaseUrl", () => {
+    const config = makeConfig({
+      provider: "openai",
+      model: "gpt-4",
+      baseUrl: "not-a-valid-url",
+    })
+
+    createModel(config)
+
+    expect(mockChatOpenAI).toHaveBeenCalledWith({
+      model: "gpt-4",
+      temperature: 0,
+      timeout: 30000,
+      configuration: undefined,
+    })
+  })
+
+  it("blocks disallowed baseUrl, logs warning, and returns undefined from safeBaseUrl", () => {
+    const loggerSpy = vi.spyOn(logger, "warn").mockImplementation(() => {})
+    const config = makeConfig({
+      provider: "openai",
+      model: "gpt-4",
+      baseUrl: "https://evil-site.com/api",
+    })
+
+    createModel(config)
+
+    expect(loggerSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ url: "https://evil-site.com/api" }),
+      "[Security] Blocked disallowed baseUrl for LLM provider"
+    )
+    expect(mockChatOpenAI).toHaveBeenCalledWith({
+      model: "gpt-4",
+      temperature: 0,
+      timeout: 30000,
+      configuration: undefined,
+    })
+    loggerSpy.mockRestore()
   })
 })

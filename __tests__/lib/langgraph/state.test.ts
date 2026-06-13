@@ -390,6 +390,52 @@ describe("PlanningGraphAnnotation", () => {
     expect(entry.value).toBe("")
   })
 
+  it("extractedTimetable replaces with update and defaults to null", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.extractedTimetable
+    expect(typeof entry.operator).toBe("function")
+    const timetable = { filiere: "S1", days: [] }
+    expect(entry.operator(null, timetable)).toBe(timetable)
+    expect(entry.operator(timetable, null)).toBe(null)
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toBeNull()
+    expect(entry.value).toBeNull()
+  })
+
+  it("coefficientTable replaces with update and defaults to empty string", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.coefficientTable
+    expect(typeof entry.operator).toBe("function")
+    expect(entry.operator("old", "new")).toBe("new")
+    expect(entry.operator("old", "")).toBe("")
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toBe("")
+    expect(entry.value).toBe("")
+  })
+
+  it("preplannerConstraints replaces with update and defaults to empty string", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.preplannerConstraints
+    expect(typeof entry.operator).toBe("function")
+    expect(entry.operator("old", "new")).toBe("new")
+    expect(entry.operator("old", "")).toBe("")
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toBe("")
+    expect(entry.value).toBe("")
+  })
+
+  it("planningValidation replaces with update and defaults to null", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.planningValidation
+    expect(typeof entry.operator).toBe("function")
+    const validation = { isValid: true, message: "" }
+    expect(entry.operator(null, validation)).toBe(validation)
+    expect(entry.operator(validation, null)).toBe(null)
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toBeNull()
+    expect(entry.value).toBeNull()
+  })
+
   describe("type exports", () => {
     it("PlanningGraphAnnotationState type is valid", () => {
       const _check: PlanningGraphAnnotationState = {} as PlanningGraphAnnotationState

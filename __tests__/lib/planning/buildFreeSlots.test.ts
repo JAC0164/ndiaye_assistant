@@ -1,4 +1,22 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
+
+const mockMandatoryBreakAfterClassMinutes = vi.hoisted(() => ({ current: 30 }))
+
+vi.mock("../../../src/lib/planning/planningConfig", async () => {
+  const actual = await vi.importActual<typeof import("../../../src/lib/planning/planningConfig")>(
+    "../../../src/lib/planning/planningConfig"
+  )
+  return {
+    ...actual,
+    PLANNING_CONFIG: {
+      ...actual.PLANNING_CONFIG,
+      get mandatoryBreakAfterClassMinutes() {
+        return mockMandatoryBreakAfterClassMinutes.current
+      },
+    },
+  }
+})
+
 import { buildFreeSlots } from "../../../src/lib/planning/buildFreeSlots"
 import { ExtractedTimetable, BlockedSlot } from "../../../src/types/planning.types"
 
@@ -40,6 +58,9 @@ const TEST_BLOCKED: BlockedSlot[] = [
 ]
 
 describe("buildFreeSlots", () => {
+  beforeEach(() => {
+    mockMandatoryBreakAfterClassMinutes.current = 30
+  })
   it("enforces bedtime, subtracts blocked slots, and processes school days vs weekends", () => {
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", TEST_BLOCKED)
 
@@ -138,6 +159,80 @@ describe("buildFreeSlots", () => {
     expect(bufferedSlot).toBeDefined()
     expect(bufferedSlot?.end).toBe("22:00")
     expect(bufferedSlot?.durationMinutes).toBe(100)
+  })
+
+  it("skips blocked slots with invalid day names (line 38 false branch)", () => {
+    const blocked: BlockedSlot[] = [
+      { id: "1", day: "unknown", startTime: "10:00", endTime: "11:00", reason: "Invalid day" },
+    ]
+    const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "22:00", blocked)
+    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
+    expect(saturdaySlots.length).toBeGreaterThan(0)
+  })
+
+  it("does not add evening window when last class ends too late for bedtime (line 77 false branch)", () => {
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "monday",
+          slots: [
+            { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" },
+            { start: "18:00", end: "21:05", subject: "FR", coefficient: 5, subject_type: "literary" },
+          ],
+        },
+      ],
+    }
+    const freeSlots = buildFreeSlots(timetable, "21:30", [])
+    const mondaySlots = freeSlots.filter((s) => s.day === "monday")
+    // Last class ends at 21:05. eveningStart = 21:05 + 30min = 21:35.
+    // Bedtime is 21:30, so 21:35 < 21:30 is false → no evening window
+    const eveningSlots = mondaySlots.filter((s) => s.start >= "21:35")
+    expect(eveningSlots).toHaveLength(0)
+  })
+
+  it("skips free day window when start time is after or equal to bedtime (line 101 false branch)", () => {
+    const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "08:00", [])
+    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
+    expect(saturdaySlots).toHaveLength(0)
+  })
+
+  it("does not push buffer segment when buffer extends beyond window end (line 130 false branch)", () => {
+    // Saturday free day 09:00-20:00, lunch break 12:30-14:00, blocked 19:35-19:50
+    const blocked: BlockedSlot[] = [
+      { id: "1", day: "saturday", startTime: "19:35", endTime: "19:50", reason: "Late block" },
+    ]
+    const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "20:00", blocked)
+    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
+    // Expected: 09:00-12:30 and 14:00-19:35
+    // 20:10-20:00 is not added because resumeAt (19:50+20min=20:10) >= win.end (20:00)
+    expect(saturdaySlots).toHaveLength(2)
+    expect(saturdaySlots[0].start).toBe("09:00")
+    expect(saturdaySlots[0].end).toBe("12:30")
+    expect(saturdaySlots[1].start).toBe("14:00")
+    expect(saturdaySlots[1].end).toBe("19:35")
+  })
+
+  it("skips intra-day gap window when mandatory break exceeds gap duration (line 88 false branch)", () => {
+    mockMandatoryBreakAfterClassMinutes.current = 150
+    // Gap of exactly 120 min between 10:00 and 12:00
+    // mandatoryBreakAfterClassMinutes = 150, so gap (120) is not > 150 => no window added
+    const timetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "wednesday",
+          slots: [
+            { start: "08:00", end: "10:00", subject: "FR", coefficient: 5, subject_type: "literary" },
+            { start: "12:00", end: "13:30", subject: "MATH", coefficient: 4, subject_type: "scientific" },
+          ],
+        },
+      ],
+    }
+    const freeSlots = buildFreeSlots(timetable, "22:00", [])
+    const wednesdaySlots = freeSlots.filter((s) => s.day === "wednesday")
+    const gapSlot = wednesdaySlots.find((s) => s.start === "10:30")
+    expect(gapSlot).toBeUndefined()
   })
 
   it("enforces lunch break on school days when morning class ends before 13:30", () => {
