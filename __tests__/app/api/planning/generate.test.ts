@@ -39,10 +39,18 @@ import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 
 const validWorkflowResult = {
   isValidTimetable: true,
+  extractedTimetable: { filiere: "S1", days: [] },
   extractedTimetableMarkdown: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
   studentProfileContext: "Élève de Terminale S",
-  generatedPlanning: [{ day: "Lundi", sessions: [{ subject: "Maths", time: "8h" }] }],
+  generatedPlanning: [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "review" as const, pedagogical_note: "Relire le cours." }],
   validationErrorMessage: undefined,
+  planningValidation: {
+    validatedPlanning: [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "review" as const, pedagogical_note: "Relire le cours." }],
+    wasRepaired: false,
+    errors: [],
+    warnings: [],
+    removedSessions: [],
+  },
 }
 
 function createFormDataWithImage(image?: Partial<File>): FormData {
@@ -253,9 +261,11 @@ describe("POST /api/planning/generate", () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.isValidTimetable).toBe(true)
+      expect(data).toHaveProperty("extractedTimetable")
       expect(data).toHaveProperty("extractedTimetableMarkdown")
       expect(data).toHaveProperty("studentProfileContext")
       expect(data).toHaveProperty("generatedPlanning")
+      expect(data).toHaveProperty("planningValidation")
     })
   })
 

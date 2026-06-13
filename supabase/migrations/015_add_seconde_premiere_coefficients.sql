@@ -1,0 +1,117 @@
+-- Migration: Add Seconde (L, S) and Première (S1, S2, L1, L2, L'1, G) coefficients.
+
+-- Fix missing updated_at columns causing trigger failures on remote db
+ALTER TABLE public.school_levels ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now();
+ALTER TABLE public.series ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now();
+ALTER TABLE public.classes ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now();
+ALTER TABLE public.coefficients ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now();
+
+-- Seconde L — Tronc commun Littéraire
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000103', 'FR',    4),
+  ('00000000-0000-0000-0000-000000000103', 'MATH',  2),
+  ('00000000-0000-0000-0000-000000000103', 'HG',    3),
+  ('00000000-0000-0000-0000-000000000103', 'ANG',   3),
+  ('00000000-0000-0000-0000-000000000103', 'ESP',   3),
+  ('00000000-0000-0000-0000-000000000103', 'ALL',   3),
+  ('00000000-0000-0000-0000-000000000103', 'ARA',   3),
+  ('00000000-0000-0000-0000-000000000103', 'SVT',   1),
+  ('00000000-0000-0000-0000-000000000103', 'PC',    1),
+  ('00000000-0000-0000-0000-000000000103', 'CIV',   2),
+  ('00000000-0000-0000-0000-000000000103', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Seconde S — Tronc commun Scientifique
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000104', 'MATH',  4),
+  ('00000000-0000-0000-0000-000000000104', 'PC',    3),
+  ('00000000-0000-0000-0000-000000000104', 'SVT',   3),
+  ('00000000-0000-0000-0000-000000000104', 'FR',    2),
+  ('00000000-0000-0000-0000-000000000104', 'HG',    2),
+  ('00000000-0000-0000-0000-000000000104', 'ANG',   2),
+  ('00000000-0000-0000-0000-000000000104', 'CIV',   2),
+  ('00000000-0000-0000-0000-000000000104', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première S1 — Sciences Exactes
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000121', 'MATH',  8),
+  ('00000000-0000-0000-0000-000000000121', 'PC',    8),
+  ('00000000-0000-0000-0000-000000000121', 'SVT',   3),
+  ('00000000-0000-0000-0000-000000000121', 'FR',    3),
+  ('00000000-0000-0000-0000-000000000121', 'HG',    2),
+  ('00000000-0000-0000-0000-000000000121', 'ANG',   2),
+  ('00000000-0000-0000-0000-000000000121', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première S2 — Sciences Expérimentales
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000122', 'SVT',   6),
+  ('00000000-0000-0000-0000-000000000122', 'PC',    6),
+  ('00000000-0000-0000-0000-000000000122', 'MATH',  5),
+  ('00000000-0000-0000-0000-000000000122', 'FR',    3),
+  ('00000000-0000-0000-0000-000000000122', 'HG',    2),
+  ('00000000-0000-0000-0000-000000000122', 'ANG',   2),
+  ('00000000-0000-0000-0000-000000000122', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première L1 — Langues et Civilisations Anciennes
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000123', 'FR',    5),
+  ('00000000-0000-0000-0000-000000000123', 'HG',    4),
+  ('00000000-0000-0000-0000-000000000123', 'ANG',   4),
+  ('00000000-0000-0000-0000-000000000123', 'ESP',   2),
+  ('00000000-0000-0000-0000-000000000123', 'ALL',   2),
+  ('00000000-0000-0000-0000-000000000123', 'ARA',   2),
+  ('00000000-0000-0000-0000-000000000123', 'MATH',  2),
+  ('00000000-0000-0000-0000-000000000123', 'SVT',   2),
+  ('00000000-0000-0000-0000-000000000123', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première L2 — Sciences Humaines et Sociales
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000124', 'FR',    5),
+  ('00000000-0000-0000-0000-000000000124', 'HG',    5),
+  ('00000000-0000-0000-0000-000000000124', 'MATH',  4),
+  ('00000000-0000-0000-0000-000000000124', 'ANG',   3),
+  ('00000000-0000-0000-0000-000000000124', 'ESP',   2),
+  ('00000000-0000-0000-0000-000000000124', 'ALL',   2),
+  ('00000000-0000-0000-0000-000000000124', 'ARA',   2),
+  ('00000000-0000-0000-0000-000000000124', 'ECO',   2),
+  ('00000000-0000-0000-0000-000000000124', 'SVT',   2),
+  ('00000000-0000-0000-0000-000000000124', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première L'1 — Langues et Civilisations Modernes
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000125', 'FR',    6),
+  ('00000000-0000-0000-0000-000000000125', 'ANG',   4),
+  ('00000000-0000-0000-0000-000000000125', 'ESP',   4),
+  ('00000000-0000-0000-0000-000000000125', 'ALL',   4),
+  ('00000000-0000-0000-0000-000000000125', 'ARA',   4),
+  ('00000000-0000-0000-0000-000000000125', 'HG',    3),
+  ('00000000-0000-0000-0000-000000000125', 'MATH',  2),
+  ('00000000-0000-0000-0000-000000000125', 'SVT',   2),
+  ('00000000-0000-0000-0000-000000000125', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;
+
+-- Première G — Tertiaire & Gestion
+INSERT INTO public.coefficients (class_id, subject, coefficient)
+VALUES
+  ('00000000-0000-0000-0000-000000000126', 'TQG',   6),
+  ('00000000-0000-0000-0000-000000000126', 'ECO',   6),
+  ('00000000-0000-0000-0000-000000000126', 'MATH',  4),
+  ('00000000-0000-0000-0000-000000000126', 'FR',    4),
+  ('00000000-0000-0000-0000-000000000126', 'ESP',   2),
+  ('00000000-0000-0000-0000-000000000126', 'ALL',   2),
+  ('00000000-0000-0000-0000-000000000126', 'ARA',   2),
+  ('00000000-0000-0000-0000-000000000126', 'HG',    2),
+  ('00000000-0000-0000-0000-000000000126', 'EPS',   1)
+ON CONFLICT (class_id, subject) DO UPDATE SET coefficient = EXCLUDED.coefficient;

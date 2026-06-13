@@ -85,4 +85,40 @@ export class HistoriqueService extends BaseService<Historique> {
       recentLogs: logs,
     }
   }
+
+  /**
+   * For each subject, return the number of days since the last completed revision.
+   * Used by computePriority() for urgency scoring.
+   */
+  async getDaysSinceLastRevisionBySubject(userId: string): Promise<Map<string, number>> {
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("subject, completed_at")
+      .eq("user_id", userId)
+
+    if (error) {
+      throw new Error(`Erreur lors de la récupération de l'historique par matière: ${error.message}`)
+    }
+
+    const result = new Map<string, number>()
+    const now = new Date()
+    const latestBySubject = new Map<string, Date>()
+
+    for (const row of data || []) {
+      if (!row.subject || !row.completed_at) continue
+      const date = new Date(row.completed_at)
+      const existing = latestBySubject.get(row.subject)
+      if (!existing || date > existing) {
+        latestBySubject.set(row.subject, date)
+      }
+    }
+
+    for (const [subject, lastDate] of latestBySubject.entries()) {
+      const diffTime = Math.abs(now.getTime() - lastDate.getTime())
+      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)))
+      result.set(subject, diffDays)
+    }
+
+    return result
+  }
 }

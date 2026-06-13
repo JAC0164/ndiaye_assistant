@@ -14,7 +14,6 @@ import type { OnboardingForm, ApiResponse } from "@/src/types/planning.types"
 
 const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
 
-import { SERIES_SUBJECTS } from "@/src/lib/planning/constants"
 import OnboardingFormPanel from "@/src/components/planning/OnboardingFormPanel"
 import SessionEditModal from "@/src/components/planning/SessionEditModal"
 
@@ -27,8 +26,7 @@ interface AgentOverrideEntry {
 
 const DEFAULT_ONBOARDING = JSON.stringify(
   {
-    serie: "S1",
-    weakSubjects: ["Mathématiques", "Physique-Chimie"],
+    weakSubjects: ["MATH", "PC"],
     bedtime: "22:00",
     blockedSlots: [
       {
@@ -109,16 +107,21 @@ export default function PlanningPage() {
   const supabase = supabaseRef.current
 
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
 
   // Onboarding States
   const [inputTab, setInputTab] = useState<"form" | "json">("form")
   const [onboardingData, setOnboardingData] = useState(DEFAULT_ONBOARDING)
   const [formOnboarding, setFormOnboarding] = useState<OnboardingForm>(() => {
     try {
-      return JSON.parse(DEFAULT_ONBOARDING)
+      const parsed = JSON.parse(DEFAULT_ONBOARDING)
+      return {
+        weakSubjects: parsed.weakSubjects || [],
+        bedtime: parsed.bedtime || "22:00",
+        blockedSlots: parsed.blockedSlots || [],
+      }
     } catch {
       return {
-        serie: "S1",
         weakSubjects: [],
         bedtime: "22:00",
         blockedSlots: [],
@@ -152,12 +155,35 @@ export default function PlanningPage() {
   const [savingError, setSavingError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.push("/auth")
         return
       }
       setUser(user)
+      
+      // Fetch user profile and class coefficients
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("class_id")
+          .eq("id", user.id)
+          .maybeSingle()
+
+        const classId = profile?.class_id
+        const queryParam = classId ? `class_id=${classId}` : `class_name=Terminale S1`
+        const res = await fetch(`/api/references/coefficients?${queryParam}`)
+        if (res.ok) {
+          const coeffs = await res.json()
+          if (Array.isArray(coeffs)) {
+            const subjects = coeffs.map((c: { subject: string }) => c.subject.toUpperCase())
+            setAvailableSubjects(subjects)
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user profile or coefficients:", err)
+      }
+
       setLoading(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,7 +222,6 @@ export default function PlanningPage() {
       const parsed = JSON.parse(jsonStr)
       if (parsed && typeof parsed === "object") {
         setFormOnboarding({
-          serie: parsed.serie || "S1",
           weakSubjects: Array.isArray(parsed.weakSubjects) ? parsed.weakSubjects : [],
           bedtime: parsed.bedtime || "22:00",
           blockedSlots: Array.isArray(parsed.blockedSlots) ? parsed.blockedSlots : [],
@@ -246,7 +271,7 @@ export default function PlanningPage() {
 
   const handleAddSession = (day: string) => {
     if (!result) return
-    const defaultSubject = (SERIES_SUBJECTS[formOnboarding.serie] || SERIES_SUBJECTS["S1"])[0] || "Mathématiques"
+    const defaultSubject = availableSubjects[0] || "MATH"
     const newSession: GeneratedSeance = {
       day_of_week: day as "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday",
       start_time: "17:00",
@@ -497,7 +522,7 @@ export default function PlanningPage() {
 
             {/* Form Editor View */}
             {inputTab === "form" ? (
-              <OnboardingFormPanel form={formOnboarding} onChange={handleFormChange} />
+              <OnboardingFormPanel form={formOnboarding} onChange={handleFormChange} availableSubjects={availableSubjects} />
             ) : (
               /* Raw JSON Textarea Editor */
               <div className="flex flex-col flex-1 gap-3">

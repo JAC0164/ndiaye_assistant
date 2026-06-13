@@ -73,7 +73,7 @@ vi.mock("@/src/lib/langgraph/nodes/plannerAgent", () => ({
   plannerAgent: vi.fn(),
 }))
 
-import { createPlanningGraph } from "@/src/lib/langgraph/graph"
+import { createPlanningGraph, prePlannerNode } from "@/src/lib/langgraph/graph"
 import { StateGraph } from "@langchain/langgraph"
 import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
@@ -93,12 +93,13 @@ describe("createPlanningGraph", () => {
     expect(typeof compiledGraph.invoke).toBe("function")
   })
 
-  it("has exactly 4 nodes: vision, profile, visionValidated, planner", () => {
+  it("has exactly 5 nodes: vision, profile, visionValidated, prePlanner, planner", () => {
     expect(compiledGraph.nodeNames).toContain("vision")
     expect(compiledGraph.nodeNames).toContain("profile")
     expect(compiledGraph.nodeNames).toContain("visionValidated")
+    expect(compiledGraph.nodeNames).toContain("prePlanner")
     expect(compiledGraph.nodeNames).toContain("planner")
-    expect(compiledGraph.nodeNames).toHaveLength(4)
+    expect(compiledGraph.nodeNames).toHaveLength(5)
   })
 
   it("connects START to both vision and profile (parallel execution)", () => {
@@ -141,12 +142,19 @@ describe("createPlanningGraph", () => {
     vi.unstubAllEnvs()
   })
 
-  it("has edge from [visionValidated, profile] to planner", () => {
+  it("has edge from [visionValidated, profile] to prePlanner", () => {
     const mergeEdge = compiledGraph.edgeFromTo.find(
       (e: { from: string | string[]; to: string }) =>
-        Array.isArray(e.from) && e.from.includes("visionValidated") && e.from.includes("profile") && e.to === "planner"
+        Array.isArray(e.from) && e.from.includes("visionValidated") && e.from.includes("profile") && e.to === "prePlanner"
     )
     expect(mergeEdge).toBeDefined()
+  })
+
+  it("has edge from prePlanner to planner", () => {
+    const prePlannerEdge = compiledGraph.edgeFromTo.find(
+      (e: { from: string | string[]; to: string }) => e.from === "prePlanner" && e.to === "planner"
+    )
+    expect(prePlannerEdge).toBeDefined()
   })
 
   it("has edge from planner to END", () => {
@@ -273,5 +281,37 @@ describe("createPlanningGraph", () => {
     const result = conditionFn({ isValidTimetable: true })
     expect(result).toBe("stop")
     vi.unstubAllEnvs()
+  })
+
+  describe("prePlannerNode", () => {
+    it("should compute constraints and return formatted preplannerConstraints string", () => {
+      // prePlannerNode is imported at the top
+      const state = {
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday" as const,
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {
+          bedtime: "22:00",
+          blockedSlots: [],
+          academicPeriod: "milieu_trimestre",
+          daysSinceLastRevision: [["MATH", 3]],
+          weakSubjects: ["MATH"],
+        },
+      }
+
+      const result = prePlannerNode(state)
+      expect(result).toHaveProperty("preplannerConstraints")
+      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+      expect(result.preplannerConstraints).toContain("MATH")
+      expect(result.preplannerConstraints).toContain("FREE SLOTS")
+    })
   })
 })

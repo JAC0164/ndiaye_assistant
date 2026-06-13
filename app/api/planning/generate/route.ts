@@ -172,9 +172,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       isValidTimetable: true,
+      extractedTimetable: result.extractedTimetable,
       extractedTimetableMarkdown: result.extractedTimetableMarkdown,
       studentProfileContext: result.studentProfileContext,
       generatedPlanning: result.generatedPlanning,
+      planningValidation: result.planningValidation,
     })
   } catch (error) {
     logger.error({ error }, "Planning generation error")

@@ -3,10 +3,9 @@ import {
   DAYS,
   DAY_LABELS,
   FULL_DAY_LABELS,
-  SERIES_SUBJECTS,
-  SERIES_INFO,
   BEDTIME_OPTIONS,
   TYPE_LABELS,
+  parseCoefficientTable,
 } from "../../../src/lib/planning/constants"
 
 describe("planning constants", () => {
@@ -56,123 +55,6 @@ describe("planning constants", () => {
     })
   })
 
-  describe("SERIES_SUBJECTS", () => {
-    it("has entries for S1, S2, L1, L2, and L'", () => {
-      expect(Object.keys(SERIES_SUBJECTS)).toEqual(["S1", "S2", "L1", "L2", "L'"])
-    })
-
-    it("S1 has Mathématiques as first subject", () => {
-      expect(SERIES_SUBJECTS.S1[0]).toBe("Mathématiques")
-    })
-
-    it("S1 has 7 subjects", () => {
-      expect(SERIES_SUBJECTS.S1).toHaveLength(7)
-    })
-
-    it("S2 has 7 subjects", () => {
-      expect(SERIES_SUBJECTS.S2).toHaveLength(7)
-    })
-
-    it("L1 has 6 subjects", () => {
-      expect(SERIES_SUBJECTS.L1).toHaveLength(6)
-    })
-
-    it("L2 has 6 subjects", () => {
-      expect(SERIES_SUBJECTS.L2).toHaveLength(6)
-    })
-
-    it("L' has 6 subjects", () => {
-      expect(SERIES_SUBJECTS["L'"]).toHaveLength(6)
-    })
-
-    it("S1 and S2 have identical subject lists", () => {
-      expect(SERIES_SUBJECTS.S1).toEqual(SERIES_SUBJECTS.S2)
-    })
-
-    it("L1, L2, and L' have identical subject lists", () => {
-      expect(SERIES_SUBJECTS.L1).toEqual(SERIES_SUBJECTS.L2)
-      expect(SERIES_SUBJECTS.L1).toEqual(SERIES_SUBJECTS["L'"])
-    })
-
-    it("S-series includes SVT while L-series does not", () => {
-      expect(SERIES_SUBJECTS.S1).toContain("SVT")
-      expect(SERIES_SUBJECTS.L1).not.toContain("SVT")
-    })
-
-    it("L-series includes Espagnol while S-series does not", () => {
-      expect(SERIES_SUBJECTS.L1).toContain("Espagnol")
-      expect(SERIES_SUBJECTS.S1).not.toContain("Espagnol")
-    })
-
-    it("all subjects are strings", () => {
-      for (const subjects of Object.values(SERIES_SUBJECTS)) {
-        for (const subject of subjects) {
-          expect(typeof subject).toBe("string")
-        }
-      }
-    })
-  })
-
-  describe("SERIES_INFO", () => {
-    it("has 5 entries", () => {
-      expect(SERIES_INFO).toHaveLength(5)
-    })
-
-    it("S1 has correct label and focus", () => {
-      expect(SERIES_INFO[0]).toEqual({
-        value: "S1",
-        label: "S1",
-        desc: "Maths & PC",
-        focus: "Maths, PC, SVT",
-      })
-    })
-
-    it("S2 has correct label and focus", () => {
-      expect(SERIES_INFO[1]).toEqual({
-        value: "S2",
-        label: "S2",
-        desc: "Expérimentale",
-        focus: "Maths, PC, SVT",
-      })
-    })
-
-    it("L1 has correct label and focus", () => {
-      expect(SERIES_INFO[2]).toEqual({
-        value: "L1",
-        label: "L1",
-        desc: "Langues/Lettres",
-        focus: "Philo, Fr, Anglais",
-      })
-    })
-
-    it("L2 has correct label and focus", () => {
-      expect(SERIES_INFO[3]).toEqual({
-        value: "L2",
-        label: "L2",
-        desc: "Sciences Humaines",
-        focus: "Philo, Fr, Hist-Géo",
-      })
-    })
-
-    it("L' has correct label and focus", () => {
-      expect(SERIES_INFO[4]).toEqual({
-        value: "L'",
-        label: "L'",
-        desc: "Langues Vivantes",
-        focus: "Philo, Fr, Langues",
-      })
-    })
-
-    it("every entry has value, label, desc, and focus as strings", () => {
-      for (const info of SERIES_INFO) {
-        expect(typeof info.value).toBe("string")
-        expect(typeof info.label).toBe("string")
-        expect(typeof info.desc).toBe("string")
-        expect(typeof info.focus).toBe("string")
-      }
-    })
-  })
-
   describe("BEDTIME_OPTIONS", () => {
     it("has 8 entries", () => {
       expect(BEDTIME_OPTIONS).toHaveLength(8)
@@ -202,4 +84,21 @@ describe("planning constants", () => {
       })
     })
   })
+
+  describe("parseCoefficientTable", () => {
+    it("parses coefficient tables correctly into code keys", () => {
+      const table = `- MATH: 8\n- PC: 8\n- SVT: 3`
+      const map = parseCoefficientTable(table)
+      expect(map.get("MATH")).toBe(8)
+      expect(map.get("PC")).toBe(8)
+      expect(map.get("SVT")).toBe(3)
+      expect(map.get("UNKNOWN")).toBeUndefined()
+    })
+
+    it("handles empty input", () => {
+      const map = parseCoefficientTable("")
+      expect(map.size).toBe(0)
+    })
+  })
 })
+

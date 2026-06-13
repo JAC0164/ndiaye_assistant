@@ -10,7 +10,7 @@ const mockModel = vi.hoisted(() => ({
         day_of_week: "monday",
         start_time: "18:00",
         end_time: "18:45",
-        subject: "Mathématiques",
+        subject: "MATH",
         session_type: "review",
         pedagogical_note: "35 min exos, 10 min synthèse",
       },
@@ -18,7 +18,7 @@ const mockModel = vi.hoisted(() => ({
         day_of_week: "tuesday",
         start_time: "18:00",
         end_time: "18:45",
-        subject: "Physique-Chimie",
+        subject: "PC",
         session_type: "review",
         pedagogical_note: "35 min exercices, 10 min résumé",
       },
@@ -53,7 +53,7 @@ import { plannerAgent } from "@/src/lib/langgraph/nodes/plannerAgent"
 const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("img"),
   timetableImageMimeType: "image/jpeg",
-  onboardingData: { serie: "S1" },
+  onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
   extractedTimetableMarkdown: "LUNDI:\n- 08:00-09:30: Maths\n- 09:40-11:10: PC",
   studentProfileContext: "- Weak in Maths",
   subjectCoefficients: "Maths (coeff 5), PC (coeff 4)",
@@ -61,6 +61,10 @@ const baseState: PlanningGraphAnnotationState = {
   isValidTimetable: true,
   upcomingEcheances: "",
   generatedPlanning: [],
+  extractedTimetable: null,
+  coefficientTable: "",
+  preplannerConstraints: "ALLOWLIST & BUDGETS:\n1. Maths",
+  planningValidation: null,
 }
 
 describe("plannerAgent", () => {
@@ -84,8 +88,8 @@ describe("plannerAgent", () => {
     const result = await plannerAgent(baseState)
     expect(result).toHaveProperty("generatedPlanning")
     expect(result.generatedPlanning).toHaveLength(2)
-    expect(result.generatedPlanning[0].subject).toBe("Mathématiques")
-    expect(result.generatedPlanning[1].subject).toBe("Physique-Chimie")
+    expect(result.generatedPlanning[0].subject).toBe("MATH")
+    expect(result.generatedPlanning[1].subject).toBe("PC")
   })
 
   it("skips model call and returns empty planning when isValidTimetable is false", async () => {
@@ -119,24 +123,19 @@ describe("plannerAgent", () => {
   it("includes all context fields in model input", async () => {
     await plannerAgent(baseState)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
-    expect(callArg.extractedTimetableMarkdown).toBe(baseState.extractedTimetableMarkdown)
+    expect(callArg.timetableSummary).toBe(baseState.extractedTimetableMarkdown)
     expect(callArg.studentProfileContext).toBe(baseState.studentProfileContext)
-    expect(callArg.subjectCoefficients).toBe(baseState.subjectCoefficients)
-    expect(callArg.weeklyStats).toBe(baseState.weeklyStats)
-    expect(callArg.upcomingEcheances).toBe("Aucune échéance à venir.")
+    expect(callArg.preplannerConstraints).toBe(baseState.preplannerConstraints)
   })
 
-  it("uses default fallbacks when coefficients and weekly stats are empty", async () => {
+  it("uses default fallback when preplannerConstraints is empty", async () => {
     const state: PlanningGraphAnnotationState = {
       ...baseState,
-      subjectCoefficients: "",
-      weeklyStats: "",
+      preplannerConstraints: "",
     }
     await plannerAgent(state)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
-    expect(callArg.subjectCoefficients).toBe("Aucun coefficient spécifique disponible.")
-    expect(callArg.weeklyStats).toBe("Aucune session complétée cette semaine.")
-    expect(callArg.upcomingEcheances).toBe("Aucune échéance à venir.")
+    expect(callArg.preplannerConstraints).toBe("No constraints specified.")
   })
 
   it("passes modelOverrides to getModel", async () => {
@@ -150,14 +149,13 @@ describe("plannerAgent", () => {
     getModelSpy.mockRestore()
   })
 
-  it("includes Senegalese scheduling rules in system prompt", async () => {
+  it("includes scheduling rules in system prompt", async () => {
     await plannerAgent(baseState)
     const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
     expect(systemMessage).toContain("Planner Agent")
-    expect(systemMessage).toContain("45-minute")
-    expect(systemMessage).toContain("Sunday Rest")
-    expect(systemMessage).toContain("J-1 Revision")
-    expect(systemMessage).toContain("Cognitive Alternation")
+    expect(systemMessage).toContain("allowlist")
+    expect(systemMessage).toContain("Same-day consolidation")
+    expect(systemMessage).toContain("Cognitive alternation")
   })
 })

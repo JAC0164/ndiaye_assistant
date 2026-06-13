@@ -36,7 +36,7 @@ import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
 const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("img"),
   timetableImageMimeType: "image/jpeg",
-  onboardingData: { serie: "S1", weakSubjects: ["Maths"], blockedSlots: [] },
+  onboardingData: { weakSubjects: ["Maths"], blockedSlots: [], bedtime: "22:00" },
   extractedTimetableMarkdown: "",
   studentProfileContext: "",
   subjectCoefficients: "",
@@ -75,7 +75,7 @@ describe("profileAgent", () => {
   })
 
   it("passes onboarding data as JSON to the model input", async () => {
-    const onboardingData = { serie: "L1", weakSubjects: ["Philo", "Anglais"] }
+    const onboardingData = { weakSubjects: ["Philo", "Anglais"], bedtime: "22:00", blockedSlots: [] }
     const state: PlanningGraphAnnotationState = {
       ...baseState,
       onboardingData,

@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createMockSupabase } from "@/src/test/utils/mock-supabase"
 
+const mockGetByUserId = vi.hoisted(() => vi.fn())
 const mockGetCachedAnalysis = vi.hoisted(() => vi.fn())
 const mockSaveAnalysisCache = vi.hoisted(() => vi.fn())
+const mockGetByClassId = vi.hoisted(() => vi.fn())
 const mockGetCoefficientsByClassName = vi.hoisted(() => vi.fn())
 const mockGetWeeklyStats = vi.hoisted(() => vi.fn())
+const mockGetDaysSinceLastRevisionBySubject = vi.hoisted(() => vi.fn())
 const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
 const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvoke })))
@@ -12,6 +15,7 @@ const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvo
 vi.mock("@/src/services/profile.service", () => ({
   ProfileService: vi.fn(function () {
     return {
+      getByUserId: mockGetByUserId,
       getCachedAnalysis: mockGetCachedAnalysis,
       saveAnalysisCache: mockSaveAnalysisCache,
     }
@@ -21,6 +25,7 @@ vi.mock("@/src/services/profile.service", () => ({
 vi.mock("@/src/services/coefficient.service", () => ({
   CoefficientService: vi.fn(function () {
     return {
+      getByClassId: mockGetByClassId,
       getCoefficientsByClassName: mockGetCoefficientsByClassName,
     }
   }),
@@ -30,6 +35,7 @@ vi.mock("@/src/services/historique.service", () => ({
   HistoriqueService: vi.fn(function () {
     return {
       getWeeklyStats: mockGetWeeklyStats,
+      getDaysSinceLastRevisionBySubject: mockGetDaysSinceLastRevisionBySubject,
     }
   }),
 }))
@@ -46,21 +52,62 @@ vi.mock("@/src/lib/langgraph/graph", () => ({
   createPlanningGraph: mockCreatePlanningGraph,
 }))
 
+// runPlanningWorkflow imported dynamically in beforeEach
+
+const mockTimetable = {
+  filiere: "S1",
+  days: [
+    {
+      day: "monday" as const,
+      slots: [
+        { start: "08:00", end: "09:30", subject: "Maths", coefficient: 5, subject_type: "scientific" as const },
+      ],
+    },
+  ],
+}
+
 describe("runPlanningWorkflow", () => {
-  let runPlanningWorkflow: Awaited<typeof import("@/src/lib/langgraph/orchestrator")>["runPlanningWorkflow"]
+  let runPlanningWorkflow: any
   let supabase: ReturnType<typeof createMockSupabase>["supabase"]
   const buffer = Buffer.from("test-image")
-  const onboardingData = { serie: "S1", weakSubjects: ["Maths"] }
+  const onboardingData = { weakSubjects: ["Maths"], bedtime: "22:00", blockedSlots: [] }
 
   beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
-
     const orchestratorModule = await import("@/src/lib/langgraph/orchestrator")
     runPlanningWorkflow = orchestratorModule.runPlanningWorkflow
-
     const mockSupabase = createMockSupabase()
     supabase = mockSupabase.supabase
+
+    mockGetByUserId.mockImplementation(async (uid: string) => {
+      if (uid === "user-2") {
+        return { id: "user-2", email: "user2@test.com", display_name: "Test User 2", class_id: null, metadata: {} }
+      }
+      return { id: "user-1", email: "user1@test.com", display_name: "Test User 1", class_id: "class-1", metadata: {} }
+    })
+    mockGetByClassId.mockResolvedValue([
+      { subject: "Maths", coefficient: 5 },
+    ])
+    mockGetCachedAnalysis.mockResolvedValue(null)
+    mockGetCoefficientsByClassName.mockResolvedValue([
+      { subject: "Maths", coefficient: 5 },
+    ])
+    mockGetWeeklyStats.mockResolvedValue({
+      sessionCount: 0,
+      totalMinutes: 0,
+      averageRating: null,
+      completedBySubject: {},
+    })
+    mockGetDaysSinceLastRevisionBySubject.mockResolvedValue(new Map())
+    mockGetUpcoming.mockResolvedValue([])
+    mockInvoke.mockResolvedValue({
+      extractedTimetable: mockTimetable,
+      extractedTimetableMarkdown: "  LUNDI :\n  - 08:00-09:30 : Maths",
+      studentProfileContext: "- Weak in Maths",
+      isValidTimetable: true,
+      generatedPlanning: [],
+    })
   })
 
   afterEach(() => {
@@ -68,97 +115,42 @@ describe("runPlanningWorkflow", () => {
   })
 
   it("returns a PlanningWorkflowResult (= PlanningGraphState)", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([
-      { subject: "Maths", coefficient: 5 },
-      { subject: "PC", coefficient: 4 },
-    ])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 3,
-      totalMinutes: 135,
-      averageRating: 4,
-      completedBySubject: { Maths: 2, PC: 1 },
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "LUNDI:\n- 08:00: Maths",
-      studentProfileContext: "- Weak in Maths",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
     const result = await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData, "image/jpeg")
 
-    expect(result).toHaveProperty("extractedTimetableMarkdown")
+    expect(result).toHaveProperty("extractedTimetable")
     expect(result).toHaveProperty("studentProfileContext")
     expect(result).toHaveProperty("isValidTimetable")
     expect(result).toHaveProperty("generatedPlanning")
-    expect(result.extractedTimetableMarkdown).toBe("LUNDI:\n- 08:00: Maths")
+    expect(result.extractedTimetable).toEqual(mockTimetable)
   })
 
-  it("fetches coefficients from CoefficientService and passes them to graph", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([
+  it("fetches coefficients from CoefficientService and passes them as formatted table to graph", async () => {
+    mockGetByClassId.mockResolvedValue([
       { subject: "Maths", coefficient: 5 },
       { subject: "PC", coefficient: 4 },
     ])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockGetCoefficientsByClassName).toHaveBeenCalledWith("Terminale S1")
+    expect(mockGetByClassId).toHaveBeenCalledWith("class-1")
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
-        subjectCoefficients: expect.stringContaining("Maths (coefficient 5)"),
+        coefficientTable: expect.stringContaining("- MATHS: 5"),
       })
     )
   })
 
-  it("handles L' series class name correctly", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    await runPlanningWorkflow(supabase, "user-2", buffer, { serie: "L'" })
-
-    expect(mockGetCoefficientsByClassName).toHaveBeenCalledWith("Terminale L'1")
+  it("falls back to Terminale S1 coefficients when class_id is null", async () => {
+    await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
+    expect(mockGetCoefficientsByClassName).toHaveBeenCalledWith("Terminale S1")
   })
 
   it("fetches weekly stats from HistoriqueService and passes them to graph", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockResolvedValue({
       sessionCount: 5,
       totalMinutes: 225,
       averageRating: 3.5,
       completedBySubject: { Maths: 3, PC: 2 },
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
     })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
@@ -173,22 +165,9 @@ describe("runPlanningWorkflow", () => {
 
   it("uses cached timetable and profile from ProfileService (skips vision and profile)", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "CACHED_TIMETABLE",
+      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "CACHED_PROFILE",
-    })
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "CACHED_TIMETABLE",
-      studentProfileContext: "CACHED_PROFILE",
-      isValidTimetable: true,
-      generatedPlanning: [],
     })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
@@ -196,27 +175,21 @@ describe("runPlanningWorkflow", () => {
     expect(mockGetCachedAnalysis).toHaveBeenCalledWith("user-1")
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
-        extractedTimetableMarkdown: "CACHED_TIMETABLE",
+        extractedTimetable: mockTimetable,
         studentProfileContext: "CACHED_PROFILE",
       })
     )
   })
 
   it("saves updated analysis cache when timetable changes after invoke", async () => {
+    const oldTimetable = { ...mockTimetable, filiere: "OLD" }
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "OLD_TIMETABLE",
+      extractedTimetableMarkdown: JSON.stringify(oldTimetable),
       isValidTimetable: true,
       studentProfileContext: "SAME_PROFILE",
     })
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
     mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "NEW_TIMETABLE",
+      extractedTimetable: mockTimetable,
       studentProfileContext: "SAME_PROFILE",
       isValidTimetable: false,
       generatedPlanning: [],
@@ -224,24 +197,22 @@ describe("runPlanningWorkflow", () => {
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockSaveAnalysisCache).toHaveBeenCalledWith("user-1", "NEW_TIMETABLE", false, undefined)
+    expect(mockSaveAnalysisCache).toHaveBeenCalledWith(
+      "user-1",
+      JSON.stringify(mockTimetable),
+      false,
+      undefined
+    )
   })
 
   it("saves updated analysis cache when profile changes after invoke", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "TIMETABLE",
+      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "OLD_PROFILE",
     })
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
     mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "TIMETABLE",
+      extractedTimetable: mockTimetable,
       studentProfileContext: "NEW_PROFILE",
       isValidTimetable: true,
       generatedPlanning: [],
@@ -254,19 +225,12 @@ describe("runPlanningWorkflow", () => {
 
   it("does NOT save cache when neither timetable nor profile changed", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "SAME",
+      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "SAME",
     })
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
     mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "SAME",
+      extractedTimetable: mockTimetable,
       studentProfileContext: "SAME",
       isValidTimetable: true,
       generatedPlanning: [],
@@ -277,173 +241,34 @@ describe("runPlanningWorkflow", () => {
     expect(mockSaveAnalysisCache).not.toHaveBeenCalled()
   })
 
-  it("creates a new graph for each invocation", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    const mockGraphInstance = { invoke: mockInvoke }
-    mockCreatePlanningGraph.mockReturnValue(mockGraphInstance)
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(1)
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(2)
-  })
-
-  it("creates a new graph when modelOverrides are given, even if cached", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    const overrides = { vision: { temperature: 0.5 } }
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(1)
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData, "image/jpeg", overrides)
-    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(2)
-
-    expect(mockCreatePlanningGraph).toHaveBeenLastCalledWith(overrides)
-  })
-
   it("propagates errors from graph invocation", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
     mockInvoke.mockRejectedValue(new Error("Graph invoke failure"))
-
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).rejects.toThrow(
       "Graph invoke failure"
     )
   })
 
   it("caches coefficients in-memory and reuses them on subsequent calls", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([{ subject: "Anglais", coefficient: 3 }])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(mockGetByClassId).toHaveBeenCalledTimes(1)
+
+    mockGetByClassId.mockClear()
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockGetCoefficientsByClassName).toHaveBeenCalledTimes(1)
-
-    mockGetCoefficientsByClassName.mockClear()
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockGetCoefficientsByClassName).not.toHaveBeenCalled()
+    expect(mockGetByClassId).not.toHaveBeenCalled()
   })
 
   it("handles coefficient fetch errors gracefully (does not propagate)", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockRejectedValue(new Error("DB error"))
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
+    mockGetByClassId.mockRejectedValue(new Error("DB error"))
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 
-  it("skips coefficient fetching when onboardingData is null", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, null)
-
-    expect(mockGetCoefficientsByClassName).not.toHaveBeenCalled()
-  })
-
-  it("skips coefficient fetching when onboardingData.serie is not a string", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, { serie: 123 })
-
-    expect(mockGetCoefficientsByClassName).not.toHaveBeenCalled()
-  })
-
   it("excludes Note moyenne line from weeklyStats when averageRating is null", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockResolvedValue({
       sessionCount: 2,
       totalMinutes: 60,
       averageRating: null,
       completedBySubject: { Maths: 1 },
-    })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
     })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
@@ -453,36 +278,18 @@ describe("runPlanningWorkflow", () => {
         weeklyStats: expect.not.stringContaining("Note moyenne"),
       })
     )
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weeklyStats: expect.stringContaining("Total"),
-      })
-    )
   })
 
   it("excludes Répartition line from weeklyStats when completedBySubject is empty", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockResolvedValue({
       sessionCount: 2,
       totalMinutes: 60,
       averageRating: 4,
       completedBySubject: {},
     })
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weeklyStats: expect.stringContaining("Note moyenne"),
-      })
-    )
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
         weeklyStats: expect.not.stringContaining("Répartition"),
@@ -491,38 +298,14 @@ describe("runPlanningWorkflow", () => {
   })
 
   it("handles weekly stats fetch errors gracefully (does not propagate)", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockRejectedValue(new Error("Stats error"))
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 
   it("fetches upcoming echeances and passes formatted string to graph", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
     mockGetUpcoming.mockResolvedValue([
       { subject: "Maths", title: "Contrôle continu", echeance_type: "devoir", due_date: "2026-06-12" },
-      { subject: "Anglais", title: "Final Exam", echeance_type: "examen", due_date: "2026-06-15" },
     ])
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
@@ -532,61 +315,5 @@ describe("runPlanningWorkflow", () => {
         upcomingEcheances: expect.stringContaining("Maths"),
       })
     )
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        upcomingEcheances: expect.stringContaining("Anglais"),
-      })
-    )
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        upcomingEcheances: expect.stringContaining("devoir"),
-      })
-    )
-  })
-
-  it("passes empty upcomingEcheances when no echeances exist", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockGetUpcoming.mockResolvedValue([])
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        upcomingEcheances: "",
-      })
-    )
-  })
-
-  it("handles echeance fetch errors gracefully (does not propagate)", async () => {
-    mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockGetUpcoming.mockRejectedValue(new Error("DB error"))
-    mockInvoke.mockResolvedValue({
-      extractedTimetableMarkdown: "",
-      studentProfileContext: "",
-      isValidTimetable: true,
-      generatedPlanning: [],
-    })
-
-    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 })

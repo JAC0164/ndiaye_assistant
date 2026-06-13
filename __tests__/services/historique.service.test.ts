@@ -229,4 +229,42 @@ describe("HistoriqueService", () => {
       )
     })
   })
+
+  describe("getDaysSinceLastRevisionBySubject", () => {
+    it("should fetch completed_at per subject and return correct map of days diff", async () => {
+      const now = new Date()
+      
+      const lastMathsDate = new Date()
+      lastMathsDate.setDate(now.getDate() - 3) // 3 days ago
+
+      const lastPhysicsDate = new Date()
+      lastPhysicsDate.setDate(now.getDate() - 5) // 5 days ago
+
+      const mockData = [
+        { subject: "Maths", completed_at: lastMathsDate.toISOString() },
+        { subject: "Physics", completed_at: lastPhysicsDate.toISOString() },
+        // older record for Maths
+        { subject: "Maths", completed_at: new Date(lastMathsDate.getTime() - 1000 * 60 * 60 * 24).toISOString() },
+      ]
+
+      mock.setResult(mockData)
+      const result = await service.getDaysSinceLastRevisionBySubject("user-1")
+
+      expect(result.get("Maths")).toBe(3)
+      expect(result.get("Physics")).toBe(5)
+
+      expect(mock.supabase.from).toHaveBeenCalledWith("historique")
+      expect(mock.builder.select).toHaveBeenCalledWith("subject, completed_at")
+      expect(mock.builder.eq).toHaveBeenCalledWith("user_id", "user-1")
+    })
+
+    it("should throw on database error", async () => {
+      mock.builder.then.mockImplementation((resolve) => {
+        resolve({ data: null, error: new Error("db error") })
+      })
+      await expect(service.getDaysSinceLastRevisionBySubject("user-1")).rejects.toThrow(
+        "Erreur lors de la récupération de l'historique par matière: db error"
+      )
+    })
+  })
 })

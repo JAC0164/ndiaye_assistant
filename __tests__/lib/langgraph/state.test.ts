@@ -58,7 +58,7 @@ describe("generatedSeanceSchema", () => {
     day_of_week: "monday",
     start_time: "08:00",
     end_time: "09:30",
-    subject: "Mathématiques",
+    subject: "MATH",
     session_type: "td",
     pedagogical_note: "Réviser les dérivées.",
   }
@@ -68,7 +68,7 @@ describe("generatedSeanceSchema", () => {
     expect(result.day_of_week).toBe("monday")
     expect(result.start_time).toBe("08:00")
     expect(result.end_time).toBe("09:30")
-    expect(result.subject).toBe("Mathématiques")
+    expect(result.subject).toBe("MATH")
     expect(result.session_type).toBe("td")
     expect(result.pedagogical_note).toBe("Réviser les dérivées.")
   })
@@ -112,28 +112,34 @@ describe("generatedSeanceSchema", () => {
 })
 
 describe("visionAgentOutputSchema", () => {
+  const validTimetable = {
+    filiere: "L2",
+    days: [
+      {
+        day: "monday" as const,
+        slots: [
+          { start: "08:00", end: "09:30", subject: "Maths", coefficient: 4, subject_type: "scientific" as const }
+        ]
+      }
+    ]
+  }
+
   it("accepts valid output", () => {
     const result = visionAgentOutputSchema.parse({
       isValid: true,
-      timetableMarkdown: "LUNDI:\n- 08:00: Maths",
+      timetable: validTimetable,
     })
     expect(result.isValid).toBe(true)
-    expect(result.timetableMarkdown).toBe("LUNDI:\n- 08:00: Maths")
+    expect(result.timetable.filiere).toBe("L2")
   })
 
   it("rejects missing fields", () => {
     expect(() => visionAgentOutputSchema.parse({ isValid: true })).toThrow()
-    expect(() => visionAgentOutputSchema.parse({ timetableMarkdown: "" })).toThrow()
+    expect(() => visionAgentOutputSchema.parse({ timetable: {} })).toThrow()
   })
 
   it("rejects non-boolean isValid", () => {
-    expect(() => visionAgentOutputSchema.parse({ isValid: "true", timetableMarkdown: "" })).toThrow()
-    expect(() => visionAgentOutputSchema.parse({ isValid: 1, timetableMarkdown: "" })).toThrow()
-  })
-
-  it("accepts empty timetableMarkdown", () => {
-    const result = visionAgentOutputSchema.parse({ isValid: false, timetableMarkdown: "" })
-    expect(result.timetableMarkdown).toBe("")
+    expect(() => visionAgentOutputSchema.parse({ isValid: "true", timetable: validTimetable })).toThrow()
   })
 })
 
@@ -167,14 +173,14 @@ describe("plannerAgentOutputSchema", () => {
           day_of_week: "monday",
           start_time: "18:00",
           end_time: "18:45",
-          subject: "Mathématiques",
+          subject: "MATH",
           session_type: "review",
           pedagogical_note: "35 min exos, 10 min synthèse",
         },
       ],
     })
     expect(result.sessions).toHaveLength(1)
-    expect(result.sessions[0].subject).toBe("Mathématiques")
+    expect(result.sessions[0].subject).toBe("MATH")
   })
 
   it("accepts empty sessions array", () => {
@@ -212,7 +218,7 @@ describe("GeneratedSeance type", () => {
       day_of_week: "wednesday",
       start_time: "14:00",
       end_time: "14:45",
-      subject: "Physique-Chimie",
+      subject: "PC",
       session_type: "td",
       pedagogical_note: "TD sur les circuits",
     }
@@ -234,6 +240,10 @@ describe("PlanningGraphAnnotation", () => {
       isValidTimetable: PLACEHOLDER,
       validationErrorMessage: PLACEHOLDER,
       generatedPlanning: PLACEHOLDER,
+      extractedTimetable: PLACEHOLDER,
+      coefficientTable: PLACEHOLDER,
+      preplannerConstraints: PLACEHOLDER,
+      planningValidation: PLACEHOLDER,
     }
     expect(stateShape).toHaveProperty("timetableImage")
     expect(stateShape).toHaveProperty("timetableImageMimeType")
@@ -245,6 +255,10 @@ describe("PlanningGraphAnnotation", () => {
     expect(stateShape).toHaveProperty("isValidTimetable")
     expect(stateShape).toHaveProperty("validationErrorMessage")
     expect(stateShape).toHaveProperty("generatedPlanning")
+    expect(stateShape).toHaveProperty("extractedTimetable")
+    expect(stateShape).toHaveProperty("coefficientTable")
+    expect(stateShape).toHaveProperty("preplannerConstraints")
+    expect(stateShape).toHaveProperty("planningValidation")
   })
 
   it("is created via Annotation.Root", () => {
@@ -252,7 +266,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(PlanningGraphAnnotation).toHaveProperty("spec")
   })
 
-  it("has a spec with all 11 fields", () => {
+  it("has a spec with all 15 fields", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const keys = Object.keys(spec)
     expect(keys).toContain("timetableImage")
@@ -266,7 +280,11 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("isValidTimetable")
     expect(keys).toContain("validationErrorMessage")
     expect(keys).toContain("generatedPlanning")
-    expect(keys).toHaveLength(11)
+    expect(keys).toContain("extractedTimetable")
+    expect(keys).toContain("coefficientTable")
+    expect(keys).toContain("preplannerConstraints")
+    expect(keys).toContain("planningValidation")
+    expect(keys).toHaveLength(15)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -340,7 +358,7 @@ describe("PlanningGraphAnnotation", () => {
         day_of_week: "monday" as const,
         start_time: "08:00",
         end_time: "09:00",
-        subject: "Maths",
+        subject: "MATH",
         session_type: "td" as const,
         pedagogical_note: "",
       },
@@ -350,7 +368,7 @@ describe("PlanningGraphAnnotation", () => {
         day_of_week: "tuesday" as const,
         start_time: "09:00",
         end_time: "10:00",
-        subject: "Physics",
+        subject: "PC",
         session_type: "td" as const,
         pedagogical_note: "",
       },

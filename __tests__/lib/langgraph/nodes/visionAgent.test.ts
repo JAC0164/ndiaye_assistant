@@ -2,14 +2,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { visionAgentOutputSchema } from "@/src/lib/langgraph/state"
 import type { PlanningGraphAnnotationState } from "@/src/lib/langgraph/state"
 
-const mockModel = vi.hoisted(() => ({
-  withStructuredOutput: vi.fn().mockReturnThis(),
-  invoke: vi.fn().mockResolvedValue({
-    timetableMarkdown: "LUNDI:\n- 08:00-09:30: Mathématiques\n- 09:40-11:10: Français",
-    isValid: true,
-  }),
-  pipe: vi.fn().mockReturnThis(),
-}))
+const { mockTimetable, mockModel } = vi.hoisted(() => {
+  const timetable = {
+    filiere: "S1",
+    days: [
+      {
+        day: "monday" as const,
+        slots: [
+          { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+          { start: "09:40", end: "11:10", subject: "FR", coefficient: 5, subject_type: "literary" as const },
+        ],
+      },
+    ],
+  }
+  const model = {
+    withStructuredOutput: vi.fn().mockReturnThis(),
+    invoke: vi.fn().mockResolvedValue({
+      timetable,
+      isValid: true,
+    }),
+    pipe: vi.fn().mockReturnThis(),
+  }
+  return { mockTimetable: timetable, mockModel: model }
+})
 
 const mockFromMessages = vi.hoisted(() =>
   vi.fn(() => ({
@@ -37,18 +52,27 @@ import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
 const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("fake-image-bytes"),
   timetableImageMimeType: "image/jpeg",
-  onboardingData: { serie: "S1" },
+  onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
   extractedTimetableMarkdown: "",
   studentProfileContext: "",
   subjectCoefficients: "",
   weeklyStats: "",
+  upcomingEcheances: "",
   isValidTimetable: true,
   generatedPlanning: [],
+  extractedTimetable: null,
+  coefficientTable: "MATH: 4, FR: 5",
+  preplannerConstraints: "",
+  planningValidation: null,
 }
 
 describe("visionAgent", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockModel.invoke.mockResolvedValue({
+      timetable: mockTimetable,
+      isValid: true,
+    })
   })
 
   it("calls model.withStructuredOutput with visionAgentOutputSchema", async () => {
@@ -59,18 +83,18 @@ describe("visionAgent", () => {
     )
   })
 
-  it("returns extractedTimetableMarkdown, isValidTimetable, and no validationErrorMessage on valid", async () => {
+  it("returns extractedTimetable, extractedTimetableMarkdown, isValidTimetable, and no validationErrorMessage on valid", async () => {
     const result = await visionAgent(baseState)
-    expect(result).toHaveProperty("extractedTimetableMarkdown")
-    expect(result).toHaveProperty("isValidTimetable")
-    expect(result.extractedTimetableMarkdown).toBe("LUNDI:\n- 08:00-09:30: Mathématiques\n- 09:40-11:10: Français")
+    expect(result.extractedTimetable).toEqual(mockTimetable)
     expect(result.isValidTimetable).toBe(true)
     expect(result.validationErrorMessage).toBeUndefined()
+    expect(result.extractedTimetableMarkdown).toContain("LUNDI")
+    expect(result.extractedTimetableMarkdown).toContain("MATH")
   })
 
   it("returns validationErrorMessage when isValid is false", async () => {
     mockModel.invoke.mockResolvedValueOnce({
-      timetableMarkdown: "",
+      timetable: { filiere: "S1", days: [] },
       isValid: false,
     })
     const result = await visionAgent(baseState)
@@ -78,15 +102,17 @@ describe("visionAgent", () => {
     expect(result.validationErrorMessage).toBe("Emploi du temps invalide ou non conforme au système sénégalais.")
   })
 
-  it("skips model call when extractedTimetableMarkdown already exists in state", async () => {
+  it("skips model call when extractedTimetable already exists in state", async () => {
     const stateWithTimetable: PlanningGraphAnnotationState = {
       ...baseState,
+      extractedTimetable: mockTimetable,
       extractedTimetableMarkdown: "EXISTING_TIMETABLE",
       isValidTimetable: false,
       validationErrorMessage: "Previous error",
     }
     const result = await visionAgent(stateWithTimetable)
     expect(mockModel.invoke).not.toHaveBeenCalled()
+    expect(result.extractedTimetable).toEqual(mockTimetable)
     expect(result.extractedTimetableMarkdown).toBe("EXISTING_TIMETABLE")
     expect(result.isValidTimetable).toBe(false)
     expect(result.validationErrorMessage).toBe("Previous error")
@@ -141,11 +167,10 @@ describe("visionAgent", () => {
     await visionAgent(baseState)
     const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
-    expect(systemMessage).toContain("Agent Vision")
-    expect(systemMessage).toContain("Sénégal")
-    expect(systemMessage).toContain("timetableMarkdown")
+    expect(systemMessage).toContain("Vision Agent")
+    expect(systemMessage).toContain("filière")
     expect(systemMessage).toContain("isValid")
-    expect(systemMessage).toContain("secondaire")
+    expect(systemMessage).toContain("coefficient")
   })
 
   it("passes modelOverrides to getModel", async () => {

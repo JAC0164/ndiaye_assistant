@@ -35,7 +35,6 @@ export class ProfileService extends BaseService<Profile> {
     const existingMetadata = (currentProfile.metadata as ProfileMetadata) || {}
     const updatedMetadata = {
       ...existingMetadata,
-      serie: onboarding.serie,
       weakSubjects: onboarding.weakSubjects,
       bedtime: onboarding.bedtime,
       blockedSlots: onboarding.blockedSlots,

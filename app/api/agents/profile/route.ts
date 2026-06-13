@@ -40,9 +40,14 @@ export async function POST(request: NextRequest) {
       studentProfileContext: "",
       subjectCoefficients: "",
       weeklyStats: "",
+      upcomingEcheances: "",
+      extractedTimetable: null,
+      coefficientTable: "",
+      preplannerConstraints: "",
       isValidTimetable: true,
       validationErrorMessage: undefined,
       generatedPlanning: [],
+      planningValidation: null,
     })
 
     const profileService = new ProfileService(supabase)

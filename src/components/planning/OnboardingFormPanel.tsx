@@ -1,15 +1,16 @@
 "use client"
 
 import type { OnboardingForm, BlockedSlot } from "@/src/types/planning.types"
-import { SERIES_SUBJECTS, SERIES_INFO, BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
+import { BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
 import BlockedSlotBuilder from "./BlockedSlotBuilder"
 
 interface OnboardingFormPanelProps {
   form: OnboardingForm
   onChange: (form: OnboardingForm) => void
+  availableSubjects: string[]
 }
 
-export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPanelProps) {
+export default function OnboardingFormPanel({ form, onChange, availableSubjects }: OnboardingFormPanelProps) {
   const handleToggleWeakSubject = (subject: string) => {
     const isWeak = form.weakSubjects.includes(subject)
     const updated = isWeak ? form.weakSubjects.filter((s) => s !== subject) : [...form.weakSubjects, subject]
@@ -45,39 +46,8 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
 
   return (
     <div className="flex flex-col gap-5 overflow-y-auto max-h-[420px] pr-1">
-      {/* Track Selector (Série) */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Série / Filière</label>
-        <div className="grid grid-cols-5 gap-2 mt-2">
-          {SERIES_INFO.map((item) => {
-            const isSelected = form.serie === item.value
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => {
-                  onChange({
-                    ...form,
-                    serie: item.value as OnboardingForm["serie"],
-                    weakSubjects: [],
-                  })
-                }}
-                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition duration-150 cursor-pointer ${
-                  isSelected
-                    ? "bg-cyan-500/10 border-cyan-500 text-white shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                    : "bg-zinc-955 bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-200"
-                }`}
-              >
-                <span className="text-sm font-bold">{item.label}</span>
-                <span className="text-[9px] mt-0.5 opacity-60 truncate max-w-full">{item.desc}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Weak Subjects Grid (Matières faibles) */}
-      <div className="border-t border-zinc-900 pt-4">
+      <div>
         <div className="flex justify-between items-center mb-1">
           <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matières à renforcer</label>
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
@@ -85,24 +55,28 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {(SERIES_SUBJECTS[form.serie] || SERIES_SUBJECTS["S1"]).map((sub) => {
-            const isWeak = form.weakSubjects.includes(sub)
-            return (
-              <button
-                key={sub}
-                type="button"
-                onClick={() => handleToggleWeakSubject(sub)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition cursor-pointer ${
-                  isWeak
-                    ? "bg-amber-500/10 border-amber-500 text-amber-200"
-                    : "bg-zinc-955 bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
-                }`}
-              >
-                <span>{isWeak ? "⚠️" : "📚"}</span>
-                <span>{sub}</span>
-              </button>
-            )
-          })}
+          {availableSubjects.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">Chargement des matières...</p>
+          ) : (
+            availableSubjects.map((sub) => {
+              const isWeak = form.weakSubjects.includes(sub)
+              return (
+                <button
+                  key={sub}
+                  type="button"
+                  onClick={() => handleToggleWeakSubject(sub)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition cursor-pointer ${
+                    isWeak
+                      ? "bg-amber-500/10 border-amber-500 text-amber-200"
+                      : "bg-zinc-955 bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
+                  }`}
+                >
+                  <span>{isWeak ? "⚠️" : "📚"}</span>
+                  <span>{sub}</span>
+                </button>
+              )
+            })
+          )}
         </div>
       </div>
 

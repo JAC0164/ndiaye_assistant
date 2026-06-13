@@ -68,7 +68,6 @@ describe("ProfileService", () => {
 
   describe("updateOnboarding", () => {
     const onboarding: OnboardingForm = {
-      serie: "S1",
       weakSubjects: ["maths", "physique"],
       bedtime: "22:00",
       blockedSlots: [{ id: "1", day: "monday", startTime: "08:00", endTime: "10:00", reason: "school" }],
@@ -77,7 +76,7 @@ describe("ProfileService", () => {
     it("should merge onboarding data into metadata and update", async () => {
       vi.spyOn(service, "getByUserId").mockResolvedValue({
         ...baseProfile,
-        metadata: { serie: "L1" },
+        metadata: { bedtime: "21:30" },
       })
 
       const updatedProfile = { ...baseProfile, metadata: { ...onboarding } }
@@ -89,7 +88,6 @@ describe("ProfileService", () => {
       expect(mock.supabase.from).toHaveBeenCalledWith("profiles")
       expect(mock.builder.update).toHaveBeenCalledWith({
         metadata: {
-          serie: "S1",
           weakSubjects: ["maths", "physique"],
           bedtime: "22:00",
           blockedSlots: onboarding.blockedSlots,
@@ -114,7 +112,6 @@ describe("ProfileService", () => {
       const updateCall = vi.mocked(mock.builder.update).mock.calls[0][0]
       expect(updateCall.metadata).toMatchObject({
         cachedProfileContext: "existing context",
-        serie: "S1",
         weakSubjects: ["maths", "physique"],
       })
     })
@@ -139,7 +136,6 @@ describe("ProfileService", () => {
 
       const updateCall = vi.mocked(mock.builder.update).mock.calls[0][0]
       expect(updateCall.metadata).toEqual({
-        serie: "S1",
         weakSubjects: ["maths", "physique"],
         bedtime: "22:00",
         blockedSlots: onboarding.blockedSlots,

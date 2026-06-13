@@ -5,9 +5,14 @@ import { HistoriqueService } from "@/src/services/historique.service"
 import { ProfileService } from "@/src/services/profile.service"
 import { logger } from "@/src/lib/logger"
 import { createPlanningGraph } from "./graph"
-import type { OnboardingForm } from "@/src/types/planning.types"
+import type { OnboardingForm, ExtractedTimetable } from "@/src/types/planning.types"
 import type { PlanningGraphState } from "./state"
 import type { ModelOverrides } from "./providers"
+import { extractSubjects } from "../planning/extractSubjects"
+import { validatePlanning } from "../planning/validatePlanning"
+import { timetableToMarkdown } from "./nodes/visionAgent"
+
+
 
 export type PlanningWorkflowResult = PlanningGraphState
 
@@ -16,10 +21,7 @@ const COEFFICIENTS_CACHE_MAX = 50
 const coefficientsCache = new Map<string, { data: string; expiry: number; order: number }>()
 let cacheOrderCounter = 0
 
-function getClassNameFromSerie(serie: string): string {
-  if (serie === "L'") return "Terminale L'1"
-  return `Terminale ${serie}`
-}
+
 
 function getCachedCoefficients(className: string): string | null {
   const entry = coefficientsCache.get(className)
@@ -55,41 +57,78 @@ export async function runPlanningWorkflow(
   imageMimeType = "image/jpeg",
   modelOverrides?: ModelOverrides
 ): Promise<PlanningWorkflowResult> {
-  let extractedTimetable = ""
+  let extractedTimetable: ExtractedTimetable | null = null
+  let extractedTimetableMarkdown = ""
   let isValidTimetable = true
   let studentProfileContext = ""
-  let subjectCoefficientsStr = ""
+  let coefficientTable = ""
   let weeklyStats = ""
+  let daysSinceLastRevision = new Map<string, number>()
 
   const profileService = new ProfileService(supabase)
-  const cached = await profileService.getCachedAnalysis(userId)
+  const profile = await profileService.getByUserId(userId)
+  const cached = profile ? await profileService.getCachedAnalysis(userId) : null
+  
   if (cached) {
-    extractedTimetable = cached.extractedTimetableMarkdown
-    isValidTimetable = cached.isValidTimetable
-    studentProfileContext = cached.studentProfileContext
-    logger.info(
-      {
-        timetableLength: extractedTimetable.length,
-        valid: isValidTimetable,
-        profileLength: studentProfileContext.length,
-      },
-      "[Cache] Restored cached analysis"
-    )
+    const rawTimetable = cached.extractedTimetableMarkdown
+    if (rawTimetable.trim().startsWith("{")) {
+      try {
+        extractedTimetable = JSON.parse(rawTimetable) as ExtractedTimetable
+        isValidTimetable = cached.isValidTimetable
+        studentProfileContext = cached.studentProfileContext
+        extractedTimetableMarkdown = timetableToMarkdown(extractedTimetable)
+        logger.info(
+          {
+            valid: isValidTimetable,
+            profileLength: studentProfileContext.length,
+          },
+          "[Cache] Restored cached analysis JSON"
+        )
+      } catch {
+        logger.warn("Failed to parse cached analysis JSON, invalidating cache")
+      }
+    }
   }
 
+  // Fetch days since last revision from DB
   try {
-    const data = onboardingData as OnboardingForm
-    if (data && typeof data.serie === "string") {
-      const className = getClassNameFromSerie(data.serie)
-      const cachedStr = getCachedCoefficients(className)
+    const historiqueService = new HistoriqueService(supabase)
+    daysSinceLastRevision = await historiqueService.getDaysSinceLastRevisionBySubject(userId)
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch days since last revision")
+  }
+
+  // Fetch coefficients from DB
+  try {
+    const classId = profile?.class_id
+    if (classId) {
+      const cachedStr = getCachedCoefficients(classId)
       if (cachedStr) {
-        subjectCoefficientsStr = cachedStr
+        coefficientTable = cachedStr
       } else {
         const coeffService = new CoefficientService(supabase)
-        const coeffs = await coeffService.getCoefficientsByClassName(className)
+        const coeffs = await coeffService.getByClassId(classId)
         if (coeffs.length > 0) {
-          subjectCoefficientsStr = coeffs.map((c) => `${c.subject} (coefficient ${c.coefficient})`).join(", ")
-          setCachedCoefficients(className, subjectCoefficientsStr)
+          coefficientTable = coeffs
+            .map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`)
+            .join("\n")
+          setCachedCoefficients(classId, coefficientTable)
+        }
+      }
+    } else {
+      // Fallback to Terminale S1 coefficients if no class_id is set
+      const fallbackClassName = "Terminale S1"
+      const cachedStr = getCachedCoefficients(fallbackClassName)
+      if (cachedStr) {
+        coefficientTable = cachedStr
+      } else {
+        const coeffService = new CoefficientService(supabase)
+        const coeffs = await coeffService.getCoefficientsByClassName(fallbackClassName)
+        if (coeffs.length > 0) {
+          coefficientTable = coeffs
+            .map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`)
+            .join("\n")
+          setCachedCoefficients(fallbackClassName, coefficientTable)
         }
       }
     }
@@ -97,6 +136,7 @@ export async function runPlanningWorkflow(
     logger.error({ err }, "Failed to fetch coefficients for AI workflow")
   }
 
+  // Fetch weekly stats from DB
   try {
     const historiqueService = new HistoriqueService(supabase)
     const stats = await historiqueService.getWeeklyStats(userId)
@@ -118,6 +158,7 @@ export async function runPlanningWorkflow(
     logger.error({ err }, "Failed to fetch weekly stats")
   }
 
+  // Fetch upcoming deadlines from DB
   let upcomingEcheancesStr = ""
   try {
     const echeanceService = new EcheanceService(supabase)
@@ -134,27 +175,59 @@ export async function runPlanningWorkflow(
     logger.error({ err }, "Failed to fetch upcoming echeances")
   }
 
+  const enrichedOnboarding = {
+    ...(onboardingData as Record<string, unknown> | null),
+    daysSinceLastRevision: Array.from(daysSinceLastRevision.entries()),
+  }
+
   const graph = createPlanningGraph(modelOverrides)
 
   const state = await graph.invoke({
     timetableImage: imageBuffer,
     timetableImageMimeType: imageMimeType,
-    onboardingData,
-    subjectCoefficients: subjectCoefficientsStr,
+    onboardingData: enrichedOnboarding,
+    coefficientTable,
     weeklyStats,
     upcomingEcheances: upcomingEcheancesStr,
-    extractedTimetableMarkdown: extractedTimetable,
+    extractedTimetableMarkdown,
     isValidTimetable,
     studentProfileContext,
+    extractedTimetable,
+    preplannerConstraints: "",
+    planningValidation: null,
+    subjectCoefficients: coefficientTable, // keep for backward compatibility
   })
 
+  // Post-graph validation
+  if (state.isValidTimetable && state.extractedTimetable) {
+    try {
+      const subjects = extractSubjects(state.extractedTimetable)
+      const allowedSubjects = subjects.map((s) => s.name)
+      const onboarding = onboardingData as OnboardingForm
+      const validation = validatePlanning(
+        state.generatedPlanning,
+        allowedSubjects,
+        onboarding?.bedtime || "22:00",
+        onboarding?.blockedSlots || []
+      )
+      state.planningValidation = validation
+      state.generatedPlanning = validation.validatedPlanning
+    } catch (err) {
+      logger.error({ err }, "Failed to run post-graph planning validation")
+    }
+  }
+
+  // Save cache if modified
+  const timetableSerialized = state.extractedTimetable ? JSON.stringify(state.extractedTimetable) : ""
+  const originalSerialized = extractedTimetable ? JSON.stringify(extractedTimetable) : ""
+  const isTimetableChanged = state.extractedTimetable !== null && timetableSerialized !== originalSerialized
+
   if (
-    state.extractedTimetableMarkdown !== extractedTimetable ||
+    isTimetableChanged ||
     state.studentProfileContext !== studentProfileContext
   ) {
-    const newTimetable =
-      state.extractedTimetableMarkdown !== extractedTimetable ? state.extractedTimetableMarkdown : undefined
-    const newValid = state.extractedTimetableMarkdown !== extractedTimetable ? state.isValidTimetable : undefined
+    const newTimetable = isTimetableChanged ? timetableSerialized : undefined
+    const newValid = isTimetableChanged ? state.isValidTimetable : undefined
     const newContext = state.studentProfileContext !== studentProfileContext ? state.studentProfileContext : undefined
     await profileService.saveAnalysisCache(userId, newTimetable, newValid, newContext)
   }

@@ -20,26 +20,25 @@ export const FULL_DAY_LABELS: Record<string, string> = {
   sunday: "Dimanche",
 }
 
-export const SERIES_SUBJECTS: Record<string, string[]> = {
-  S1: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
-  S2: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
-  L1: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-  L2: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-  "L'": ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-}
-
-export const SERIES_INFO = [
-  { value: "S1", label: "S1", desc: "Maths & PC", focus: "Maths, PC, SVT" },
-  { value: "S2", label: "S2", desc: "Expérimentale", focus: "Maths, PC, SVT" },
-  { value: "L1", label: "L1", desc: "Langues/Lettres", focus: "Philo, Fr, Anglais" },
-  { value: "L2", label: "L2", desc: "Sciences Humaines", focus: "Philo, Fr, Hist-Géo" },
-  { value: "L'", label: "L'", desc: "Langues Vivantes", focus: "Philo, Fr, Langues" },
-]
-
 export const BEDTIME_OPTIONS = ["20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"]
 
 export const TYPE_LABELS: Record<string, string> = {
   td: "TD",
   review: "Révision",
   break: "Pause",
+}
+
+export function parseCoefficientTable(tableStr: string): Map<string, number> {
+  const map = new Map<string, number>()
+  if (!tableStr) return map
+  const lines = tableStr.split("\n")
+  for (const line of lines) {
+    const match = line.match(/^\s*-\s*(.+?)\s*:\s*(\d+)\s*$/)
+    if (match) {
+      const subject = match[1].trim().toUpperCase()
+      const coeff = parseInt(match[2], 10)
+      map.set(subject, coeff)
+    }
+  }
+  return map
 }

@@ -1,5 +1,6 @@
 import { Annotation } from "@langchain/langgraph"
 import { z } from "zod"
+import type { ExtractedTimetable, ValidationResult } from "@/src/types/planning.types"
 
 export const dayOfWeekSchema = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"])
 
@@ -20,9 +21,29 @@ export const generatedSeanceSchema = z.object({
   pedagogical_note: z.string().describe("Note pédagogique courte pour guider la séance."),
 })
 
+export const subjectTypeSchema = z.enum(["scientific", "literary", "language", "other"])
+
+export const timetableSlotSchema = z.object({
+  start: z.string().regex(/^\d{2}:\d{2}$/),
+  end: z.string().regex(/^\d{2}:\d{2}$/),
+  subject: z.string().min(1),
+  coefficient: z.number().nullable(),
+  subject_type: subjectTypeSchema,
+})
+
+export const timetableDaySchema = z.object({
+  day: z.enum(["monday", "tuesday", "wednesday", "thursday", "friday"]),
+  slots: z.array(timetableSlotSchema),
+})
+
+export const extractedTimetableSchema = z.object({
+  filiere: z.string(),
+  days: z.array(timetableDaySchema),
+})
+
 export const visionAgentOutputSchema = z.object({
   isValid: z.boolean(),
-  timetableMarkdown: z.string(),
+  timetable: extractedTimetableSchema,
 })
 
 export const profileAgentOutputSchema = z.object({
@@ -47,6 +68,10 @@ export interface PlanningGraphState {
   isValidTimetable: boolean
   validationErrorMessage?: string
   generatedPlanning: GeneratedSeance[]
+  extractedTimetable: ExtractedTimetable | null
+  coefficientTable: string
+  preplannerConstraints: string
+  planningValidation: ValidationResult | null
 }
 
 export const PlanningGraphAnnotation = Annotation.Root({
@@ -87,6 +112,22 @@ export const PlanningGraphAnnotation = Annotation.Root({
   generatedPlanning: Annotation<GeneratedSeance[]>({
     value: (_current, update) => update,
     default: () => [] satisfies GeneratedSeance[],
+  }),
+  extractedTimetable: Annotation<ExtractedTimetable | null>({
+    value: (_current, update) => update,
+    default: () => null,
+  }),
+  coefficientTable: Annotation<string>({
+    value: (_current, update) => update,
+    default: () => "",
+  }),
+  preplannerConstraints: Annotation<string>({
+    value: (_current, update) => update,
+    default: () => "",
+  }),
+  planningValidation: Annotation<ValidationResult | null>({
+    value: (_current, update) => update,
+    default: () => null,
   }),
 })
 
