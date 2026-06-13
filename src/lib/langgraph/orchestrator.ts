@@ -94,7 +94,7 @@ export async function runPlanningWorkflow(
       }
     }
   } catch (err) {
-    console.error("Failed to fetch coefficients for AI workflow:", err)
+    logger.error({ err }, "Failed to fetch coefficients for AI workflow")
   }
 
   try {
@@ -115,7 +115,7 @@ export async function runPlanningWorkflow(
       )
     }
   } catch (err) {
-    console.error("Failed to fetch weekly stats:", err)
+    logger.error({ err }, "Failed to fetch weekly stats")
   }
 
   let upcomingEcheancesStr = ""
@@ -131,7 +131,7 @@ export async function runPlanningWorkflow(
         .join("\n")
     }
   } catch (err) {
-    console.error("Failed to fetch upcoming echeances:", err)
+    logger.error({ err }, "Failed to fetch upcoming echeances")
   }
 
   const graph = createPlanningGraph(modelOverrides)

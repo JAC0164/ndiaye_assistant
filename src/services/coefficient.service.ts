@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 import { Database } from "@/src/types/database.types"
 import { BaseService } from "./base.service"
+import { logger } from "@/src/lib/logger"
 
 export type Coefficient = Database["public"]["Tables"]["coefficients"]["Row"]
 
@@ -31,7 +32,7 @@ export class CoefficientService extends BaseService<Coefficient> {
       .order("coefficient", { ascending: false })
 
     if (error) {
-      console.error("Failed to fetch coefficients by class name:", error.message)
+      logger.error({ error: error.message, className }, "Failed to fetch coefficients by class name")
       return []
     }
 

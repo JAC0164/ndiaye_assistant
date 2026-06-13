@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { SessionService } from "@/src/services/session.service"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const sessions = await service.getWeeklyTemplate(user.id)
     return NextResponse.json(sessions)
   } catch (err) {
-    console.error("Error fetching sessions:", err)
+    logger.error({ err }, "Error fetching sessions")
     return NextResponse.json({ error: "Erreur lors du chargement des séances." }, { status: 500 })
   }
 }

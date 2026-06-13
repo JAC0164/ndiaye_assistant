@@ -59,7 +59,7 @@ describe("createModel", () => {
       model: "gpt-4",
       temperature: 0.7,
       timeout: 15000,
-      baseUrl: "https://custom.openai.com/v1",
+      baseUrl: "https://api.openai.com/v1/custom",
     })
 
     createModel(config)
@@ -68,7 +68,7 @@ describe("createModel", () => {
       model: "gpt-4",
       temperature: 0.7,
       timeout: 15000,
-      configuration: { baseURL: "https://custom.openai.com/v1" },
+      configuration: { baseURL: "https://api.openai.com/v1/custom" },
     })
   })
 
@@ -146,14 +146,14 @@ describe("createModel", () => {
       provider: "deepseek",
       model: "deepseek-coder",
       temperature: 0,
-      baseUrl: "https://deepseek.example.com/v1",
+      baseUrl: "https://api.deepseek.com/v1/custom",
     })
 
     createModel(config)
 
     expect(mockChatOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({
-        configuration: { baseURL: "https://deepseek.example.com/v1" },
+        configuration: { baseURL: "https://api.deepseek.com/v1/custom" },
       })
     )
   })
@@ -179,7 +179,7 @@ describe("createModel", () => {
       provider: "ollama",
       model: "mistral",
       temperature: 0,
-      baseUrl: "http://ollama.local:8080",
+      baseUrl: "http://localhost:11434/custom",
     })
 
     createModel(config)
@@ -187,7 +187,7 @@ describe("createModel", () => {
     expect(mockChatOllama).toHaveBeenCalledWith({
       model: "mistral",
       temperature: 0,
-      baseUrl: "http://ollama.local:8080",
+      baseUrl: "http://localhost:11434/custom",
     })
   })
 

@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { EcheanceService } from "@/src/services/echeance.service"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     const echeances = await service.getUpcoming(user.id, days)
     return NextResponse.json(echeances)
   } catch (err) {
-    console.error("Error fetching echeances:", err)
+    logger.error({ err }, "Error fetching echeances")
     return NextResponse.json({ error: "Erreur lors du chargement des échéances." }, { status: 500 })
   }
 }
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     const echeance = await service.create({ ...parsed.data, user_id: user.id })
     return NextResponse.json(echeance, { status: 201 })
   } catch (err) {
-    console.error("Error creating echeance:", err)
+    logger.error({ err }, "Error creating echeance")
     return NextResponse.json({ error: "Erreur lors de la création de l'échéance." }, { status: 500 })
   }
 }

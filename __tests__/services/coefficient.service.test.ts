@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { createMockSupabase } from "@/src/test/utils/mock-supabase"
 import { CoefficientService, Coefficient } from "@/src/services/coefficient.service"
+import { logger } from "@/src/lib/logger"
 
 describe("CoefficientService", () => {
   let mock: ReturnType<typeof createMockSupabase>
@@ -83,15 +84,18 @@ describe("CoefficientService", () => {
     })
 
     it("should return empty array and log error instead of throwing on database error", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+      const loggerSpy = vi.spyOn(logger, "error").mockImplementation(() => {})
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("join error") })
       })
       const result = await service.getCoefficientsByClassName("Unknown")
 
       expect(result).toEqual([])
-      expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch coefficients by class name:", "join error")
-      consoleSpy.mockRestore()
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "join error", className: "Unknown" }),
+        "Failed to fetch coefficients by class name"
+      )
+      loggerSpy.mockRestore()
     })
 
     it("should return empty array when no matching class name", async () => {

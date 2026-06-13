@@ -171,7 +171,7 @@ describe("proxy config", () => {
   it("has a matcher that excludes _next/static, _next/image, favicon.ico, and api/", () => {
     expect(config).toBeDefined()
     expect(config.matcher).toHaveLength(1)
-    expect(config.matcher[0]).toBe("/((?!_next/static|_next/image|favicon.ico|api/).*)")
+    expect(config.matcher[0]).toBe("/((?!_next/static|_next/image|favicon.ico|api/|auth|.*\\..*).*)")
   })
 
   it("matcher pattern contains all expected exclusion terms", () => {

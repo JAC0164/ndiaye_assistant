@@ -152,6 +152,9 @@ export interface Database {
           confidence_level: number | null
           class_id: string | null
           metadata: Json
+          current_streak: number
+          longest_streak: number
+          last_streak_date: string | null
           created_at: string
           updated_at: string
         }
@@ -164,6 +167,9 @@ export interface Database {
           confidence_level?: number | null
           class_id?: string | null
           metadata?: Json
+          current_streak?: number
+          longest_streak?: number
+          last_streak_date?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -176,6 +182,9 @@ export interface Database {
           confidence_level?: number | null
           class_id?: string | null
           metadata?: Json
+          current_streak?: number
+          longest_streak?: number
+          last_streak_date?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -228,6 +237,7 @@ export interface Database {
           completed_at: string
           duration_minutes: number | null
           self_rating: number | null
+          feedback: Database["public"]["Enums"]["feedback_rating"]
           notes: string | null
         }
         Insert: {
@@ -239,6 +249,7 @@ export interface Database {
           completed_at?: string
           duration_minutes?: number | null
           self_rating?: number | null
+          feedback?: Database["public"]["Enums"]["feedback_rating"]
           notes?: string | null
         }
         Update: {
@@ -250,7 +261,60 @@ export interface Database {
           completed_at?: string
           duration_minutes?: number | null
           self_rating?: number | null
+          feedback?: Database["public"]["Enums"]["feedback_rating"]
           notes?: string | null
+        }
+      }
+      user_push_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          device_id: string
+          token: string
+          platform: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          device_id: string
+          token: string
+          platform: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          device_id?: string
+          token?: string
+          platform?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      friendships: {
+        Row: {
+          id: string
+          sender_id: string
+          receiver_id: string
+          status: Database["public"]["Enums"]["friendship_status"]
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          sender_id: string
+          receiver_id: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          receiver_id?: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          created_at?: string
         }
       }
     }
@@ -258,11 +322,19 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      sync_offline_data: {
+        Args: {
+          p_user_id: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       day_of_week: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
       session_type: "td" | "review" | "break"
+      feedback_rating: "DIFFICILE" | "MOYEN" | "MAITRISE"
+      friendship_status: "PENDING" | "ACCEPTED"
     }
   }
 }

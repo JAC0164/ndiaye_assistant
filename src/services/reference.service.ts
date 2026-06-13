@@ -1,16 +1,15 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 import { Database } from "@/src/types/database.types"
+import { BaseService } from "./base.service"
 
 type SchoolLevel = Database["public"]["Tables"]["school_levels"]["Row"]
 type Series = Database["public"]["Tables"]["series"]["Row"]
 type Class = Database["public"]["Tables"]["classes"]["Row"]
 type Coefficient = Database["public"]["Tables"]["coefficients"]["Row"]
 
-export class ReferenceService {
-  private supabase: SupabaseClient
-
+export class ReferenceService extends BaseService<SchoolLevel | Series | Class | Coefficient> {
   constructor(supabase: SupabaseClient) {
-    this.supabase = supabase
+    super(supabase, "school_levels")
   }
 
   async getLevels(): Promise<SchoolLevel[]> {

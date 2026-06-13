@@ -4,6 +4,7 @@ import { z } from "zod"
 
 import { createClient as createSSRClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
+import { logger } from "@/src/lib/logger"
 import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 
@@ -24,31 +25,18 @@ type ImageUpload = {
 
 const ALLOWED_PROVIDERS = ["gemini", "openai", "anthropic", "deepseek", "ollama"] as const
 
+const agentOverrideSchema = z
+  .object({
+    provider: z.enum(ALLOWED_PROVIDERS).optional(),
+    model: z.string().max(100).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+  })
+  .optional()
+
 const modelOverrideSchema = z.object({
-  vision: z
-    .object({
-      provider: z.enum(ALLOWED_PROVIDERS).optional(),
-      model: z.string().max(100).optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-    })
-    .optional(),
-  profile: z
-    .object({
-      provider: z.enum(ALLOWED_PROVIDERS).optional(),
-      model: z.string().max(100).optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-    })
-    .optional(),
-  planner: z
-    .object({
-      provider: z.enum(ALLOWED_PROVIDERS).optional(),
-      model: z.string().max(100).optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-    })
-    .optional(),
+  vision: agentOverrideSchema,
+  profile: agentOverrideSchema,
+  planner: agentOverrideSchema,
 })
 
 function jsonError(status: number, error: string) {
@@ -70,17 +58,10 @@ function validateModelOverrides(raw: unknown): ModelOverrides | undefined {
   if (!raw) return undefined
   const parsed = modelOverrideSchema.safeParse(raw)
   if (!parsed.success) {
-    console.warn("Invalid modelOverrides rejected:", parsed.error.flatten())
+    logger.warn({ errors: parsed.error.flatten() }, "Invalid modelOverrides rejected")
     return undefined
   }
-  const cleaned = parsed.data as ModelOverrides
-  for (const agent of ["vision", "profile", "planner"] as const) {
-    const cfg = cleaned[agent]
-    if (cfg?.baseUrl === "") {
-      delete cfg.baseUrl
-    }
-  }
-  return cleaned
+  return parsed.data as ModelOverrides
 }
 
 async function fileToBuffer(value: FormDataEntryValue | null): Promise<ImageUpload> {
@@ -196,7 +177,7 @@ export async function POST(request: NextRequest) {
       generatedPlanning: result.generatedPlanning,
     })
   } catch (error) {
-    console.error("Planning generation error:", error)
+    logger.error({ error }, "Planning generation error")
     return jsonError(500, "Erreur lors de la génération du planning. Veuillez réessayer.")
   }
 }

@@ -111,7 +111,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("DB error") })
       })
-      await expect(service.getAll()).rejects.toThrow("Erreur lors de la récupération des données: DB error")
+      await expect(service.getAll()).rejects.toThrow("Erreur lors de la récupération des données.")
     })
   })
 
@@ -140,7 +140,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("not found") })
       })
-      await expect(service.getById("42")).rejects.toThrow("Erreur lors de la récupération de l'élément: not found")
+      await expect(service.getById("42")).rejects.toThrow("Erreur lors de la récupération de l'élément.")
     })
   })
 
@@ -170,7 +170,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("insert failed") })
       })
-      await expect(service.create({ name: "test" })).rejects.toThrow("Erreur lors de la création: insert failed")
+      await expect(service.create({ name: "test" })).rejects.toThrow("Erreur lors de la création.")
     })
   })
 
@@ -201,9 +201,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("update failed") })
       })
-      await expect(service.update("1", { name: "test" })).rejects.toThrow(
-        "Erreur lors de la mise à jour: update failed"
-      )
+      await expect(service.update("1", { name: "test" })).rejects.toThrow("Erreur lors de la mise à jour.")
     })
   })
 
@@ -228,7 +226,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("delete failed") })
       })
-      await expect(service.delete("1")).rejects.toThrow("Erreur lors de la suppression: delete failed")
+      await expect(service.delete("1")).rejects.toThrow("Erreur lors de la suppression.")
     })
   })
 })

@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js"
+import { logger } from "@/src/lib/logger"
 
 export type QueryOptions = {
   limit?: number
@@ -39,7 +40,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { data, error } = await query
 
     if (error) {
-      throw new Error(`Erreur lors de la récupération des données: ${error.message}`)
+      logger.error({ table: this.tableName, supabaseError: error.message }, "BaseService getAll failed")
+      throw new Error("Erreur lors de la récupération des données.")
     }
 
     return data as T[]
@@ -49,7 +51,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { data, error } = await this.supabase.from(this.tableName).select("*").eq("id", id).single()
 
     if (error) {
-      throw new Error(`Erreur lors de la récupération de l'élément: ${error.message}`)
+      logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService getById failed")
+      throw new Error("Erreur lors de la récupération de l'élément.")
     }
 
     return data as T | null
@@ -59,7 +62,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { data, error } = await this.supabase.from(this.tableName).insert(payload).select().single()
 
     if (error) {
-      throw new Error(`Erreur lors de la création: ${error.message}`)
+      logger.error({ table: this.tableName, supabaseError: error.message }, "BaseService create failed")
+      throw new Error("Erreur lors de la création.")
     }
 
     return data as T
@@ -69,7 +73,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { data, error } = await this.supabase.from(this.tableName).update(payload).eq("id", id).select().single()
 
     if (error) {
-      throw new Error(`Erreur lors de la mise à jour: ${error.message}`)
+      logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService update failed")
+      throw new Error("Erreur lors de la mise à jour.")
     }
 
     return data as T
@@ -79,7 +84,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { error } = await this.supabase.from(this.tableName).delete().eq("id", id)
 
     if (error) {
-      throw new Error(`Erreur lors de la suppression: ${error.message}`)
+      logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService delete failed")
+      throw new Error("Erreur lors de la suppression.")
     }
   }
 }

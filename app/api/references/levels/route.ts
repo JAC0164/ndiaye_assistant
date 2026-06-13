@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/src/lib/supabase/server"
 import { ReferenceService } from "@/src/services/reference.service"
 import { checkRateLimit } from "@/src/lib/rate-limit"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const levels = await service.getLevels()
     return NextResponse.json(levels)
   } catch (err) {
-    console.error("Error fetching levels:", err)
+    logger.error({ err }, "Error fetching levels")
     return NextResponse.json({ error: "Erreur lors du chargement des niveaux." }, { status: 500 })
   }
 }

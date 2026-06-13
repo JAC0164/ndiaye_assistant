@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { EcheanceService } from "@/src/services/echeance.service"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
@@ -52,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const echeance = await service.update(id, { ...parsed.data, updated_at: new Date().toISOString() })
     return NextResponse.json(echeance)
   } catch (err) {
-    console.error("Error updating echeance:", err)
+    logger.error({ err }, "Error updating echeance")
     return NextResponse.json({ error: "Erreur lors de la mise à jour de l'échéance." }, { status: 500 })
   }
 }
@@ -79,7 +80,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await service.delete(id)
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error("Error deleting echeance:", err)
+    logger.error({ err }, "Error deleting echeance")
     return NextResponse.json({ error: "Erreur lors de la suppression de l'échéance." }, { status: 500 })
   }
 }

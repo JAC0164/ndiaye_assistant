@@ -3,6 +3,7 @@ import { createClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
 import { ProfileService } from "@/src/services/profile.service"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
       studentProfileContext: result.studentProfileContext,
     })
   } catch (err) {
-    console.error("Profile agent error:", err)
+    logger.error({ err }, "Profile agent error")
     return NextResponse.json({ error: "Erreur lors de l'analyse du profil." }, { status: 500 })
   }
 }

@@ -3,13 +3,14 @@ import { z } from "zod"
 import { createClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { HistoriqueService } from "@/src/services/historique.service"
+import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
 
 const logSchema = z.object({
   session_id: z.string().uuid().optional().nullable(),
   subject: z.string().min(1),
-  session_type: z.enum(["course", "td", "tp", "review", "break"]),
+  session_type: z.enum(["td", "review", "break"]),
   duration_minutes: z.number().int().min(1).max(600).optional().nullable(),
   self_rating: z.number().int().min(1).max(5).optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     const stats = await service.getWeeklyStats(user.id)
     return NextResponse.json(stats)
   } catch (err) {
-    console.error("Error fetching historique:", err)
+    logger.error({ err }, "Error fetching historique")
     return NextResponse.json({ error: "Erreur lors du chargement de l'historique." }, { status: 500 })
   }
 }
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     const log = await service.logCompletion({ ...parsed.data, user_id: user.id })
     return NextResponse.json(log, { status: 201 })
   } catch (err) {
-    console.error("Error logging historique:", err)
+    logger.error({ err }, "Error logging historique")
     return NextResponse.json({ error: "Erreur lors de l'enregistrement." }, { status: 500 })
   }
 }
