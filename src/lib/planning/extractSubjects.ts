@@ -11,20 +11,23 @@ export function extractSubjects(
   timetable: ExtractedTimetable,
   exclusionList: string[] = [...PLANNING_CONFIG.subjectExclusionList]
 ): SubjectInfo[] {
-  const subjectMap = new Map<string, {
-    coefficient: number | null
-    subjectType: SubjectInfo["subjectType"]
-    daysPresent: Set<string>
-  }>()
+  const subjectMap = new Map<
+    string,
+    {
+      coefficient: number | null
+      subjectType: SubjectInfo["subjectType"]
+      daysPresent: Set<string>
+    }
+  >()
 
-  const normalizedExclusionList = exclusionList.map(s => s.toLowerCase().trim())
+  const normalizedExclusionList = exclusionList.map((s) => s.toLowerCase().trim())
 
   if (timetable && timetable.days) {
     for (const dayEntry of timetable.days) {
       if (!dayEntry.slots) continue
       for (const slot of dayEntry.slots) {
         if (!slot.subject) continue
-        
+
         const subjectCode = slot.subject.trim().toUpperCase()
         if (normalizedExclusionList.includes(subjectCode.toLowerCase())) {
           continue
@@ -35,7 +38,7 @@ export function extractSubjects(
           existing = {
             coefficient: slot.coefficient,
             subjectType: slot.subject_type || "other",
-            daysPresent: new Set<string>()
+            daysPresent: new Set<string>(),
           }
           subjectMap.set(subjectCode, existing)
         }
@@ -54,39 +57,22 @@ export function extractSubjects(
     }
   }
 
-const DEFAULT_COEFFICIENTS: Record<string, number> = {
-  MATH: 4,
-  FR: 4,
-  PC: 3,
-  SVT: 3,
-  HG: 2,
-  ANG: 2,
-  ESP: 2,
-  ALL: 2,
-  ARA: 2,
-  ECO: 2,
-  PHILO: 2,
-  CIV: 1,
-  EPS: 1,
-}
-
   const result: SubjectInfo[] = []
   for (const [code, data] of subjectMap.entries()) {
     let coefficient = data.coefficient
     if (coefficient === null || coefficient === undefined) {
-      const fallbackCoeff = DEFAULT_COEFFICIENTS[code] ?? 1
       logger.warn(
-        { subjectCode: code, fallback: fallbackCoeff },
-        `[extractSubjects] No coefficient found for subject "${code}" in database. Defaulting to ${fallbackCoeff}.`
+        { subjectCode: code },
+        `[extractSubjects] No coefficient found for subject "${code}" in timetable. Defaulting to 1.`
       )
-      coefficient = fallbackCoeff
+      coefficient = 1
     }
 
     result.push({
       name: code,
       coefficient,
       subjectType: data.subjectType,
-      daysPresent: Array.from(data.daysPresent)
+      daysPresent: Array.from(data.daysPresent),
     })
   }
 

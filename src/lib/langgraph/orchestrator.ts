@@ -12,16 +12,12 @@ import { extractSubjects } from "../planning/extractSubjects"
 import { validatePlanning } from "../planning/validatePlanning"
 import { timetableToMarkdown } from "./nodes/visionAgent"
 
-
-
 export type PlanningWorkflowResult = PlanningGraphState
 
 const COEFFICIENTS_CACHE_TTL = Number(process.env.COEFFICIENTS_CACHE_TTL ?? 3_600_000)
 const COEFFICIENTS_CACHE_MAX = 50
 const coefficientsCache = new Map<string, { data: string; expiry: number; order: number }>()
 let cacheOrderCounter = 0
-
-
 
 function getCachedCoefficients(className: string): string | null {
   const entry = coefficientsCache.get(className)
@@ -68,7 +64,7 @@ export async function runPlanningWorkflow(
   const profileService = new ProfileService(supabase)
   const profile = await profileService.getByUserId(userId)
   const cached = profile ? await profileService.getCachedAnalysis(userId) : null
-  
+
   if (cached) {
     const rawTimetable = cached.extractedTimetableMarkdown
     if (rawTimetable.trim().startsWith("{")) {
@@ -109,9 +105,7 @@ export async function runPlanningWorkflow(
         const coeffService = new CoefficientService(supabase)
         const coeffs = await coeffService.getByClassId(classId)
         if (coeffs.length > 0) {
-          coefficientTable = coeffs
-            .map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`)
-            .join("\n")
+          coefficientTable = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
           setCachedCoefficients(classId, coefficientTable)
         }
       }
@@ -125,9 +119,7 @@ export async function runPlanningWorkflow(
         const coeffService = new CoefficientService(supabase)
         const coeffs = await coeffService.getCoefficientsByClassName(fallbackClassName)
         if (coeffs.length > 0) {
-          coefficientTable = coeffs
-            .map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`)
-            .join("\n")
+          coefficientTable = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
           setCachedCoefficients(fallbackClassName, coefficientTable)
         }
       }
@@ -222,10 +214,7 @@ export async function runPlanningWorkflow(
   const originalSerialized = extractedTimetable ? JSON.stringify(extractedTimetable) : ""
   const isTimetableChanged = state.extractedTimetable !== null && timetableSerialized !== originalSerialized
 
-  if (
-    isTimetableChanged ||
-    state.studentProfileContext !== studentProfileContext
-  ) {
+  if (isTimetableChanged || state.studentProfileContext !== studentProfileContext) {
     const newTimetable = isTimetableChanged ? timetableSerialized : undefined
     const newValid = isTimetableChanged ? state.isValidTimetable : undefined
     const newContext = state.studentProfileContext !== studentProfileContext ? state.studentProfileContext : undefined

@@ -233,7 +233,7 @@ describe("HistoriqueService", () => {
   describe("getDaysSinceLastRevisionBySubject", () => {
     it("should fetch completed_at per subject and return correct map of days diff", async () => {
       const now = new Date()
-      
+
       const lastMathsDate = new Date()
       lastMathsDate.setDate(now.getDate() - 3) // 3 days ago
 

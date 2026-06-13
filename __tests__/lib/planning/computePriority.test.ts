@@ -21,7 +21,7 @@ describe("computePriority", () => {
 
   it("applies performance level multipliers correctly", () => {
     const perfLevels = new Map<string, PerformanceLevel>([
-      ["FR", "weak"],          // multiplier 1.3
+      ["FR", "weak"], // multiplier 1.3
       ["MATH", "critical"], // multiplier 1.5
     ])
     // daysSinceLastRevision default = 7
@@ -35,8 +35,8 @@ describe("computePriority", () => {
 
   it("incorporates days since last revision correctly", () => {
     const daysSince = new Map<string, number>([
-      ["FR", 1],        // D_S = 1, coeff = 5, perf = neutral (1.0) -> 5 * (1 + 3 / 2) * 1 = 12.5
-      ["MATH", 9],   // D_S = 9, coeff = 4, perf = neutral (1.0) -> 4 * (1 + 3 / 10) * 1 = 5.2
+      ["FR", 1], // D_S = 1, coeff = 5, perf = neutral (1.0) -> 5 * (1 + 3 / 2) * 1 = 12.5
+      ["MATH", 9], // D_S = 9, coeff = 4, perf = neutral (1.0) -> 4 * (1 + 3 / 10) * 1 = 5.2
     ])
 
     const priority = computePriority(TEST_SUBJECTS, daysSince, new Map())

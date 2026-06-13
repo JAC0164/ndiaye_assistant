@@ -161,14 +161,10 @@ export default function PlanningPage() {
         return
       }
       setUser(user)
-      
+
       // Fetch user profile and class coefficients
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("class_id")
-          .eq("id", user.id)
-          .maybeSingle()
+        const { data: profile } = await supabase.from("profiles").select("class_id").eq("id", user.id).maybeSingle()
 
         const classId = profile?.class_id
         const queryParam = classId ? `class_id=${classId}` : `class_name=Terminale S1`
@@ -522,7 +518,11 @@ export default function PlanningPage() {
 
             {/* Form Editor View */}
             {inputTab === "form" ? (
-              <OnboardingFormPanel form={formOnboarding} onChange={handleFormChange} availableSubjects={availableSubjects} />
+              <OnboardingFormPanel
+                form={formOnboarding}
+                onChange={handleFormChange}
+                availableSubjects={availableSubjects}
+              />
             ) : (
               /* Raw JSON Textarea Editor */
               <div className="flex flex-col flex-1 gap-3">

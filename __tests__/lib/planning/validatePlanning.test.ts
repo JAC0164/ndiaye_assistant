@@ -60,31 +60,31 @@ describe("validatePlanning", () => {
     expect(result.wasRepaired).toBe(true)
 
     // 1. Casing canonicalization check
-    const maths = result.validatedPlanning.find(s => s.day_of_week === "monday" && s.start_time === "17:00")
+    const maths = result.validatedPlanning.find((s) => s.day_of_week === "monday" && s.start_time === "17:00")
     expect(maths).toBeDefined()
     expect(maths?.subject).toBe("MATH") // Casing corrected
 
     // 2. Hallucinated subject check
-    const allemand = result.validatedPlanning.find(s => s.subject === "GER")
+    const allemand = result.validatedPlanning.find((s) => s.subject === "GER")
     expect(allemand).toBeUndefined()
     expect(result.removedSessions).toHaveLength(1)
     expect(result.removedSessions[0].subject).toBe("GER")
-    expect(result.errors.some(e => e.check === "allowed_subject")).toBe(true)
+    expect(result.errors.some((e) => e.check === "allowed_subject")).toBe(true)
 
     // 3. Break subject check
-    const pause = result.validatedPlanning.find(s => s.session_type === "break")
+    const pause = result.validatedPlanning.find((s) => s.session_type === "break")
     expect(pause).toBeDefined()
     expect(pause?.pedagogical_note).toBe("Fais une pause pour te détendre.") // Empty note warning handled
-    expect(result.warnings.some(w => w.check === "empty_pedagogical_note")).toBe(true)
+    expect(result.warnings.some((w) => w.check === "empty_pedagogical_note")).toBe(true)
 
     // 4. Blocked slot overlap check (flagged but kept)
-    const francais = result.validatedPlanning.find(s => s.subject === "FR")
+    const francais = result.validatedPlanning.find((s) => s.subject === "FR")
     expect(francais).toBeDefined()
-    expect(result.errors.some(e => e.check === "blocked_slot_overlap")).toBe(true)
+    expect(result.errors.some((e) => e.check === "blocked_slot_overlap")).toBe(true)
 
     // 5. Bedtime check (flagged but kept)
-    const pc = result.validatedPlanning.find(s => s.subject === "PC")
+    const pc = result.validatedPlanning.find((s) => s.subject === "PC")
     expect(pc).toBeDefined()
-    expect(result.errors.some(e => e.check === "bedtime_boundary")).toBe(true)
+    expect(result.errors.some((e) => e.check === "bedtime_boundary")).toBe(true)
   })
 })

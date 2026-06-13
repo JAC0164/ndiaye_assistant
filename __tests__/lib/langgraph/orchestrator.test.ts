@@ -59,9 +59,7 @@ const mockTimetable = {
   days: [
     {
       day: "monday" as const,
-      slots: [
-        { start: "08:00", end: "09:30", subject: "Maths", coefficient: 5, subject_type: "scientific" as const },
-      ],
+      slots: [{ start: "08:00", end: "09:30", subject: "Maths", coefficient: 5, subject_type: "scientific" as const }],
     },
   ],
 }
@@ -86,13 +84,9 @@ describe("runPlanningWorkflow", () => {
       }
       return { id: "user-1", email: "user1@test.com", display_name: "Test User 1", class_id: "class-1", metadata: {} }
     })
-    mockGetByClassId.mockResolvedValue([
-      { subject: "Maths", coefficient: 5 },
-    ])
+    mockGetByClassId.mockResolvedValue([{ subject: "Maths", coefficient: 5 }])
     mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([
-      { subject: "Maths", coefficient: 5 },
-    ])
+    mockGetCoefficientsByClassName.mockResolvedValue([{ subject: "Maths", coefficient: 5 }])
     mockGetWeeklyStats.mockResolvedValue({
       sessionCount: 0,
       totalMinutes: 0,
@@ -197,12 +191,7 @@ describe("runPlanningWorkflow", () => {
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockSaveAnalysisCache).toHaveBeenCalledWith(
-      "user-1",
-      JSON.stringify(mockTimetable),
-      false,
-      undefined
-    )
+    expect(mockSaveAnalysisCache).toHaveBeenCalledWith("user-1", JSON.stringify(mockTimetable), false, undefined)
   })
 
   it("saves updated analysis cache when profile changes after invoke", async () => {

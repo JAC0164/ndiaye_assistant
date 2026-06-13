@@ -70,39 +70,39 @@ describe("Study Planner Redesign Integration Test (L2 reference case)", () => {
     // 1. extractSubjects returns exactly 8 subjects (DP excluded)
     const subjects = extractSubjects(TEST_TIMETABLE)
     expect(subjects).toHaveLength(8)
-    const subjectNames = subjects.map(s => s.name)
+    const subjectNames = subjects.map((s) => s.name)
     expect(subjectNames).not.toContain("Développement Personnel")
 
     // 2. buildFreeSlots: respects bedtime and blocked slots
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, TEST_ONBOARDING.bedtime, TEST_ONBOARDING.blockedSlots)
-    
+
     // Check bedtime
     for (const slot of freeSlots) {
       expect(slot.end <= TEST_ONBOARDING.bedtime).toBe(true)
     }
 
     // Check Tuesday 18:00–20:00 and Thursday 18:00–20:00 do not overlap with any free slot
-    const tuesdaySlots = freeSlots.filter(s => s.day === "tuesday")
+    const tuesdaySlots = freeSlots.filter((s) => s.day === "tuesday")
     for (const slot of tuesdaySlots) {
       expect(slot.start >= "20:00" || slot.end <= "18:00").toBe(true)
     }
-    const thursdaySlots = freeSlots.filter(s => s.day === "thursday")
+    const thursdaySlots = freeSlots.filter((s) => s.day === "thursday")
     for (const slot of thursdaySlots) {
       expect(slot.start >= "20:00" || slot.end <= "18:00").toBe(true)
     }
 
     // Saturday has slots totaling >= 50 min
-    const satSlots = freeSlots.filter(s => s.day === "saturday")
+    const satSlots = freeSlots.filter((s) => s.day === "saturday")
     const satTotal = satSlots.reduce((sum, s) => sum + s.durationMinutes, 0)
     expect(satTotal).toBeGreaterThanOrEqual(50)
 
     // Sunday has >= 1 slot
-    const sunSlots = freeSlots.filter(s => s.day === "sunday")
+    const sunSlots = freeSlots.filter((s) => s.day === "sunday")
     expect(sunSlots.length).toBeGreaterThanOrEqual(1)
 
     // 3. computeBudgets: Français (coeff 5) budget > Économie (coeff 2) budget
     const budgets = computeBudgets(subjects, 400, "milieu_trimestre")
-    
+
     const francaisBudget = budgets.get("FR")!
     const ecoBudget = budgets.get("ECO")!
     expect(francaisBudget.totalMinutes).toBeGreaterThan(ecoBudget.totalMinutes)

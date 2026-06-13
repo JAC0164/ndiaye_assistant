@@ -26,8 +26,9 @@ export function buildFreeSlots(
   const bedtimeMinutes = parseTime(bedtime)
   const freeSlots: FreeSlot[] = []
 
-  // Group blocked slots by day
-  const blockedByDay = new Map<string, { start: number; end: number }[]>()
+  // Group blocked slots by day, distinguishing user-defined (buffered) from internal (no buffer)
+  type InternalBlock = { start: number; end: number; buffered: boolean }
+  const blockedByDay = new Map<string, InternalBlock[]>()
   for (const day of DAYS_OF_WEEK) {
     blockedByDay.set(day, [])
   }
@@ -38,13 +39,14 @@ export function buildFreeSlots(
       blockedByDay.get(day)!.push({
         start: parseTime(block.startTime),
         end: parseTime(block.endTime),
+        buffered: true, // user-defined slots get the post-block buffer
       })
     }
   }
 
   // Iterate over each day of the week
   for (const day of DAYS_OF_WEEK) {
-    const daySlots = timetable.days?.find(d => d.day.toLowerCase() === day)?.slots || []
+    const daySlots = timetable.days?.find((d) => d.day.toLowerCase() === day)?.slots || []
     const isSchoolDay = daySlots.length > 0 && day !== "saturday" && day !== "sunday"
 
     const rawWindows: { start: number; end: number }[] = []
@@ -52,12 +54,26 @@ export function buildFreeSlots(
     if (isSchoolDay) {
       // Sort slots chronologically
       const sortedSlots = [...daySlots].sort((a, b) => parseTime(a.start) - parseTime(b.start))
-      
+
+      // Identify the last morning class (ending before lunchBreakMorningCutoff)
+      const lunchCutoff = parseTime(PLANNING_CONFIG.schoolDayLunchBreakMorningCutoff)
+      const lunchBreakEnd = parseTime(PLANNING_CONFIG.schoolDayLunchBreakEnd)
+      const lastMorningSlot = [...sortedSlots].filter((s) => parseTime(s.end) <= lunchCutoff).pop()
+
+      // If any morning class ends before 13:30, block lunch until 14:00
+      if (lastMorningSlot && parseTime(lastMorningSlot.end) >= parseTime("11:00")) {
+        blockedByDay.get(day)!.push({
+          start: parseTime(lastMorningSlot.end),
+          end: lunchBreakEnd,
+          buffered: false, // internal block, no post-buffer needed
+        })
+      }
+
       // Evening window: last class end + 30 min -> bedtime
       const lastClass = sortedSlots[sortedSlots.length - 1]
       const lastClassEnd = parseTime(lastClass.end)
       const eveningStart = lastClassEnd + PLANNING_CONFIG.mandatoryBreakAfterClassMinutes
-      
+
       if (eveningStart < bedtimeMinutes) {
         rawWindows.push({ start: eveningStart, end: bedtimeMinutes })
       }
@@ -89,7 +105,7 @@ export function buildFreeSlots(
       // Carve out lunch break as an implicit blocked slot
       const lunchStart = parseTime(PLANNING_CONFIG.lunchBreakStart)
       const lunchEnd = parseTime(PLANNING_CONFIG.lunchBreakEnd)
-      blockedByDay.get(day)!.push({ start: lunchStart, end: lunchEnd })
+      blockedByDay.get(day)!.push({ start: lunchStart, end: lunchEnd, buffered: false })
     }
 
     // Subtract blocked slots from raw windows
@@ -97,6 +113,7 @@ export function buildFreeSlots(
     let currentWindows = [...rawWindows]
 
     for (const block of dayBlocked) {
+      const buffer = block.buffered ? PLANNING_CONFIG.bufferAfterBlockedSlotMinutes : 0
       const nextWindows: { start: number; end: number }[] = []
       for (const win of currentWindows) {
         if (block.end <= win.start || block.start >= win.end) {
@@ -108,7 +125,11 @@ export function buildFreeSlots(
             nextWindows.push({ start: win.start, end: block.start })
           }
           if (win.end > block.end) {
-            nextWindows.push({ start: block.end, end: win.end })
+            // Add buffer after blocked slot ends
+            const resumeAt = block.end + buffer
+            if (resumeAt < win.end) {
+              nextWindows.push({ start: resumeAt, end: win.end })
+            }
           }
         }
       }

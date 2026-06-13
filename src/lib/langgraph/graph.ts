@@ -9,6 +9,7 @@ import { extractSubjects } from "../planning/extractSubjects"
 import { buildFreeSlots } from "../planning/buildFreeSlots"
 import { computeBudgets } from "../planning/computeBudgets"
 import { computePriority } from "../planning/computePriority"
+import type { AcademicPeriod } from "../planning/planningConfig"
 import { parseCoefficientTable } from "../planning/constants"
 import type { BlockedSlot } from "@/src/types/planning.types"
 
@@ -58,11 +59,15 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
   const onboarding = (state.onboardingData || {}) as GraphOnboarding
   const bedtime = onboarding.bedtime || "22:00"
   const blockedSlots = onboarding.blockedSlots || []
-  const period = onboarding.academicPeriod || "milieu_trimestre"
+  const period: AcademicPeriod = (
+    ["debut_trimestre", "milieu_trimestre", "pre_exam", "post_exam"].includes(onboarding.academicPeriod ?? "")
+      ? onboarding.academicPeriod
+      : "milieu_trimestre"
+  ) as AcademicPeriod
 
   // 1. extractSubjects
   const subjects = extractSubjects(timetable)
-  
+
   // 2. buildFreeSlots
   const freeSlots = buildFreeSlots(timetable, bedtime, blockedSlots)
   const totalAvailableMinutes = freeSlots.reduce((sum, slot) => sum + slot.durationMinutes, 0)
@@ -86,7 +91,9 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
     const budget = budgets.get(subject.name)
     const priority = priorities.get(subject.name) ?? 0
     if (budget) {
-      lines.push(`${idx + 1}. ${subject.name} — budget: ${budget.totalMinutes} min (review: ${budget.reviewMinutes} min, td: ${budget.tdMinutes} min) — priority: ${priority}`)
+      lines.push(
+        `${idx + 1}. ${subject.name} — budget: ${budget.totalMinutes} min (review: ${budget.reviewMinutes} min, td: ${budget.tdMinutes} min) — priority: ${priority}`
+      )
     } else {
       lines.push(`${idx + 1}. ${subject.name} — budget: 0 min — priority: ${priority}`)
     }

@@ -42,10 +42,28 @@ const validWorkflowResult = {
   extractedTimetable: { filiere: "S1", days: [] },
   extractedTimetableMarkdown: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
   studentProfileContext: "Élève de Terminale S",
-  generatedPlanning: [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "review" as const, pedagogical_note: "Relire le cours." }],
+  generatedPlanning: [
+    {
+      day_of_week: "monday" as const,
+      start_time: "08:00",
+      end_time: "09:00",
+      subject: "Maths",
+      session_type: "review" as const,
+      pedagogical_note: "Relire le cours.",
+    },
+  ],
   validationErrorMessage: undefined,
   planningValidation: {
-    validatedPlanning: [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "review" as const, pedagogical_note: "Relire le cours." }],
+    validatedPlanning: [
+      {
+        day_of_week: "monday" as const,
+        start_time: "08:00",
+        end_time: "09:00",
+        subject: "Maths",
+        session_type: "review" as const,
+        pedagogical_note: "Relire le cours.",
+      },
+    ],
     wasRepaired: false,
     errors: [],
     warnings: [],

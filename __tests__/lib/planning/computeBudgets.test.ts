@@ -26,7 +26,7 @@ describe("computeBudgets", () => {
     expect(economie).toBeDefined()
 
     expect(francais!.totalMinutes).toBeGreaterThan(economie!.totalMinutes)
-    
+
     // Check total sum of review + td
     for (const [, budget] of budgets.entries()) {
       expect(budget.reviewMinutes + budget.tdMinutes).toBe(budget.totalMinutes)

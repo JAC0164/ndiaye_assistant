@@ -29,9 +29,9 @@ import type { SubjectType } from "@/src/lib/planning/planningConfig"
 // --- Vision node structured output (replaces markdown) ---
 
 export interface TimetableSlot {
-  start: string              // "HH:MM"
-  end: string                // "HH:MM"
-  subject: string            // normalized to official DB name
+  start: string // "HH:MM"
+  end: string // "HH:MM"
+  subject: string // normalized to official DB name
   coefficient: number | null // from DB table; null = unmatched
   subject_type: SubjectType
 }
@@ -50,9 +50,9 @@ export interface ExtractedTimetable {
 
 export interface SubjectInfo {
   name: string
-  coefficient: number         // fallback to 1 if null in timetable
+  coefficient: number // fallback to 1 if null in timetable
   subjectType: SubjectType
-  daysPresent: string[]       // weekdays where this subject has class
+  daysPresent: string[] // weekdays where this subject has class
 }
 
 export interface SubjectBudget {
@@ -63,8 +63,8 @@ export interface SubjectBudget {
 
 export interface FreeSlot {
   day: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
-  start: string     // "HH:MM"
-  end: string       // "HH:MM"
+  start: string // "HH:MM"
+  end: string // "HH:MM"
   durationMinutes: number
 }
 
@@ -87,10 +87,10 @@ export interface ValidationResult {
 
 export type ApiResponse = {
   isValidTimetable: boolean
-  extractedTimetableMarkdown?: string       // kept for backward compat / display
-  extractedTimetable?: ExtractedTimetable   // new structured format
+  extractedTimetableMarkdown?: string // kept for backward compat / display
+  extractedTimetable?: ExtractedTimetable // new structured format
   studentProfileContext?: string
   generatedPlanning: GeneratedSeance[]
   validationErrorMessage?: string
-  planningValidation?: ValidationResult     // new
+  planningValidation?: ValidationResult // new
 }

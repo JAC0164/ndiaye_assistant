@@ -30,11 +30,9 @@ export function timetableToMarkdown(timetable: ExtractedTimetable): string {
     sunday: "DIMANCHE",
   }
   return timetable.days
-    .map(d => {
+    .map((d) => {
       const dayName = daysInFrench[d.day.toLowerCase()] || d.day.toUpperCase()
-      const slotsStr = d.slots
-        .map(s => `  - ${s.start}-${s.end} : ${s.subject}`)
-        .join("\n")
+      const slotsStr = d.slots.map((s) => `  - ${s.start}-${s.end} : ${s.subject}`).join("\n")
       return `  ${dayName} :\n${slotsStr}`
     })
     .join("\n")
@@ -76,19 +74,19 @@ export async function visionAgent(
         "1. For each time slot in the image, extract: start time (HH:MM), end time (HH:MM), subject.",
         "2. STRICTOR MAPPING: Map identified subjects to one of the strict subject codes in the coefficient table above.",
         "   Examples in the image:",
-        "   - \"Maths\" or \"Mathématiques\" or \"Algèbre\" → \"MATH\"",
-        "   - \"PC\" or \"Physique-Chimie\" or \"Physique\" or \"Chimie\" → \"PC\"",
-        "   - \"SVT\" or \"Sciences de la Vie et de la Terre\" or \"Bio\" → \"SVT\"",
-        "   - \"Français\" or \"Fr\" or \"Lecture\" → \"FR\"",
-        "   - \"Hist-Géo\" or \"HG\" or \"Histoire\" or \"Géographie\" → \"HG\"",
-        "   - \"Anglais\" or \"Ang\" or \"English\" → \"ANG\"",
-        "   - \"Philo\" or \"Philosophie\" → \"PHILO\"",
-        "   - \"Espagnol\" or \"Esp\" or \"Spanish\" → \"ESP\"",
-        "   - \"Économie\" or \"Economie\" or \"Eco\" → \"ECO\"",
-        "   - \"TQG\" or \"Techniques Quantitatives\" → \"TQG\"",
-        "   - \"Civique\" or \"Instruction Civique\" → \"CIV\"",
-        "   - \"EPS\" or \"Sport\" or \"Gym\" → \"EPS\"",
-        "3. Set the parsed slot's subject to the strict uppercase code (e.g. \"MATH\", \"PC\").",
+        '   - "Maths" or "Mathématiques" or "Algèbre" → "MATH"',
+        '   - "PC" or "Physique-Chimie" or "Physique" or "Chimie" → "PC"',
+        '   - "SVT" or "Sciences de la Vie et de la Terre" or "Bio" → "SVT"',
+        '   - "Français" or "Fr" or "Lecture" → "FR"',
+        '   - "Hist-Géo" or "HG" or "Histoire" or "Géographie" → "HG"',
+        '   - "Anglais" or "Ang" or "English" → "ANG"',
+        '   - "Philo" or "Philosophie" → "PHILO"',
+        '   - "Espagnol" or "Esp" or "Spanish" → "ESP"',
+        '   - "Économie" or "Economie" or "Eco" → "ECO"',
+        '   - "TQG" or "Techniques Quantitatives" → "TQG"',
+        '   - "Civique" or "Instruction Civique" → "CIV"',
+        '   - "EPS" or "Sport" or "Gym" → "EPS"',
+        '3. Set the parsed slot\'s subject to the strict uppercase code (e.g. "MATH", "PC").',
         "4. For each subject, look up its coefficient from the table. Set null if not found.",
         "5. Classify each subject: scientific | literary | language | other.",
         "6. Only include weekdays (monday–friday). No weekend entries.",
@@ -139,8 +137,6 @@ export async function visionAgent(
     extractedTimetable,
     extractedTimetableMarkdown,
     isValidTimetable: isValid,
-    validationErrorMessage: isValid
-      ? undefined
-      : "Emploi du temps invalide ou non conforme au système sénégalais.",
+    validationErrorMessage: isValid ? undefined : "Emploi du temps invalide ou non conforme au système sénégalais.",
   }
 }

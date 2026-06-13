@@ -19,7 +19,7 @@ export function validatePlanning(
   let wasRepaired = false
 
   const bedtimeMin = parseTime(bedtime)
-  const normalizedAllowed = allowedSubjects.map(s => s.toLowerCase().trim())
+  const normalizedAllowed = allowedSubjects.map((s) => s.toLowerCase().trim())
 
   for (const session of planning) {
     let keepSession = true
@@ -87,10 +87,11 @@ export function validatePlanning(
 
     // 4. Pedagogical note empty check
     if (!sessionCopy.pedagogical_note || sessionCopy.pedagogical_note.trim() === "") {
-      const fallback = sessionCopy.session_type === "break"
-        ? "Fais une pause pour te détendre."
-        : "Révise tes notes et refais les exercices clés."
-      
+      const fallback =
+        sessionCopy.session_type === "break"
+          ? "Fais une pause pour te détendre."
+          : "Révise tes notes et refais les exercices clés."
+
       sessionCopy.pedagogical_note = fallback
       wasRepaired = true
 

@@ -118,10 +118,10 @@ describe("visionAgentOutputSchema", () => {
       {
         day: "monday" as const,
         slots: [
-          { start: "08:00", end: "09:30", subject: "Maths", coefficient: 4, subject_type: "scientific" as const }
-        ]
-      }
-    ]
+          { start: "08:00", end: "09:30", subject: "Maths", coefficient: 4, subject_type: "scientific" as const },
+        ],
+      },
+    ],
   }
 
   it("accepts valid output", () => {

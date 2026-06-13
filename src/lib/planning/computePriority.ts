@@ -21,14 +21,10 @@ export function computePriority(
     const c_s = subject.coefficient
 
     // Days since last revision: default to 7 if not specified
-    const d_s = daysSinceLastRevision.has(subject.name)
-      ? daysSinceLastRevision.get(subject.name)!
-      : 7
+    const d_s = daysSinceLastRevision.has(subject.name) ? daysSinceLastRevision.get(subject.name)! : 7
 
     // Performance level: default to "neutral" if not specified
-    const perfLevel = performanceLevels.has(subject.name)
-      ? performanceLevels.get(subject.name)!
-      : "neutral"
+    const perfLevel = performanceLevels.has(subject.name) ? performanceLevels.get(subject.name)! : "neutral"
 
     const m_s = PLANNING_CONFIG.performanceMultipliers[perfLevel] ?? 1.0
 

@@ -50,19 +50,20 @@ describe("buildFreeSlots", () => {
     }
 
     // 2. Blocked slots check: Tuesday 18:00-20:00 must not overlap with any Tuesday free slot
-    const tuesdaySlots = freeSlots.filter(s => s.day === "tuesday")
+    //    AND the buffer of 20 minutes must be respected (no slot starting before 20:20)
+    const tuesdaySlots = freeSlots.filter((s) => s.day === "tuesday")
     for (const slot of tuesdaySlots) {
-      const start = slot.start
-      const end = slot.end
-      // Verify no overlap with 18:00-20:00
-      expect(start >= "20:00" || end <= "18:00").toBe(true)
+      const startMin = parseInt(slot.start.split(":")[0]) * 60 + parseInt(slot.start.split(":")[1])
+      const endMin = parseInt(slot.end.split(":")[0]) * 60 + parseInt(slot.end.split(":")[1])
+      // No overlap with 18:00-20:00 block
+      expect(startMin >= 20 * 60 + 20 || endMin <= 18 * 60).toBe(true)
     }
 
     // 3. Saturday and Sunday checks
-    const saturdaySlots = freeSlots.filter(s => s.day === "saturday")
+    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
     expect(saturdaySlots.length).toBeGreaterThan(0)
-    
-    const sundaySlots = freeSlots.filter(s => s.day === "sunday")
+
+    const sundaySlots = freeSlots.filter((s) => s.day === "sunday")
     expect(sundaySlots.length).toBeGreaterThan(0)
 
     // Saturday start time check (9:00)
@@ -76,8 +77,8 @@ describe("buildFreeSlots", () => {
     // Starting at 09:00, bedtime 22:00.
     // Expected windows: 09:00-12:30 (210 mins) and 14:00-22:00 (480 mins)
     const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "22:00", [])
-    const saturdaySlots = freeSlots.filter(s => s.day === "saturday")
-    
+    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
+
     expect(saturdaySlots).toHaveLength(2)
     expect(saturdaySlots[0].start).toBe("09:00")
     expect(saturdaySlots[0].end).toBe("12:30")
@@ -89,19 +90,19 @@ describe("buildFreeSlots", () => {
 
   it("extracts school day intra-day gaps >= 2 hours", () => {
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", [])
-    const wednesdaySlots = freeSlots.filter(s => s.day === "wednesday")
-    
+    const wednesdaySlots = freeSlots.filter((s) => s.day === "wednesday")
+
     // Wednesday has classes:
     // Slot 1: 08:00 - 10:00
     // Slot 2: 12:20 - 13:50
     // Gap: 10:00 to 12:20. Duration: 140 min.
     // Evening: 13:50 + 30 min (14:20) to 22:00.
     // Expected gap window: 10:00 + 30 min (10:30) to 12:20. Duration: 110 min.
-    const gapSlot = wednesdaySlots.find(s => s.start === "10:30" && s.end === "12:20")
+    const gapSlot = wednesdaySlots.find((s) => s.start === "10:30" && s.end === "12:20")
     expect(gapSlot).toBeDefined()
     expect(gapSlot?.durationMinutes).toBe(110)
 
-    const eveningSlot = wednesdaySlots.find(s => s.start === "14:20" && s.end === "22:00")
+    const eveningSlot = wednesdaySlots.find((s) => s.start === "14:20" && s.end === "22:00")
     expect(eveningSlot).toBeDefined()
     expect(eveningSlot?.durationMinutes).toBe(460)
   })
@@ -112,13 +113,60 @@ describe("buildFreeSlots", () => {
     // If we block Monday 17:15 to 22:00, the remaining window is 17:00 to 17:15 (15 mins), which is < minSessionMinutes (25).
     // It should be discarded.
     const blocked: BlockedSlot[] = [
-      { id: "1", day: "monday", startTime: "17:15", endTime: "22:00", reason: "Something" }
+      { id: "1", day: "monday", startTime: "17:15", endTime: "22:00", reason: "Something" },
     ]
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", blocked)
-    const mondaySlots = freeSlots.filter(s => s.day === "monday")
-    
+    const mondaySlots = freeSlots.filter((s) => s.day === "monday")
+
     // Check that we don't have a 17:00-17:15 slot
-    const shortSlot = mondaySlots.find(s => s.start === "17:00")
+    const shortSlot = mondaySlots.find((s) => s.start === "17:00")
     expect(shortSlot).toBeUndefined()
+  })
+
+  it("adds 20-minute buffer after blocked slot ends", () => {
+    // Tuesday: cours du soir 18:00-20:00. Classes end at 16:30 so evening starts at 17:00.
+    // After subtraction: 17:00-18:00 (60 mins) and 20:20-22:00 (100 mins), NOT 20:00-22:00.
+    const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", TEST_BLOCKED)
+    const tuesdaySlots = freeSlots.filter((s) => s.day === "tuesday")
+
+    // Should not have a slot starting exactly at 20:00
+    const noBufferSlot = tuesdaySlots.find((s) => s.start === "20:00")
+    expect(noBufferSlot).toBeUndefined()
+
+    // Should have a slot starting at 20:20
+    const bufferedSlot = tuesdaySlots.find((s) => s.start === "20:20")
+    expect(bufferedSlot).toBeDefined()
+    expect(bufferedSlot?.end).toBe("22:00")
+    expect(bufferedSlot?.durationMinutes).toBe(100)
+  })
+
+  it("enforces lunch break on school days when morning class ends before 13:30", () => {
+    // Monday and Tuesday have last morning class ending at 12:50
+    // The lunch break should block 12:50-14:00 on those days
+    // Monday intra-day gap: 12:50 to 15:00 = 130 min >= 120 min threshold
+    // But with lunch block (12:50-14:00) carved from this gap:
+    //   raw gap window: 12:50 + 30 min = 13:20 to 15:00
+    //   lunch block (12:50-14:00) overlaps, so after subtraction:
+    //   available gap after lunch: 14:00 + 20 min buffer = 14:20 to 15:00 (40 min >= 25 min)
+    const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", [])
+    const mondaySlots = freeSlots.filter((s) => s.day === "monday")
+
+    // No Monday slot should start between 12:50 and 14:00
+    for (const slot of mondaySlots) {
+      const startMin = parseInt(slot.start.split(":")[0]) * 60 + parseInt(slot.start.split(":")[1])
+      // If start is after 12:50, it must be at or after 14:00 (lunch break end)
+      if (startMin > 12 * 60 + 50) {
+        expect(startMin).toBeGreaterThanOrEqual(14 * 60)
+      }
+    }
+
+    // Same check for Tuesday
+    const tuesdaySlots = freeSlots.filter((s) => s.day === "tuesday")
+    for (const slot of tuesdaySlots) {
+      const startMin = parseInt(slot.start.split(":")[0]) * 60 + parseInt(slot.start.split(":")[1])
+      if (startMin > 12 * 60 + 50) {
+        expect(startMin).toBeGreaterThanOrEqual(14 * 60)
+      }
+    }
   })
 })

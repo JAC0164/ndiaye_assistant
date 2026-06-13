@@ -44,7 +44,7 @@ export function computeBudgets(
 
   if (Math.abs(difference) > 0.1) {
     // Find eligible subjects for redistribution
-    const eligibleSubjects = subjects.filter(subject => {
+    const eligibleSubjects = subjects.filter((subject) => {
       const current = clampedBudgets.get(subject.name)!
       if (difference > 0) {
         // We have surplus: subjects below max are eligible to receive more
@@ -72,7 +72,7 @@ export function computeBudgets(
   // 5. Round to nearest 5 minutes and compute review/td split
   for (const subject of subjects) {
     const finalBudget = clampedBudgets.get(subject.name)!
-    
+
     // Round total to nearest 5 minutes
     let roundedTotal = Math.round(finalBudget / 5) * 5
     // Ensure we still respect min/max bounds after rounding

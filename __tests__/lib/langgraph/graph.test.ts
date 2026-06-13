@@ -145,7 +145,10 @@ describe("createPlanningGraph", () => {
   it("has edge from [visionValidated, profile] to prePlanner", () => {
     const mergeEdge = compiledGraph.edgeFromTo.find(
       (e: { from: string | string[]; to: string }) =>
-        Array.isArray(e.from) && e.from.includes("visionValidated") && e.from.includes("profile") && e.to === "prePlanner"
+        Array.isArray(e.from) &&
+        e.from.includes("visionValidated") &&
+        e.from.includes("profile") &&
+        e.to === "prePlanner"
     )
     expect(mergeEdge).toBeDefined()
   })

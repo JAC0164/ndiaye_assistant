@@ -58,7 +58,7 @@ describe("extractSubjects", () => {
     // 8 unique subjects expected: FR, MATH, ANG, HG, PC, SVT, ESP, ECO.
     // Développement Personnel is excluded.
     expect(subjects).toHaveLength(8)
-    const names = subjects.map(s => s.name)
+    const names = subjects.map((s) => s.name)
     expect(names).not.toContain("Développement Personnel")
     expect(names).toContain("FR")
     expect(names).toContain("MATH")
@@ -85,12 +85,12 @@ describe("extractSubjects", () => {
 
   it("tracks daysPresent correctly", () => {
     const subjects = extractSubjects(TEST_TIMETABLE)
-    const francais = subjects.find(s => s.name === "FR")
+    const francais = subjects.find((s) => s.name === "FR")
     expect(francais).toBeDefined()
     expect(francais?.daysPresent).toEqual(expect.arrayContaining(["monday", "wednesday", "friday"]))
     expect(francais?.daysPresent).toHaveLength(3)
 
-    const eco = subjects.find(s => s.name === "ECO")
+    const eco = subjects.find((s) => s.name === "ECO")
     expect(eco).toBeDefined()
     expect(eco?.daysPresent).toEqual(expect.arrayContaining(["wednesday", "thursday"]))
     expect(eco?.daysPresent).toHaveLength(2)
@@ -109,11 +109,11 @@ describe("extractSubjects", () => {
     expect(subjects[1].coefficient).toBe(4)
 
     // 3 with coeff 3: ANG, HG, PC (alphabetical sorting expected)
-    const coeff3 = subjects.slice(2, 5).map(s => s.name)
+    const coeff3 = subjects.slice(2, 5).map((s) => s.name)
     expect(coeff3).toEqual(["ANG", "HG", "PC"])
 
     // 3 with coeff 2: ECO, ESP, SVT
-    const coeff2 = subjects.slice(5, 8).map(s => s.name)
+    const coeff2 = subjects.slice(5, 8).map((s) => s.name)
     expect(coeff2).toEqual(["ECO", "ESP", "SVT"])
   })
 })
