@@ -39,36 +39,24 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     const { data, error } = await query
 
     if (error) {
-      throw new Error(
-        `Erreur lors de la récupération des données: ${error.message}`
-      )
+      throw new Error(`Erreur lors de la récupération des données: ${error.message}`)
     }
 
     return data as T[]
   }
 
   async getById(id: string): Promise<T | null> {
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .select("*")
-      .eq("id", id)
-      .single()
+    const { data, error } = await this.supabase.from(this.tableName).select("*").eq("id", id).single()
 
     if (error) {
-      throw new Error(
-        `Erreur lors de la récupération de l'élément: ${error.message}`
-      )
+      throw new Error(`Erreur lors de la récupération de l'élément: ${error.message}`)
     }
 
     return data as T | null
   }
 
   async create(payload: Record<string, unknown>): Promise<T> {
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .insert(payload)
-      .select()
-      .single()
+    const { data, error } = await this.supabase.from(this.tableName).insert(payload).select().single()
 
     if (error) {
       throw new Error(`Erreur lors de la création: ${error.message}`)
@@ -78,12 +66,7 @@ export abstract class BaseService<T extends Record<string, unknown>> {
   }
 
   async update(id: string, payload: Record<string, unknown>): Promise<T> {
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single()
+    const { data, error } = await this.supabase.from(this.tableName).update(payload).eq("id", id).select().single()
 
     if (error) {
       throw new Error(`Erreur lors de la mise à jour: ${error.message}`)
@@ -93,10 +76,7 @@ export abstract class BaseService<T extends Record<string, unknown>> {
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase
-      .from(this.tableName)
-      .delete()
-      .eq("id", id)
+    const { error } = await this.supabase.from(this.tableName).delete().eq("id", id)
 
     if (error) {
       throw new Error(`Erreur lors de la suppression: ${error.message}`)

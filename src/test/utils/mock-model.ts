@@ -11,13 +11,16 @@ export function createMockModel(expectedOutput: unknown) {
 
 export function createMockTokenLogger() {
   return vi.fn(() => ({
-    handleLLMEnd: vi.fn().mockImplementation(
-      async (output: { llmOutput?: { tokenUsage?: Record<string, number> }; generations?: Array<Array<{ message: { usage_metadata?: Record<string, number> } }>> }) => {
-        const usage =
-          output.llmOutput?.tokenUsage ??
-          output.generations?.[0]?.[0]?.message?.usage_metadata
-        return usage
-      }
-    ),
+    handleLLMEnd: vi
+      .fn()
+      .mockImplementation(
+        async (output: {
+          llmOutput?: { tokenUsage?: Record<string, number> }
+          generations?: Array<Array<{ message: { usage_metadata?: Record<string, number> } }>>
+        }) => {
+          const usage = output.llmOutput?.tokenUsage ?? output.generations?.[0]?.[0]?.message?.usage_metadata
+          return usage
+        }
+      ),
   }))
 }

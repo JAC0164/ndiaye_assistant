@@ -131,11 +131,7 @@ describe("POST /api/planning/generate", () => {
 
     it("returns 400 when image exceeds 10MB", async () => {
       const formData = new FormData()
-      const largeFile = new File(
-        [new ArrayBuffer(11 * 1024 * 1024)],
-        "large.jpg",
-        { type: "image/jpeg" }
-      )
+      const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], "large.jpg", { type: "image/jpeg" })
       formData.append("timetableImage", largeFile)
 
       const request = createMockRequest("POST", { formData })
@@ -152,10 +148,13 @@ describe("POST /api/planning/generate", () => {
       vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
 
       const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({
-        vision: { temperature: 0.5 },
-        planner: { provider: "openai", model: "gpt-4" },
-      }))
+      formData.set(
+        "modelOverrides",
+        JSON.stringify({
+          vision: { temperature: 0.5 },
+          planner: { provider: "openai", model: "gpt-4" },
+        })
+      )
 
       const request = createMockRequest("POST", { formData })
       const response = await POST(request)
@@ -203,9 +202,12 @@ describe("POST /api/planning/generate", () => {
       vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
 
       const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({
-        vision: { baseUrl: "https://custom.api.com/v1" },
-      }))
+      formData.set(
+        "modelOverrides",
+        JSON.stringify({
+          vision: { baseUrl: "https://custom.api.com/v1" },
+        })
+      )
 
       const request = createMockRequest("POST", { formData })
       const response = await POST(request)
@@ -281,9 +283,7 @@ describe("POST /api/planning/generate", () => {
 
   describe("Timeout handling", () => {
     it("handles 60s timeout", async () => {
-      vi.mocked(runPlanningWorkflow).mockRejectedValue(
-        new Error("La requête a expiré après 60s. Veuillez réessayer.")
-      )
+      vi.mocked(runPlanningWorkflow).mockRejectedValue(new Error("La requête a expiré après 60s. Veuillez réessayer."))
 
       const formData = createFormDataWithImage()
       const request = createMockRequest("POST", { formData })
@@ -337,11 +337,7 @@ describe("POST /api/planning/generate", () => {
       vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
 
       const formData = new FormData()
-      formData.append("timetableImage", new File(
-        [new ArrayBuffer(1024)],
-        "timetable.jpg",
-        { type: "image/jpeg" }
-      ))
+      formData.append("timetableImage", new File([new ArrayBuffer(1024)], "timetable.jpg", { type: "image/jpeg" }))
 
       const request = createMockRequest("POST", { formData })
       const response = await POST(request)

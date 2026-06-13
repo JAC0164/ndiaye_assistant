@@ -46,9 +46,7 @@ describe("ReferenceService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("db error") })
       })
-      await expect(service.getLevels()).rejects.toThrow(
-        "Erreur lors du chargement des niveaux: db error"
-      )
+      await expect(service.getLevels()).rejects.toThrow("Erreur lors du chargement des niveaux: db error")
     })
   })
 
@@ -94,9 +92,7 @@ describe("ReferenceService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("series db error") })
       })
-      await expect(service.getSeries()).rejects.toThrow(
-        "Erreur lors du chargement des séries: series db error"
-      )
+      await expect(service.getSeries()).rejects.toThrow("Erreur lors du chargement des séries: series db error")
     })
   })
 
@@ -170,9 +166,7 @@ describe("ReferenceService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("classes db error") })
       })
-      await expect(service.getClasses()).rejects.toThrow(
-        "Erreur lors du chargement des classes: classes db error"
-      )
+      await expect(service.getClasses()).rejects.toThrow("Erreur lors du chargement des classes: classes db error")
     })
   })
 

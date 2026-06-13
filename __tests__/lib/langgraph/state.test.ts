@@ -74,10 +74,10 @@ describe("generatedSeanceSchema", () => {
   })
 
   it("rejects missing required fields", () => {
-    const { day_of_week, ...noDay } = validSeance
+    const { day_of_week: _day_of_week, ...noDay } = validSeance
     expect(() => generatedSeanceSchema.parse(noDay)).toThrow()
 
-    const { subject, ...noSubject } = validSeance
+    const { subject: _subject, ...noSubject } = validSeance
     expect(() => generatedSeanceSchema.parse(noSubject)).toThrow()
   })
 
@@ -187,20 +187,20 @@ describe("plannerAgentOutputSchema", () => {
   })
 
   it("rejects invalid session in array", () => {
-    expect(() =>
-      plannerAgentOutputSchema.parse({ sessions: [{ day_of_week: "monday" }] })
-    ).toThrow()
+    expect(() => plannerAgentOutputSchema.parse({ sessions: [{ day_of_week: "monday" }] })).toThrow()
   })
 
   it("accepts multiple sessions", () => {
-    const input = { sessions: Array.from({ length: 10 }, (_, i) => ({
-      day_of_week: "monday" as const,
-      start_time: "08:00",
-      end_time: "08:45",
-      subject: `Subject ${i}`,
-      session_type: "review" as const,
-      pedagogical_note: "Note",
-    }))}
+    const input = {
+      sessions: Array.from({ length: 10 }, (_, i) => ({
+        day_of_week: "monday" as const,
+        start_time: "08:00",
+        end_time: "08:45",
+        subject: `Subject ${i}`,
+        session_type: "review" as const,
+        pedagogical_note: "Note",
+      })),
+    }
     const result = plannerAgentOutputSchema.parse(input)
     expect(result.sessions).toHaveLength(10)
   })
@@ -335,8 +335,26 @@ describe("PlanningGraphAnnotation", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const entry = spec.generatedPlanning
     expect(typeof entry.operator).toBe("function")
-    const old = [{ day_of_week: "monday" as const, start_time: "08:00", end_time: "09:00", subject: "Maths", session_type: "td" as const, pedagogical_note: "" }]
-    const updated = [{ day_of_week: "tuesday" as const, start_time: "09:00", end_time: "10:00", subject: "Physics", session_type: "td" as const, pedagogical_note: "" }]
+    const old = [
+      {
+        day_of_week: "monday" as const,
+        start_time: "08:00",
+        end_time: "09:00",
+        subject: "Maths",
+        session_type: "td" as const,
+        pedagogical_note: "",
+      },
+    ]
+    const updated = [
+      {
+        day_of_week: "tuesday" as const,
+        start_time: "09:00",
+        end_time: "10:00",
+        subject: "Physics",
+        session_type: "td" as const,
+        pedagogical_note: "",
+      },
+    ]
     expect(entry.operator(old, updated)).toBe(updated)
     expect(typeof entry.initialValueFactory).toBe("function")
     expect(entry.initialValueFactory()).toEqual([])

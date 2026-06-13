@@ -59,7 +59,7 @@ describe("HistoriqueService", () => {
         user_id: "user-1",
         session_id: "sess-1",
         subject: "Maths",
-    session_type: "td",
+        session_type: "td",
         duration_minutes: 45,
         self_rating: 4,
         notes: "Good session",

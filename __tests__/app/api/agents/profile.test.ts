@@ -120,10 +120,7 @@ describe("POST /api/agents/profile", () => {
       })
       await POST(request)
 
-      expect(mockSaveProfileCache).toHaveBeenCalledWith(
-        userId,
-        "Profil élève scientifique"
-      )
+      expect(mockSaveProfileCache).toHaveBeenCalledWith(userId, "Profil élève scientifique")
     })
 
     it("defaults onboardingData to empty object when not provided", async () => {

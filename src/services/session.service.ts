@@ -57,33 +57,23 @@ export class SessionService extends BaseService<DbSession> {
       user_id: userId,
     }))
 
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .insert(payload)
-      .select()
+    const { data, error } = await this.supabase.from(this.tableName).insert(payload).select()
 
     if (error) {
-      throw new Error(
-        `Erreur lors de la création des séances: ${error.message}`
-      )
+      throw new Error(`Erreur lors de la création des séances: ${error.message}`)
     }
 
     return data as Seance[]
   }
 
   async replaceAll(userId: string, sessions: GeneratedSeance[]): Promise<Seance[]> {
-    const { data, error } = await this.supabase.rpc(
-      "replace_user_sessions",
-      {
-        p_user_id: userId,
-        p_sessions: JSON.parse(JSON.stringify(sessions)),
-      }
-    )
+    const { data, error } = await this.supabase.rpc("replace_user_sessions", {
+      p_user_id: userId,
+      p_sessions: JSON.parse(JSON.stringify(sessions)),
+    })
 
     if (error) {
-      throw new Error(
-        `Erreur lors du remplacement du planning: ${error.message}`
-      )
+      throw new Error(`Erreur lors du remplacement du planning: ${error.message}`)
     }
 
     return (data ?? []) as Seance[]

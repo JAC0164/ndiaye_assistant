@@ -1,11 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 
 vi.mock("@langchain/langgraph", () => {
   function createGraphInstance() {
     const instance: Record<string, any> = {}
     instance._nodeNames = [] as string[]
     instance._edgeFromTo = [] as Array<{ from: string | string[]; to: string }>
-    instance._condEdges = [] as Array<{ from: string; condition: (...args: unknown[]) => unknown; mappings: Record<string, string> }>
+    instance._condEdges = [] as Array<{
+      from: string
+      condition: (...args: unknown[]) => unknown
+      mappings: Record<string, string>
+    }>
 
     instance.addNode = vi.fn(function (this: any, name: string, _fn: (...args: unknown[]) => unknown) {
       this._nodeNames.push(name)
@@ -48,7 +52,9 @@ vi.mock("@langchain/langgraph", () => {
   Annotation.Root = vi.fn(() => ({}))
 
   return {
-    StateGraph: vi.fn(function () { return createGraphInstance() }),
+    StateGraph: vi.fn(function () {
+      return createGraphInstance()
+    }),
     END: "__end__",
     START: "__start__",
     Annotation,
@@ -138,18 +144,14 @@ describe("createPlanningGraph", () => {
   it("has edge from [visionValidated, profile] to planner", () => {
     const mergeEdge = compiledGraph.edgeFromTo.find(
       (e: { from: string | string[]; to: string }) =>
-        Array.isArray(e.from) &&
-        e.from.includes("visionValidated") &&
-        e.from.includes("profile") &&
-        e.to === "planner"
+        Array.isArray(e.from) && e.from.includes("visionValidated") && e.from.includes("profile") && e.to === "planner"
     )
     expect(mergeEdge).toBeDefined()
   })
 
   it("has edge from planner to END", () => {
     const plannerEndEdge = compiledGraph.edgeFromTo.find(
-      (e: { from: string | string[]; to: string }) =>
-        e.from === "planner" && e.to === "__end__"
+      (e: { from: string | string[]; to: string }) => e.from === "planner" && e.to === "__end__"
     )
     expect(plannerEndEdge).toBeDefined()
   })

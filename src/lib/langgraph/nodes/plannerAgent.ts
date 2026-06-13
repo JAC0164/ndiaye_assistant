@@ -2,11 +2,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
 import { logger } from "@/src/lib/logger"
-import {
-  PlanningGraphAnnotationState,
-  PlanningGraphAnnotationUpdate,
-  plannerAgentOutputSchema,
-} from "../state"
+import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, plannerAgentOutputSchema } from "../state"
 import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 
@@ -20,10 +16,7 @@ export async function plannerAgent(
     }
   }
 
-  if (
-    process.env.STOP_AT_AGENT === "vision" ||
-    process.env.STOP_AT_AGENT === "profile"
-  ) {
+  if (process.env.STOP_AT_AGENT === "vision" || process.env.STOP_AT_AGENT === "profile") {
     logger.info({ stopAtAgent: process.env.STOP_AT_AGENT }, "[Stop] PLANNER")
     return {
       generatedPlanning: [],

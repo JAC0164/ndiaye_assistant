@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
   }
@@ -44,7 +47,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
   }

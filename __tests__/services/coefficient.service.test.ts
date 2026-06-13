@@ -69,9 +69,7 @@ describe("CoefficientService", () => {
   })
 
   describe("getCoefficientsByClassName", () => {
-    const coefficients: Coefficient[] = [
-      { ...baseCoefficient, subject: "Maths", coefficient: 5 },
-    ]
+    const coefficients: Coefficient[] = [{ ...baseCoefficient, subject: "Maths", coefficient: 5 }]
 
     it("should fetch coefficients with inner join on classes by class name", async () => {
       mock.setResult(coefficients)
@@ -92,10 +90,7 @@ describe("CoefficientService", () => {
       const result = await service.getCoefficientsByClassName("Unknown")
 
       expect(result).toEqual([])
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Failed to fetch coefficients by class name:",
-        "join error"
-      )
+      expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch coefficients by class name:", "join error")
       consoleSpy.mockRestore()
     })
 

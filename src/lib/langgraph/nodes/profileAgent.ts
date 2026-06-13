@@ -2,11 +2,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
 import { logger } from "@/src/lib/logger"
-import {
-  PlanningGraphAnnotationState,
-  PlanningGraphAnnotationUpdate,
-  profileAgentOutputSchema,
-} from "../state"
+import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, profileAgentOutputSchema } from "../state"
 import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 
@@ -43,10 +39,7 @@ export async function profileAgent(
         "4. Track: Note focus based on track (S1/S2: science; L1/L2: humanities).",
       ].join("\n"),
     ],
-    [
-      "human",
-      "Onboarding data: {onboardingDataJson}",
-    ],
+    ["human", "Onboarding data: {onboardingDataJson}"],
   ])
 
   const chain = prompt.pipe(structuredModel)

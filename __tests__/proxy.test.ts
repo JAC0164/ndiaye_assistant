@@ -27,10 +27,14 @@ function createMockRequest(): NextRequest {
   return {
     cookies: {
       get: vi.fn((name: string) => ({ name, value: cookieMap.get(name) ?? "" })),
-      set: vi.fn((name: string, value: string) => { cookieMap.set(name, value) }),
+      set: vi.fn((name: string, value: string) => {
+        cookieMap.set(name, value)
+      }),
       getAll: vi.fn(() => Array.from(cookieMap.entries()).map(([name, value]) => ({ name, value }))),
       has: vi.fn((name: string) => cookieMap.has(name)),
-      delete: vi.fn((name: string) => { cookieMap.delete(name) }),
+      delete: vi.fn((name: string) => {
+        cookieMap.delete(name)
+      }),
     },
     headers: new Headers({ "content-type": "application/json" }),
     nextUrl: new URL("http://localhost:3000/dashboard"),
@@ -56,7 +60,7 @@ describe("proxy", () => {
           getAll: expect.any(Function),
           setAll: expect.any(Function),
         },
-      }),
+      })
     )
   })
 
@@ -76,15 +80,13 @@ describe("proxy", () => {
       expect.objectContaining({
         cookies: expect.any(Object),
         headers: expect.any(Headers),
-      }),
+      })
     )
   })
 
   it("reads cookies from the request via getAll", async () => {
     const request = createMockRequest()
-    request.cookies.getAll = vi.fn(() => [
-      { name: "sb-access-token", value: "existing-token" },
-    ])
+    request.cookies.getAll = vi.fn(() => [{ name: "sb-access-token", value: "existing-token" }])
 
     await proxy(request)
 
@@ -101,7 +103,9 @@ describe("proxy", () => {
     await proxy(request)
 
     const mockCall = vi.mocked(createServerClient).mock.calls[0]
-    const cookiesConfig = mockCall[2] as { cookies: { setAll: (cookies: Array<{ name: string; value: string; options?: Record<string, string> }>) => void } }
+    const cookiesConfig = mockCall[2] as {
+      cookies: { setAll: (cookies: Array<{ name: string; value: string; options?: Record<string, string> }>) => void }
+    }
 
     const cookiesToSet = [
       { name: "access_token", value: "new-token" },
@@ -149,9 +153,7 @@ describe("proxy", () => {
 
   it("forwards cookies from request to supabase on read", async () => {
     const request = createMockRequest()
-    request.cookies.getAll = vi.fn(() => [
-      { name: "sb-access-token", value: "existing-token" },
-    ])
+    request.cookies.getAll = vi.fn(() => [{ name: "sb-access-token", value: "existing-token" }])
 
     await proxy(request)
 

@@ -25,7 +25,7 @@ export const SERIES_SUBJECTS: Record<string, string[]> = {
   S2: ["Mathématiques", "Physique-Chimie", "SVT", "Français", "Anglais", "Histoire-Géo", "Philosophie"],
   L1: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
   L2: ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
-  "L'": ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"]
+  "L'": ["Français", "Philosophie", "Anglais", "Histoire-Géo", "Mathématiques", "Espagnol"],
 }
 
 export const SERIES_INFO = [

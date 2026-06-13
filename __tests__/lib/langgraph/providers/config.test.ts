@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import {
-  getConfig,
-  getModelConfigForAgent,
-  invalidateConfig,
-} from "@/src/lib/langgraph/providers/config"
+import { getConfig, getModelConfigForAgent, invalidateConfig } from "@/src/lib/langgraph/providers/config"
 import type { AgentName } from "@/src/lib/langgraph/providers/types"
 
 describe("config", () => {
@@ -111,7 +107,7 @@ describe("config", () => {
   })
 
   it("caches config between calls without invalidation", () => {
-    const config1 = getConfig()
+    const _config1 = getConfig()
 
     vi.stubEnv("NDIAYE_DEFAULT_PROVIDER", "deepseek")
     const config2 = getConfig()

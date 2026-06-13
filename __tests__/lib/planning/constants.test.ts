@@ -16,15 +16,7 @@ describe("planning constants", () => {
     })
 
     it("contains all days from monday through sunday in order", () => {
-      expect(DAYS).toEqual([
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-      ])
+      expect(DAYS).toEqual(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"])
     })
   })
 

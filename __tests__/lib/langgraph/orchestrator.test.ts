@@ -7,9 +7,7 @@ const mockGetCoefficientsByClassName = vi.hoisted(() => vi.fn())
 const mockGetWeeklyStats = vi.hoisted(() => vi.fn())
 const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
-const mockCreatePlanningGraph = vi.hoisted(() =>
-  vi.fn(() => ({ invoke: mockInvoke }))
-)
+const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvoke })))
 
 vi.mock("@/src/services/profile.service", () => ({
   ProfileService: vi.fn(function () {
@@ -49,9 +47,7 @@ vi.mock("@/src/lib/langgraph/graph", () => ({
 }))
 
 describe("runPlanningWorkflow", () => {
-  let runPlanningWorkflow: Awaited<
-    typeof import("@/src/lib/langgraph/orchestrator")
-  >["runPlanningWorkflow"]
+  let runPlanningWorkflow: Awaited<typeof import("@/src/lib/langgraph/orchestrator")>["runPlanningWorkflow"]
   let supabase: ReturnType<typeof createMockSupabase>["supabase"]
   const buffer = Buffer.from("test-image")
   const onboardingData = { serie: "S1", weakSubjects: ["Maths"] }
@@ -90,13 +86,7 @@ describe("runPlanningWorkflow", () => {
       generatedPlanning: [],
     })
 
-    const result = await runPlanningWorkflow(
-      supabase,
-      "user-1",
-      buffer,
-      onboardingData,
-      "image/jpeg"
-    )
+    const result = await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData, "image/jpeg")
 
     expect(result).toHaveProperty("extractedTimetableMarkdown")
     expect(result).toHaveProperty("studentProfileContext")
@@ -234,12 +224,7 @@ describe("runPlanningWorkflow", () => {
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockSaveAnalysisCache).toHaveBeenCalledWith(
-      "user-1",
-      "NEW_TIMETABLE",
-      false,
-      undefined
-    )
+    expect(mockSaveAnalysisCache).toHaveBeenCalledWith("user-1", "NEW_TIMETABLE", false, undefined)
   })
 
   it("saves updated analysis cache when profile changes after invoke", async () => {
@@ -264,12 +249,7 @@ describe("runPlanningWorkflow", () => {
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockSaveAnalysisCache).toHaveBeenCalledWith(
-      "user-1",
-      undefined,
-      undefined,
-      "NEW_PROFILE"
-    )
+    expect(mockSaveAnalysisCache).toHaveBeenCalledWith("user-1", undefined, undefined, "NEW_PROFILE")
   })
 
   it("does NOT save cache when neither timetable nor profile changed", async () => {
@@ -361,16 +341,14 @@ describe("runPlanningWorkflow", () => {
     })
     mockInvoke.mockRejectedValue(new Error("Graph invoke failure"))
 
-    await expect(
-      runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    ).rejects.toThrow("Graph invoke failure")
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).rejects.toThrow(
+      "Graph invoke failure"
+    )
   })
 
   it("caches coefficients in-memory and reuses them on subsequent calls", async () => {
     mockGetCachedAnalysis.mockResolvedValue(null)
-    mockGetCoefficientsByClassName.mockResolvedValue([
-      { subject: "Anglais", coefficient: 3 },
-    ])
+    mockGetCoefficientsByClassName.mockResolvedValue([{ subject: "Anglais", coefficient: 3 }])
     mockGetWeeklyStats.mockResolvedValue({
       sessionCount: 0,
       totalMinutes: 0,
@@ -409,9 +387,7 @@ describe("runPlanningWorkflow", () => {
       generatedPlanning: [],
     })
 
-    await expect(
-      runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    ).resolves.toBeDefined()
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 
   it("skips coefficient fetching when onboardingData is null", async () => {
@@ -525,9 +501,7 @@ describe("runPlanningWorkflow", () => {
       generatedPlanning: [],
     })
 
-    await expect(
-      runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    ).resolves.toBeDefined()
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 
   it("fetches upcoming echeances and passes formatted string to graph", async () => {
@@ -613,8 +587,6 @@ describe("runPlanningWorkflow", () => {
       generatedPlanning: [],
     })
 
-    await expect(
-      runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    ).resolves.toBeDefined()
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 })

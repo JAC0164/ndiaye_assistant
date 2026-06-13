@@ -2,13 +2,15 @@ import type { GeneratedSeance } from "@/src/lib/langgraph/state"
 import { DAYS, DAY_LABELS, TYPE_LABELS } from "@/src/lib/planning/constants"
 
 const TYPE_COLORS: Record<string, string> = {
-  course: "bg-blue-50/50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/40",
+  course:
+    "bg-blue-50/50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 text-blue-800 dark:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/40",
   td: "bg-emerald-50/50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40",
   tp: "bg-purple-50/50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900/60 text-purple-800 dark:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/40",
-  review: "bg-amber-50/50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 hover:bg-amber-100/50 dark:hover:bg-amber-900/40",
-  break: "bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/50 dark:hover:bg-zinc-900/60",
+  review:
+    "bg-amber-50/50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 hover:bg-amber-100/50 dark:hover:bg-amber-900/40",
+  break:
+    "bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/50 dark:hover:bg-zinc-900/60",
 }
-
 
 interface SortedSeance extends GeneratedSeance {
   index: number
@@ -17,7 +19,8 @@ interface SortedSeance extends GeneratedSeance {
 function sortSeances(seances: GeneratedSeance[]): SortedSeance[] {
   const mapped = seances.map((s, index) => ({ ...s, index }))
   return mapped.sort((a, b) => {
-    const dayDiff = DAYS.indexOf(a.day_of_week as typeof DAYS[number]) - DAYS.indexOf(b.day_of_week as typeof DAYS[number])
+    const dayDiff =
+      DAYS.indexOf(a.day_of_week as (typeof DAYS)[number]) - DAYS.indexOf(b.day_of_week as (typeof DAYS)[number])
     if (dayDiff !== 0) return dayDiff
     return a.start_time.localeCompare(b.start_time)
   })
@@ -58,7 +61,8 @@ export default function WeeklySchedule({
                     key={`${s.day_of_week}-${s.start_time}-${s.index}`}
                     onClick={() => isInteractive && onEditSession(s, s.index)}
                     className={`group relative rounded-lg border p-2.5 text-xs leading-snug transition-all duration-150 ${
-                      TYPE_COLORS[s.session_type] ?? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
+                      TYPE_COLORS[s.session_type] ??
+                      "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200"
                     } ${isInteractive ? "cursor-pointer hover:scale-[1.02] hover:shadow-sm" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-1">
@@ -95,4 +99,3 @@ export default function WeeklySchedule({
     </div>
   )
 }
-

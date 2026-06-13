@@ -138,11 +138,7 @@ describe("POST /api/agents/vision", () => {
       const request = createMockRequest("POST", { formData: createImageFormData() })
       await POST(request)
 
-      expect(mockSaveVisionCache).toHaveBeenCalledWith(
-        userId,
-        "| Lundi | 8h | Maths |",
-        true
-      )
+      expect(mockSaveVisionCache).toHaveBeenCalledWith(userId, "| Lundi | 8h | Maths |", true)
     })
   })
 

@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   serverExternalPackages: [
@@ -10,6 +10,6 @@ const nextConfig: NextConfig = {
     "langchain",
     "@langchain/langgraph",
   ],
-};
+}
 
-export default nextConfig;
+export default nextConfig

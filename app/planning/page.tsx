@@ -25,7 +25,6 @@ interface AgentOverrideEntry {
   model: string
 }
 
-
 const DEFAULT_ONBOARDING = JSON.stringify(
   {
     serie: "S1",
@@ -37,15 +36,15 @@ const DEFAULT_ONBOARDING = JSON.stringify(
         day: "tuesday",
         startTime: "18:00",
         endTime: "20:00",
-        reason: "Cours du soir"
+        reason: "Cours du soir",
       },
       {
         id: "2",
         day: "thursday",
         startTime: "18:00",
         endTime: "20:00",
-        reason: "Cours du soir"
-      }
+        reason: "Cours du soir",
+      },
     ],
   },
   null,
@@ -61,7 +60,7 @@ function resizeImage(file: File, maxDim = 1568): Promise<Blob> {
         const canvas = document.createElement("canvas")
         let w = img.width
         let h = img.height
-        
+
         if (w > h) {
           if (w > maxDim) {
             h = Math.round((h * maxDim) / w)
@@ -73,7 +72,7 @@ function resizeImage(file: File, maxDim = 1568): Promise<Blob> {
             h = maxDim
           }
         }
-        
+
         canvas.width = w
         canvas.height = h
         const ctx = canvas.getContext("2d")
@@ -110,7 +109,7 @@ export default function PlanningPage() {
   const supabase = supabaseRef.current
 
   const [imageFile, setImageFile] = useState<File | null>(null)
-  
+
   // Onboarding States
   const [inputTab, setInputTab] = useState<"form" | "json">("form")
   const [onboardingData, setOnboardingData] = useState(DEFAULT_ONBOARDING)
@@ -127,16 +126,13 @@ export default function PlanningPage() {
     }
   })
 
-
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<ApiResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [showModelConfig, setShowModelConfig] = useState(false)
-  const [modelOverrides, setModelOverrides] = useState<
-    Record<AgentSlot | "default", AgentOverrideEntry>
-  >({
+  const [modelOverrides, setModelOverrides] = useState<Record<AgentSlot | "default", AgentOverrideEntry>>({
     default: { provider: "gemini", model: "gemini-2.5-flash" },
     vision: { provider: "gemini", model: "gemini-2.5-flash" },
     profile: { provider: "gemini", model: "gemini-2.5-flash" },
@@ -220,7 +216,6 @@ export default function PlanningPage() {
     }
   }
 
-
   // Edit schedule session handlers
   const handleStartEditSession = (session: GeneratedSeance, index: number) => {
     setEditingSessionIndex(index)
@@ -253,7 +248,7 @@ export default function PlanningPage() {
     if (!result) return
     const defaultSubject = (SERIES_SUBJECTS[formOnboarding.serie] || SERIES_SUBJECTS["S1"])[0] || "Mathématiques"
     const newSession: GeneratedSeance = {
-      day_of_week: day as 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday',
+      day_of_week: day as "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday",
       start_time: "17:00",
       end_time: "17:45",
       subject: defaultSubject,
@@ -342,7 +337,9 @@ export default function PlanningPage() {
         formData.set("modelOverrides", JSON.stringify(payload))
       }
 
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       const headers: Record<string, string> = {}
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`
@@ -370,11 +367,7 @@ export default function PlanningPage() {
     }
   }
 
-  function updateAgentOverride(
-    agent: AgentSlot | "default",
-    field: keyof AgentOverrideEntry,
-    value: string
-  ) {
+  function updateAgentOverride(agent: AgentSlot | "default", field: keyof AgentOverrideEntry, value: string) {
     setModelOverrides((prev) => ({
       ...prev,
       [agent]: { ...prev[agent], [field]: value },
@@ -395,7 +388,6 @@ export default function PlanningPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-16">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
-        
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-6">
           <div>
@@ -420,13 +412,12 @@ export default function PlanningPage() {
 
         {/* Form Inputs Grid */}
         <div className="grid gap-6 md:grid-cols-2">
-          
           {/* Timetable Upload Card */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6 flex flex-col">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
               <span>📅</span> Emploi du temps scolaire
             </h2>
-            
+
             <div className="flex-1 flex flex-col justify-center">
               {imagePreviewUrl ? (
                 <div className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 flex flex-col items-center">
@@ -478,13 +469,15 @@ export default function PlanningPage() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                 <span>👤</span> Profil & Contraintes
               </h2>
-              
+
               {/* Tab Selector */}
               <div className="flex rounded-lg bg-zinc-950 p-1 border border-zinc-900 shrink-0">
                 <button
                   onClick={() => setInputTab("form")}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-bold transition ${
-                    inputTab === "form" ? "bg-zinc-900 text-white shadow-sm border border-zinc-800" : "text-zinc-500 hover:text-zinc-300"
+                    inputTab === "form"
+                      ? "bg-zinc-900 text-white shadow-sm border border-zinc-800"
+                      : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Formulaire
@@ -492,7 +485,9 @@ export default function PlanningPage() {
                 <button
                   onClick={() => setInputTab("json")}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-bold transition ${
-                    inputTab === "json" ? "bg-zinc-900 text-white shadow-sm border border-zinc-800" : "text-zinc-500 hover:text-zinc-300"
+                    inputTab === "json"
+                      ? "bg-zinc-900 text-white shadow-sm border border-zinc-800"
+                      : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Code JSON
@@ -539,17 +534,19 @@ export default function PlanningPage() {
             <div className="border-t border-zinc-900 px-6 py-6 bg-zinc-955 bg-zinc-950/40 rounded-b-2xl">
               <div className="grid gap-3.5">
                 {(["default", "vision", "profile", "planner"] as const).map((agent) => (
-                  <div key={agent} className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 rounded-xl bg-zinc-900/40 border border-zinc-900 p-4 items-center">
+                  <div
+                    key={agent}
+                    className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 rounded-xl bg-zinc-900/40 border border-zinc-900 p-4 items-center"
+                  >
                     <div className="flex items-center text-sm font-bold uppercase tracking-wider text-zinc-400">
                       {agent === "default" ? "⚙️ Défaut" : `🤖 Agent ${agent}`}
-                      {agent !== "default" && (
+                      {agent !== "default" &&
                         (modelOverrides[agent].provider !== modelOverrides.default.provider ||
-                        modelOverrides[agent].model !== modelOverrides.default.model) && (
+                          modelOverrides[agent].model !== modelOverrides.default.model) && (
                           <span className="ml-2 rounded-full bg-amber-955 bg-amber-955 bg-amber-955 bg-amber-950/50 border border-amber-900 px-2 py-0.5 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">
                             Surchargé
                           </span>
-                        )
-                      )}
+                        )}
                     </div>
                     <select
                       value={modelOverrides[agent].provider}
@@ -573,10 +570,9 @@ export default function PlanningPage() {
                 ))}
               </div>
               <p className="mt-4 text-xs leading-relaxed text-zinc-500">
-                Laisse &quot;Défaut&quot; pour utiliser le provider principal. Si un agent a les mêmes
-                valeurs que le défaut, il ne sera pas inclus dans la requête. Les clés API sont lues
-                depuis les variables d&apos;environnement (GOOGLE_API_KEY, OPENAI_API_KEY,
-                ANTHROPIC_API_KEY, DEEPSEEK_API_KEY).
+                Laisse &quot;Défaut&quot; pour utiliser le provider principal. Si un agent a les mêmes valeurs que le
+                défaut, il ne sera pas inclus dans la requête. Les clés API sont lues depuis les variables
+                d&apos;environnement (GOOGLE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY).
               </p>
             </div>
           )}
@@ -598,7 +594,7 @@ export default function PlanningPage() {
               "Générer le planning"
             )}
           </button>
-          
+
           {error && (
             <div className="rounded-xl bg-red-950/40 border border-red-900/60 px-4.5 py-3 text-sm text-red-400 w-full sm:w-auto font-medium">
               ⚠️ {error}
@@ -609,7 +605,6 @@ export default function PlanningPage() {
         {/* Generation Results View */}
         {result && (
           <div className="flex flex-col gap-6 mt-4">
-            
             {/* Validation Banner */}
             <div
               className={`rounded-2xl border p-4.5 ${
@@ -632,7 +627,9 @@ export default function PlanningPage() {
               <button
                 onClick={() => setOutputTab("schedule")}
                 className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
-                  outputTab === "schedule" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  outputTab === "schedule"
+                    ? "border-emerald-500 text-white"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
               >
                 📅 Planning
@@ -641,7 +638,9 @@ export default function PlanningPage() {
                 <button
                   onClick={() => setOutputTab("markdown")}
                   className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
-                    outputTab === "markdown" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                    outputTab === "markdown"
+                      ? "border-emerald-500 text-white"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   📝 Emploi Extrait (Markdown)
@@ -651,7 +650,9 @@ export default function PlanningPage() {
                 <button
                   onClick={() => setOutputTab("profile")}
                   className={`px-5 py-3 text-sm font-bold uppercase tracking-wider border-b-2 transition ${
-                    outputTab === "profile" ? "border-emerald-500 text-white" : "border-transparent text-zinc-500 hover:text-zinc-300"
+                    outputTab === "profile"
+                      ? "border-emerald-500 text-white"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   👤 Profil Élève
@@ -661,7 +662,6 @@ export default function PlanningPage() {
 
             {/* Tab content area */}
             <div className="mt-2">
-              
               {/* Schedule grid view with Save trigger */}
               {outputTab === "schedule" && (
                 <div className="flex flex-col gap-4">
@@ -669,7 +669,7 @@ export default function PlanningPage() {
                     <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">
                       Calendrier hebdomadaire cyclique ({result.generatedPlanning.length} séances)
                     </h3>
-                    
+
                     {/* Database Commit Button */}
                     <div className="flex items-center gap-3.5">
                       {savingStatus === "success" && (
@@ -678,11 +678,9 @@ export default function PlanningPage() {
                         </span>
                       )}
                       {savingStatus === "error" && (
-                        <span className="text-sm font-bold text-red-400">
-                          ⚠️ {savingError}
-                        </span>
+                        <span className="text-sm font-bold text-red-400">⚠️ {savingError}</span>
                       )}
-                      
+
                       <button
                         onClick={handleSaveToDatabase}
                         disabled={savingStatus === "saving" || result.generatedPlanning.length === 0}
@@ -694,7 +692,8 @@ export default function PlanningPage() {
                   </div>
 
                   <p className="text-xs text-zinc-400 italic bg-zinc-900/10 border border-zinc-900/50 rounded-lg p-3 leading-relaxed">
-                    💡 <strong>Astuce UIX :</strong> Cliquez sur une séance de révision pour la modifier, ajuster ses horaires ou la supprimer directement du calendrier avant d&apos;enregistrer dans la base.
+                    💡 <strong>Astuce UIX :</strong> Cliquez sur une séance de révision pour la modifier, ajuster ses
+                    horaires ou la supprimer directement du calendrier avant d&apos;enregistrer dans la base.
                   </p>
 
                   <WeeklySchedule
@@ -740,7 +739,6 @@ export default function PlanningPage() {
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         )}
@@ -758,5 +756,3 @@ export default function PlanningPage() {
     </div>
   )
 }
-
-

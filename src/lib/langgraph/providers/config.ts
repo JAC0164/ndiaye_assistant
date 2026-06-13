@@ -29,10 +29,7 @@ function loadDefaultConfig(): ModelProviderConfig {
   }
 }
 
-function loadAgentConfig(
-  name: AgentName,
-  defaults: ModelProviderConfig
-): ModelProviderConfig {
+function loadAgentConfig(name: AgentName, defaults: ModelProviderConfig): ModelProviderConfig {
   const prefix = `NDIAYE_${name.toUpperCase()}`
   const overrides = resolveProviderConfig(prefix)
   return {

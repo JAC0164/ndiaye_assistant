@@ -17,12 +17,12 @@ export async function saveUserSessionsAction(seances: GeneratedSeance[]) {
   }
 
   const service = new SessionService(supabase)
-  
+
   // Remplacer les séances de l'utilisateur via le service dédié
   const inserted = await service.replaceAll(user.id, seances)
-  
+
   // Revalider sélectivement le cache pour rafraîchir instantanément les composants côté serveur
   revalidatePath("/planning")
-  
+
   return { success: true, count: inserted.length }
 }

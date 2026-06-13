@@ -10,22 +10,25 @@ const updateSchema = z.object({
   subject: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   echeance_type: z.enum(["devoir", "examen", "composition", "projet"]).optional(),
   is_completed: z.boolean().optional(),
 })
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
   if (!checkRateLimit(ip)) {
     return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
   }
 
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
   }
@@ -54,17 +57,17 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
   if (!checkRateLimit(ip)) {
     return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
   }
 
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
   }

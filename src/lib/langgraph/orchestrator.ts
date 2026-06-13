@@ -67,7 +67,14 @@ export async function runPlanningWorkflow(
     extractedTimetable = cached.extractedTimetableMarkdown
     isValidTimetable = cached.isValidTimetable
     studentProfileContext = cached.studentProfileContext
-    logger.info({ timetableLength: extractedTimetable.length, valid: isValidTimetable, profileLength: studentProfileContext.length }, "[Cache] Restored cached analysis")
+    logger.info(
+      {
+        timetableLength: extractedTimetable.length,
+        valid: isValidTimetable,
+        profileLength: studentProfileContext.length,
+      },
+      "[Cache] Restored cached analysis"
+    )
   }
 
   try {
@@ -81,9 +88,7 @@ export async function runPlanningWorkflow(
         const coeffService = new CoefficientService(supabase)
         const coeffs = await coeffService.getCoefficientsByClassName(className)
         if (coeffs.length > 0) {
-          subjectCoefficientsStr = coeffs
-            .map((c) => `${c.subject} (coefficient ${c.coefficient})`)
-            .join(", ")
+          subjectCoefficientsStr = coeffs.map((c) => `${c.subject} (coefficient ${c.coefficient})`).join(", ")
           setCachedCoefficients(className, subjectCoefficientsStr)
         }
       }
@@ -104,7 +109,10 @@ export async function runPlanningWorkflow(
         .join(", ")
       if (subjects) lines.push(`Répartition : ${subjects}`)
       weeklyStats = lines.join("\n")
-      logger.info({ sessionCount: stats.sessionCount, totalMinutes: stats.totalMinutes, averageRating: stats.averageRating }, "[Feedback] Weekly stats")
+      logger.info(
+        { sessionCount: stats.sessionCount, totalMinutes: stats.totalMinutes, averageRating: stats.averageRating },
+        "[Feedback] Weekly stats"
+      )
     }
   } catch (err) {
     console.error("Failed to fetch weekly stats:", err)
@@ -144,7 +152,8 @@ export async function runPlanningWorkflow(
     state.extractedTimetableMarkdown !== extractedTimetable ||
     state.studentProfileContext !== studentProfileContext
   ) {
-    const newTimetable = state.extractedTimetableMarkdown !== extractedTimetable ? state.extractedTimetableMarkdown : undefined
+    const newTimetable =
+      state.extractedTimetableMarkdown !== extractedTimetable ? state.extractedTimetableMarkdown : undefined
     const newValid = state.extractedTimetableMarkdown !== extractedTimetable ? state.isValidTimetable : undefined
     const newContext = state.studentProfileContext !== studentProfileContext ? state.studentProfileContext : undefined
     await profileService.saveAnalysisCache(userId, newTimetable, newValid, newContext)

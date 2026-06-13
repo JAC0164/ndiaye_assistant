@@ -5,9 +5,7 @@ export default function Home() {
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight">Ndiaye</h1>
-        <p className="mt-2 text-zinc-500">
-          Assistant de planning scolaire — Test API
-        </p>
+        <p className="mt-2 text-zinc-500">Assistant de planning scolaire — Test API</p>
       </div>
       <div className="flex gap-4">
         <Link
@@ -24,8 +22,8 @@ export default function Home() {
         </Link>
       </div>
       <p className="max-w-md text-center text-xs text-zinc-400">
-        Connecte-toi pour uploader un emploi du temps, générer un planning de
-        révisions intelligent avec l&apos;IA Ndiaye, et visualiser tes séances.
+        Connecte-toi pour uploader un emploi du temps, générer un planning de révisions intelligent avec l&apos;IA
+        Ndiaye, et visualiser tes séances.
       </p>
     </div>
   )

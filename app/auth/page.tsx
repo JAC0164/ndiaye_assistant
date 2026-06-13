@@ -43,13 +43,8 @@ export default function AuthPage() {
 
   return (
     <div className="flex flex-1 items-center justify-center">
-      <form
-        onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-4 rounded-xl border p-8 shadow-sm"
-      >
-        <h1 className="text-2xl font-bold">
-          {isSignUp ? "Inscription" : "Connexion"}
-        </h1>
+      <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4 rounded-xl border p-8 shadow-sm">
+        <h1 className="text-2xl font-bold">{isSignUp ? "Inscription" : "Connexion"}</h1>
         <p className="text-sm text-zinc-500">
           {isSignUp
             ? "Crée un compte pour tester l'API de planning Ndiaye"
@@ -101,9 +96,7 @@ export default function AuthPage() {
           }}
           className="text-sm text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
         >
-          {isSignUp
-            ? "Déjà un compte ? Connecte-toi"
-            : "Pas de compte ? Inscris-toi"}
+          {isSignUp ? "Déjà un compte ? Connecte-toi" : "Pas de compte ? Inscris-toi"}
         </button>
       </form>
     </div>

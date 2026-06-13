@@ -29,7 +29,10 @@ describe("BaseService", () => {
   })
 
   describe("getAll", () => {
-    const records = [{ id: "1", name: "alpha" }, { id: "2", name: "beta" }]
+    const records = [
+      { id: "1", name: "alpha" },
+      { id: "2", name: "beta" },
+    ]
 
     it("should call select on the correct table and return data", async () => {
       mock.setResult(records)
@@ -108,9 +111,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("DB error") })
       })
-      await expect(service.getAll()).rejects.toThrow(
-        "Erreur lors de la récupération des données: DB error"
-      )
+      await expect(service.getAll()).rejects.toThrow("Erreur lors de la récupération des données: DB error")
     })
   })
 
@@ -139,9 +140,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("not found") })
       })
-      await expect(service.getById("42")).rejects.toThrow(
-        "Erreur lors de la récupération de l'élément: not found"
-      )
+      await expect(service.getById("42")).rejects.toThrow("Erreur lors de la récupération de l'élément: not found")
     })
   })
 
@@ -171,9 +170,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("insert failed") })
       })
-      await expect(service.create({ name: "test" })).rejects.toThrow(
-        "Erreur lors de la création: insert failed"
-      )
+      await expect(service.create({ name: "test" })).rejects.toThrow("Erreur lors de la création: insert failed")
     })
   })
 
@@ -231,9 +228,7 @@ describe("BaseService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("delete failed") })
       })
-      await expect(service.delete("1")).rejects.toThrow(
-        "Erreur lors de la suppression: delete failed"
-      )
+      await expect(service.delete("1")).rejects.toThrow("Erreur lors de la suppression: delete failed")
     })
   })
 })

@@ -104,9 +104,7 @@ describe("SessionService", () => {
       mock.builder.then.mockImplementation((_resolve, reject) => {
         reject(new Error("day query error"))
       })
-      await expect(service.getSessionsForDay("user-1", "monday")).rejects.toThrow(
-        "day query error"
-      )
+      await expect(service.getSessionsForDay("user-1", "monday")).rejects.toThrow("day query error")
     })
 
     it("should throw with wrapped message when database returns error in response", async () => {
@@ -152,9 +150,7 @@ describe("SessionService", () => {
       const result = await service.createMany("user-1", newSessions)
 
       expect(result).toEqual(createdSeances)
-      expect(mock.builder.insert).toHaveBeenCalledWith(
-        newSessions.map((s) => ({ ...s, user_id: "user-1" }))
-      )
+      expect(mock.builder.insert).toHaveBeenCalledWith(newSessions.map((s) => ({ ...s, user_id: "user-1" })))
       expect(mock.builder.select).toHaveBeenCalled()
     })
 

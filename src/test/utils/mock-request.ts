@@ -1,11 +1,14 @@
 import { vi } from "vitest"
 
-export function createMockRequest(method: string, options?: {
-  body?: unknown
-  headers?: Record<string, string>
-  url?: string
-  formData?: FormData
-}): any {
+export function createMockRequest(
+  method: string,
+  options?: {
+    body?: unknown
+    headers?: Record<string, string>
+    url?: string
+    formData?: FormData
+  }
+): any {
   const headers = options?.headers ?? {}
   return {
     method,

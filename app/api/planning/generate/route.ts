@@ -25,24 +25,30 @@ type ImageUpload = {
 const ALLOWED_PROVIDERS = ["gemini", "openai", "anthropic", "deepseek", "ollama"] as const
 
 const modelOverrideSchema = z.object({
-  vision: z.object({
-    provider: z.enum(ALLOWED_PROVIDERS).optional(),
-    model: z.string().max(100).optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-  }).optional(),
-  profile: z.object({
-    provider: z.enum(ALLOWED_PROVIDERS).optional(),
-    model: z.string().max(100).optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-  }).optional(),
-  planner: z.object({
-    provider: z.enum(ALLOWED_PROVIDERS).optional(),
-    model: z.string().max(100).optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
-  }).optional(),
+  vision: z
+    .object({
+      provider: z.enum(ALLOWED_PROVIDERS).optional(),
+      model: z.string().max(100).optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
+    })
+    .optional(),
+  profile: z
+    .object({
+      provider: z.enum(ALLOWED_PROVIDERS).optional(),
+      model: z.string().max(100).optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
+    })
+    .optional(),
+  planner: z
+    .object({
+      provider: z.enum(ALLOWED_PROVIDERS).optional(),
+      model: z.string().max(100).optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      baseUrl: z.union([z.literal(""), z.string().max(500).url()]).optional(),
+    })
+    .optional(),
 })
 
 function jsonError(status: number, error: string) {
@@ -77,9 +83,7 @@ function validateModelOverrides(raw: unknown): ModelOverrides | undefined {
   return cleaned
 }
 
-async function fileToBuffer(
-  value: FormDataEntryValue | null
-): Promise<ImageUpload> {
+async function fileToBuffer(value: FormDataEntryValue | null): Promise<ImageUpload> {
   if (!(value instanceof File)) {
     throw new Error("Le champ timetableImage est requis.")
   }
@@ -99,9 +103,7 @@ async function fileToBuffer(
 }
 
 async function createAuthenticatedSupabase(request: NextRequest) {
-  const bearerToken = request.headers
-    .get("authorization")
-    ?.match(/^Bearer\s+(.+)$/i)?.[1]
+  const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]
 
   if (!bearerToken) {
     const supabase = await createSSRClient()
@@ -151,8 +153,7 @@ export async function POST(request: NextRequest) {
   if (!checkRateLimit(ip)) {
     return jsonError(429, "Trop de requêtes. Veuillez réessayer dans une minute.")
   }
-  const { supabase, user, error: authError } =
-    await createAuthenticatedSupabase(request)
+  const { supabase, user, error: authError } = await createAuthenticatedSupabase(request)
 
   if (authError || !user) {
     return jsonError(401, "Authentification requise.")
@@ -166,26 +167,14 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     imageUpload = await fileToBuffer(formData.get("timetableImage"))
     onboardingData = parseJSONField(formData.get("onboardingData")) ?? {}
-    modelOverrides = validateModelOverrides(
-      parseJSONField(formData.get("modelOverrides"))
-    )
+    modelOverrides = validateModelOverrides(parseJSONField(formData.get("modelOverrides")))
   } catch (error) {
-    return jsonError(
-      400,
-      error instanceof Error ? error.message : "Requête invalide."
-    )
+    return jsonError(400, error instanceof Error ? error.message : "Requête invalide.")
   }
 
   try {
     const result = await withTimeout(
-      runPlanningWorkflow(
-        supabase,
-        user.id,
-        imageUpload.buffer,
-        onboardingData,
-        imageUpload.mimeType,
-        modelOverrides
-      ),
+      runPlanningWorkflow(supabase, user.id, imageUpload.buffer, onboardingData, imageUpload.mimeType, modelOverrides),
       REQUEST_TIMEOUT
     )
 
@@ -208,9 +197,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Planning generation error:", error)
-    return jsonError(
-      500,
-      "Erreur lors de la génération du planning. Veuillez réessayer."
-    )
+    return jsonError(500, "Erreur lors de la génération du planning. Veuillez réessayer.")
   }
 }

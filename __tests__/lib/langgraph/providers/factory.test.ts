@@ -211,9 +211,7 @@ describe("createModel", () => {
 
     createModel(config)
 
-    expect(mockChatOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ timeout: 30000 })
-    )
+    expect(mockChatOpenAI).toHaveBeenCalledWith(expect.objectContaining({ timeout: 30000 }))
   })
 
   it("passes custom timeout to model constructor", () => {
@@ -221,9 +219,7 @@ describe("createModel", () => {
 
     createModel(config)
 
-    expect(mockChatOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ timeout: 120000 })
-    )
+    expect(mockChatOpenAI).toHaveBeenCalledWith(expect.objectContaining({ timeout: 120000 }))
   })
 
   it("does not pass timeout to Gemini (ChatGoogleGenerativeAI has no timeout param)", () => {

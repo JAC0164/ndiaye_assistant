@@ -47,5 +47,3 @@ describe("getModel", () => {
     expect(createModel).toHaveBeenCalledWith(mockConfig)
   })
 })
-
-

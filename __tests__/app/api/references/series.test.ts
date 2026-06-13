@@ -47,7 +47,10 @@ describe("GET /api/references/series", () => {
   })
 
   it("returns all series when level_id is not provided", async () => {
-    const mockSeries = [{ id: "s1", name: "Série A" }, { id: "s2", name: "Série B" }]
+    const mockSeries = [
+      { id: "s1", name: "Série A" },
+      { id: "s2", name: "Série B" },
+    ]
     vi.mocked(ReferenceService).mockImplementation(function () {
       return { getSeries: vi.fn().mockResolvedValue(mockSeries) }
     })

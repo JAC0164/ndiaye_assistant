@@ -18,9 +18,7 @@ describe("withRetry", () => {
   })
 
   it("succeeds on second try after first failure", async () => {
-    const fn = vi.fn()
-      .mockRejectedValueOnce(new Error("first failure"))
-      .mockResolvedValueOnce("success")
+    const fn = vi.fn().mockRejectedValueOnce(new Error("first failure")).mockResolvedValueOnce("success")
 
     const promise = withRetry(fn, "test-agent")
     await vi.advanceTimersByTimeAsync(1000)
@@ -31,7 +29,8 @@ describe("withRetry", () => {
   })
 
   it("succeeds on third try after two failures", async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error("fail 1"))
       .mockRejectedValueOnce(new Error("fail 2"))
       .mockResolvedValueOnce("success")
@@ -77,7 +76,8 @@ describe("withRetry", () => {
   })
 
   it("applies exponential backoff (1s, 2s) before each retry (maxRetries=3 => 2 delays)", async () => {
-    const fn = vi.fn()
+    const fn = vi
+      .fn()
       .mockRejectedValueOnce(new Error("fail"))
       .mockRejectedValueOnce(new Error("fail"))
       .mockRejectedValueOnce(new Error("fail"))

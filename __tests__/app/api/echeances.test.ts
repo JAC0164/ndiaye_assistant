@@ -66,9 +66,7 @@ describe("Echéances API", () => {
         error: null,
       })
 
-      const mockEcheances = [
-        { id: "e1", subject: "Maths", title: "Devoir 1", due_date: "2026-06-15" },
-      ]
+      const mockEcheances = [{ id: "e1", subject: "Maths", title: "Devoir 1", due_date: "2026-06-15" }]
       vi.mocked(EcheanceService).mockImplementation(function () {
         return { getUpcoming: vi.fn().mockResolvedValue(mockEcheances) }
       })
@@ -94,9 +92,11 @@ describe("Echéances API", () => {
         return { getUpcoming: mockGetUpcoming }
       })
 
-      await GET(createMockRequest("GET", {
-        url: "http://localhost:3000/api/echeances?days=30",
-      }))
+      await GET(
+        createMockRequest("GET", {
+          url: "http://localhost:3000/api/echeances?days=30",
+        })
+      )
 
       expect(mockGetUpcoming).toHaveBeenCalledWith(userId, 30)
     })
@@ -112,9 +112,11 @@ describe("Echéances API", () => {
         return { getUpcoming: mockGetUpcoming }
       })
 
-      await GET(createMockRequest("GET", {
-        url: "http://localhost:3000/api/echeances?days=0",
-      }))
+      await GET(
+        createMockRequest("GET", {
+          url: "http://localhost:3000/api/echeances?days=0",
+        })
+      )
 
       expect(mockGetUpcoming).toHaveBeenCalledWith(userId, 14)
     })
@@ -130,9 +132,11 @@ describe("Echéances API", () => {
         return { getUpcoming: mockGetUpcoming }
       })
 
-      await GET(createMockRequest("GET", {
-        url: "http://localhost:3000/api/echeances?days=100",
-      }))
+      await GET(
+        createMockRequest("GET", {
+          url: "http://localhost:3000/api/echeances?days=100",
+        })
+      )
 
       expect(mockGetUpcoming).toHaveBeenCalledWith(userId, 90)
     })
@@ -148,9 +152,11 @@ describe("Echéances API", () => {
         return { getUpcoming: mockGetUpcoming }
       })
 
-      await GET(createMockRequest("GET", {
-        url: "http://localhost:3000/api/echeances",
-      }))
+      await GET(
+        createMockRequest("GET", {
+          url: "http://localhost:3000/api/echeances",
+        })
+      )
 
       expect(mockGetUpcoming).toHaveBeenCalledWith(userId, 14)
     })

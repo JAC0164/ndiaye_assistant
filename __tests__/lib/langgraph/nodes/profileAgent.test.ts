@@ -28,9 +28,7 @@ vi.mock("@/src/lib/langgraph/model", () => ({
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
-  withRetry: vi.fn(
-    async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()
-  ),
+  withRetry: vi.fn(async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()),
 }))
 
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
@@ -63,9 +61,7 @@ describe("profileAgent", () => {
   it("returns studentProfileContext from model output", async () => {
     const result = await profileAgent(baseState)
     expect(result).toHaveProperty("studentProfileContext")
-    expect(result.studentProfileContext).toBe(
-      "- Maths: besoin de renforcement\n- Couvre-feu: 22:00"
-    )
+    expect(result.studentProfileContext).toBe("- Maths: besoin de renforcement\n- Couvre-feu: 22:00")
   })
 
   it("skips model call when studentProfileContext already exists in state", async () => {

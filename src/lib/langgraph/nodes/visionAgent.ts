@@ -2,11 +2,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
 import { logger } from "@/src/lib/logger"
-import {
-  PlanningGraphAnnotationState,
-  PlanningGraphAnnotationUpdate,
-  visionAgentOutputSchema,
-} from "../state"
+import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, visionAgentOutputSchema } from "../state"
 import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 
@@ -89,10 +85,7 @@ export async function visionAgent(
     () =>
       chain.invoke(
         {
-          imageDataUrl: toBase64Image(
-            state.timetableImage,
-            state.timetableImageMimeType
-          ),
+          imageDataUrl: toBase64Image(state.timetableImage, state.timetableImageMimeType),
         },
         createTokenLogger("vision")
       ),

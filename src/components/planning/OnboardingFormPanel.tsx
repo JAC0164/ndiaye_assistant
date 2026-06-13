@@ -10,13 +10,10 @@ interface OnboardingFormPanelProps {
 }
 
 export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPanelProps) {
-  
   const handleToggleWeakSubject = (subject: string) => {
     const isWeak = form.weakSubjects.includes(subject)
-    const updated = isWeak
-      ? form.weakSubjects.filter((s) => s !== subject)
-      : [...form.weakSubjects, subject]
-    
+    const updated = isWeak ? form.weakSubjects.filter((s) => s !== subject) : [...form.weakSubjects, subject]
+
     onChange({
       ...form,
       weakSubjects: updated,
@@ -24,7 +21,7 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
   }
 
   const handleAddBlockedSlot = (newSlotData: {
-    day: BlockedSlot['day']
+    day: BlockedSlot["day"]
     startTime: string
     endTime: string
     reason: string
@@ -48,7 +45,6 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
 
   return (
     <div className="flex flex-col gap-5 overflow-y-auto max-h-[420px] pr-1">
-      
       {/* Track Selector (Série) */}
       <div>
         <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Série / Filière</label>
@@ -62,8 +58,8 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
                 onClick={() => {
                   onChange({
                     ...form,
-                    serie: item.value as OnboardingForm['serie'],
-                    weakSubjects: []
+                    serie: item.value as OnboardingForm["serie"],
+                    weakSubjects: [],
                   })
                 }}
                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition duration-150 cursor-pointer ${
@@ -84,7 +80,9 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
       <div className="border-t border-zinc-900 pt-4">
         <div className="flex justify-between items-center mb-1">
           <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Matières à renforcer</label>
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Sélectionner pour prioriser</span>
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+            Sélectionner pour prioriser
+          </span>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-2">
           {(SERIES_SUBJECTS[form.serie] || SERIES_SUBJECTS["S1"]).map((sub) => {
@@ -111,7 +109,9 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
       {/* Bedtime / Sleep Limit Slider */}
       <div className="border-t border-zinc-900 pt-4">
         <div className="flex justify-between items-center mb-1">
-          <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Couvre-feu / Fin de révision</label>
+          <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Couvre-feu / Fin de révision
+          </label>
           <span className="text-xs font-bold text-cyan-400 flex items-center gap-1">🌙 {form.bedtime}</span>
         </div>
         <input
@@ -134,18 +134,25 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
 
       {/* Time Blockers / Constraints Manager */}
       <div className="border-t border-zinc-900 pt-4">
-        <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Créneaux indisponibles / Cours du soir</label>
-        
+        <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          Créneaux indisponibles / Cours du soir
+        </label>
+
         {/* Active Blocked Slots List */}
         <div className="space-y-2 mt-2">
           {form.blockedSlots.map((slot) => {
             const dayLabel = FULL_DAY_LABELS[slot.day] || slot.day
             return (
-              <div key={slot.id} className="flex items-center justify-between gap-3 rounded-xl bg-zinc-955 bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs">
+              <div
+                key={slot.id}
+                className="flex items-center justify-between gap-3 rounded-xl bg-zinc-955 bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs"
+              >
                 <div className="flex items-center gap-2">
                   <span className="text-red-400">🚫</span>
                   <div>
-                    <span className="font-bold text-zinc-300">{dayLabel} {slot.startTime} - {slot.endTime}</span>
+                    <span className="font-bold text-zinc-300">
+                      {dayLabel} {slot.startTime} - {slot.endTime}
+                    </span>
                     <span className="text-zinc-550 block text-[10px]">{slot.reason}</span>
                   </div>
                 </div>
@@ -167,7 +174,6 @@ export default function OnboardingFormPanel({ form, onChange }: OnboardingFormPa
         {/* Add Blocked Slot Form Row */}
         <BlockedSlotBuilder onAdd={handleAddBlockedSlot} />
       </div>
-
     </div>
   )
 }

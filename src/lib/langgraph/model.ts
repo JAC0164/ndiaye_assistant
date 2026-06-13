@@ -5,10 +5,7 @@ import { getModelConfigForAgent } from "./providers"
 import { logger } from "@/src/lib/logger"
 import type { AgentName, ModelProviderConfig } from "./providers"
 
-export function getModel(
-  agentName?: AgentName,
-  overrides?: Partial<ModelProviderConfig>
-): BaseChatModel {
+export function getModel(agentName?: AgentName, overrides?: Partial<ModelProviderConfig>): BaseChatModel {
   const config = getModelConfigForAgent(agentName ?? "planner", overrides)
   return createModel(config)
 }
@@ -49,7 +46,7 @@ export function createTokenLogger(agentName: string) {
 
           const promptTokens = tokenUsage?.promptTokens || usageMetadata?.input_tokens || 0
           const completionTokens = tokenUsage?.completionTokens || usageMetadata?.output_tokens || 0
-          const totalTokens = tokenUsage?.totalTokens || usageMetadata?.total_tokens || (promptTokens + completionTokens)
+          const totalTokens = tokenUsage?.totalTokens || usageMetadata?.total_tokens || promptTokens + completionTokens
 
           logger.info({ promptTokens, completionTokens, totalTokens, duration, agent: agentName }, "Token usage")
         },
@@ -57,5 +54,3 @@ export function createTokenLogger(agentName: string) {
     ],
   }
 }
-
-

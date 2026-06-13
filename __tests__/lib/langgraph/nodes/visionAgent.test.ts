@@ -29,9 +29,7 @@ vi.mock("@/src/lib/langgraph/model", () => ({
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
-  withRetry: vi.fn(
-    async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()
-  ),
+  withRetry: vi.fn(async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()),
 }))
 
 import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
@@ -65,9 +63,7 @@ describe("visionAgent", () => {
     const result = await visionAgent(baseState)
     expect(result).toHaveProperty("extractedTimetableMarkdown")
     expect(result).toHaveProperty("isValidTimetable")
-    expect(result.extractedTimetableMarkdown).toBe(
-      "LUNDI:\n- 08:00-09:30: Mathématiques\n- 09:40-11:10: Français"
-    )
+    expect(result.extractedTimetableMarkdown).toBe("LUNDI:\n- 08:00-09:30: Mathématiques\n- 09:40-11:10: Français")
     expect(result.isValidTimetable).toBe(true)
     expect(result.validationErrorMessage).toBeUndefined()
   })
@@ -79,9 +75,7 @@ describe("visionAgent", () => {
     })
     const result = await visionAgent(baseState)
     expect(result.isValidTimetable).toBe(false)
-    expect(result.validationErrorMessage).toBe(
-      "Emploi du temps invalide ou non conforme au système sénégalais."
-    )
+    expect(result.validationErrorMessage).toBe("Emploi du temps invalide ou non conforme au système sénégalais.")
   })
 
   it("skips model call when extractedTimetableMarkdown already exists in state", async () => {
@@ -106,9 +100,7 @@ describe("visionAgent", () => {
     }
     await visionAgent(stateWithBuffer)
     const callArg = mockModel.invoke.mock.calls[0][0] as { imageDataUrl: string }
-    expect(callArg.imageDataUrl).toBe(
-      "data:image/jpeg;base64,aGVsbG8="
-    )
+    expect(callArg.imageDataUrl).toBe("data:image/jpeg;base64,aGVsbG8=")
   })
 
   it("passes string timetableImage with existing data URL prefix directly", async () => {
@@ -166,5 +158,4 @@ describe("visionAgent", () => {
 
     getModelSpy.mockRestore()
   })
-
 })

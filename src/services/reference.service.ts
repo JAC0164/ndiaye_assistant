@@ -24,10 +24,7 @@ export class ReferenceService {
   }
 
   async getSeries(levelId?: string): Promise<Series[]> {
-    let query = this.supabase
-      .from("series")
-      .select("*")
-      .order("name", { ascending: true })
+    let query = this.supabase.from("series").select("*").order("name", { ascending: true })
 
     if (levelId) query = query.eq("level_id", levelId)
 
@@ -62,10 +59,7 @@ export class ReferenceService {
       return data as Coefficient[]
     }
 
-    let query = this.supabase
-      .from("coefficients")
-      .select("*")
-      .order("coefficient", { ascending: false })
+    let query = this.supabase.from("coefficients").select("*").order("coefficient", { ascending: false })
 
     if (classId) query = query.eq("class_id", classId)
 

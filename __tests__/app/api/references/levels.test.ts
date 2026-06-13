@@ -47,7 +47,10 @@ describe("GET /api/references/levels", () => {
   })
 
   it("returns JSON with all school levels", async () => {
-    const mockLevels = [{ id: "1", name: "Primaire" }, { id: "2", name: "Secondaire" }]
+    const mockLevels = [
+      { id: "1", name: "Primaire" },
+      { id: "2", name: "Secondaire" },
+    ]
     vi.mocked(ReferenceService).mockImplementation(function () {
       return { getLevels: vi.fn().mockResolvedValue(mockLevels) }
     })

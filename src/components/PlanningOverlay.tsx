@@ -16,32 +16,35 @@ export default function PlanningOverlay() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [elementStart, setElementStart] = useState({ x: 0, y: 0 })
-  
+
   const containerRef = useRef<HTMLDivElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
-  const fetchTodaySessions = useCallback(async (userId: string) => {
-    try {
-      setLoading(true)
-      const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-      const todayEnglish = days[new Date().getDay()]
+  const fetchTodaySessions = useCallback(
+    async (userId: string) => {
+      try {
+        setLoading(true)
+        const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+        const todayEnglish = days[new Date().getDay()]
 
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("day_of_week", todayEnglish)
-        .order("start_time", { ascending: true })
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("day_of_week", todayEnglish)
+          .order("start_time", { ascending: true })
 
-      if (error) throw error
-      setSessions(data || [])
-    } catch (err) {
-      console.error("Error fetching daily sessions for overlay:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
+        if (error) throw error
+        setSessions(data || [])
+      } catch (err) {
+        console.error("Error fetching daily sessions for overlay:", err)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [supabase]
+  )
 
   // Track authentication state
   useEffect(() => {
@@ -54,7 +57,9 @@ export default function PlanningOverlay() {
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
       if (session?.user) {
         fetchTodaySessions(session.user.id)
@@ -86,7 +91,7 @@ export default function PlanningOverlay() {
 
     setIsDragging(true)
     setDragStart({ x: e.clientX, y: e.clientY })
-    
+
     // Get actual current element position
     const rect = containerRef.current?.getBoundingClientRect()
     if (rect) {
@@ -95,7 +100,7 @@ export default function PlanningOverlay() {
       const yOffset = window.innerHeight - rect.bottom
       setElementStart({ x: xOffset, y: yOffset })
     }
-    
+
     e.preventDefault()
   }
 
@@ -111,7 +116,7 @@ export default function PlanningOverlay() {
 
       setPosition({
         x: newX,
-        y: newY
+        y: newY,
       })
     }
 
@@ -132,15 +137,7 @@ export default function PlanningOverlay() {
 
   // Get current day name in French
   const getFrenchDay = () => {
-    const days = [
-      "Dimanche",
-      "Lundi",
-      "Mardi",
-      "Mercredi",
-      "Jeudi",
-      "Vendredi",
-      "Samedi"
-    ]
+    const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
     return days[new Date().getDay()]
   }
 
@@ -166,10 +163,14 @@ export default function PlanningOverlay() {
 
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
-      case "td": return "TD"
-      case "review": return "Révision"
-      case "break": return "Pause"
-      default: return type
+      case "td":
+        return "TD"
+      case "review":
+        return "Révision"
+      case "break":
+        return "Pause"
+      default:
+        return type
     }
   }
 
@@ -187,12 +188,23 @@ export default function PlanningOverlay() {
           bottom: `${position.y}px`,
         }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
         </svg>
         {sessions.length > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
-            {sessions.filter(s => s.session_type !== 'break').length}
+            {sessions.filter((s) => s.session_type !== "break").length}
           </span>
         )}
       </button>
@@ -216,9 +228,7 @@ export default function PlanningOverlay() {
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-semibold tracking-wide text-zinc-400">
-            {getFrenchDay()}
-          </span>
+          <span className="text-xs font-semibold tracking-wide text-zinc-400">{getFrenchDay()}</span>
         </div>
         <div className="no-drag flex items-center gap-1.5">
           {/* Go to Full Screen */}
@@ -230,8 +240,19 @@ export default function PlanningOverlay() {
             title="Plein écran (Standard)"
             className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+              />
             </svg>
           </button>
           {/* Minimize */}
@@ -240,7 +261,13 @@ export default function PlanningOverlay() {
             title="Minimiser"
             className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -253,7 +280,11 @@ export default function PlanningOverlay() {
           <div className="flex flex-col items-center justify-center py-8 text-zinc-500">
             <svg className="animate-spin h-5 w-5 text-emerald-500 mb-2" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
             </svg>
             <span className="text-xs">Chargement du planning...</span>
           </div>
@@ -275,9 +306,11 @@ export default function PlanningOverlay() {
             {sessions.map((session) => (
               <div key={session.id} className="relative group transition-all duration-200">
                 {/* Timeline node */}
-                <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border border-zinc-950 ${
-                  session.session_type === 'break' ? 'bg-amber-400' : 'bg-emerald-400'
-                }`} />
+                <div
+                  className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border border-zinc-950 ${
+                    session.session_type === "break" ? "bg-amber-400" : "bg-emerald-400"
+                  }`}
+                />
 
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -288,7 +321,9 @@ export default function PlanningOverlay() {
                       {formatTime(session.start_time)} - {formatTime(session.end_time)}
                     </p>
                   </div>
-                  <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold tracking-wider uppercase ${getSessionTypeStyles(session.session_type)}`}>
+                  <span
+                    className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold tracking-wider uppercase ${getSessionTypeStyles(session.session_type)}`}
+                  >
                     {getSessionTypeLabel(session.session_type)}
                   </span>
                 </div>
@@ -306,9 +341,7 @@ export default function PlanningOverlay() {
 
       {/* Footer */}
       <div className="no-drag flex items-center justify-between border-t border-zinc-800 px-4 py-2 bg-zinc-950/40 rounded-b-2xl">
-        <span className="text-[9px] text-zinc-500">
-          Ndiaye AI Assistant V1
-        </span>
+        <span className="text-[9px] text-zinc-500">Ndiaye AI Assistant V1</span>
         <button
           onClick={() => {
             setDisplayMode("standard")

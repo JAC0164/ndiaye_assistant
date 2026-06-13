@@ -14,10 +14,7 @@ describe("supabase browser client", () => {
 
   it("calls createBrowserClient with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY", () => {
     createClient()
-    expect(createBrowserClient).toHaveBeenCalledWith(
-      "https://test.supabase.co",
-      "test-anon-key"
-    )
+    expect(createBrowserClient).toHaveBeenCalledWith("https://test.supabase.co", "test-anon-key")
   })
 
   it("returns the mocked client from createBrowserClient", () => {

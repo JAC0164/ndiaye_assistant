@@ -45,9 +45,7 @@ vi.mock("@/src/lib/langgraph/model", () => ({
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
-  withRetry: vi.fn(
-    async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()
-  ),
+  withRetry: vi.fn(async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()),
 }))
 
 import { plannerAgent } from "@/src/lib/langgraph/nodes/plannerAgent"

@@ -17,11 +17,7 @@ export class ProfileService extends BaseService<Profile> {
   }
 
   async getByUserId(userId: string): Promise<Profile | null> {
-    const { data, error } = await this.supabase
-      .from(this.tableName)
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle()
+    const { data, error } = await this.supabase.from(this.tableName).select("*").eq("id", userId).maybeSingle()
 
     if (error) {
       throw new Error(`Erreur lors de la récupération du profil: ${error.message}`)
@@ -100,11 +96,7 @@ export class ProfileService extends BaseService<Profile> {
       .eq("id", userId)
   }
 
-  async saveVisionCache(
-    userId: string,
-    timetable: string,
-    isValid: boolean
-  ): Promise<void> {
+  async saveVisionCache(userId: string, timetable: string, isValid: boolean): Promise<void> {
     return this.saveAnalysisCache(userId, timetable, isValid, undefined)
   }
 

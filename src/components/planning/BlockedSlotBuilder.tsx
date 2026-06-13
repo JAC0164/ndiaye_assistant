@@ -4,16 +4,11 @@ import { useState } from "react"
 import type { BlockedSlot } from "@/src/types/planning.types"
 
 interface BlockedSlotBuilderProps {
-  onAdd: (slot: {
-    day: BlockedSlot['day']
-    startTime: string
-    endTime: string
-    reason: string
-  }) => void
+  onAdd: (slot: { day: BlockedSlot["day"]; startTime: string; endTime: string; reason: string }) => void
 }
 
 export default function BlockedSlotBuilder({ onAdd }: BlockedSlotBuilderProps) {
-  const [blockDay, setBlockDay] = useState<BlockedSlot['day']>("monday")
+  const [blockDay, setBlockDay] = useState<BlockedSlot["day"]>("monday")
   const [blockStartTime, setBlockStartTime] = useState("18:00")
   const [blockEndTime, setBlockEndTime] = useState("20:00")
   const [blockReason, setBlockReason] = useState("Cours du soir")
@@ -30,13 +25,13 @@ export default function BlockedSlotBuilder({ onAdd }: BlockedSlotBuilderProps) {
   return (
     <div className="mt-3 bg-zinc-955 bg-zinc-950/30 border border-zinc-900 rounded-xl p-3 flex flex-col gap-2.5">
       <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Ajouter une indisponibilité :</p>
-      
+
       <div className="grid grid-cols-3 gap-2">
         <div>
           <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Jour</label>
           <select
             value={blockDay}
-            onChange={(e) => setBlockDay(e.target.value as BlockedSlot['day'])}
+            onChange={(e) => setBlockDay(e.target.value as BlockedSlot["day"])}
             className="w-full rounded-lg bg-zinc-950 border border-zinc-900 px-2 py-1 text-xs text-white focus:outline-none"
           >
             <option value="monday">Lundi</option>
@@ -48,7 +43,7 @@ export default function BlockedSlotBuilder({ onAdd }: BlockedSlotBuilderProps) {
             <option value="sunday">Dimanche</option>
           </select>
         </div>
-        
+
         <div>
           <label className="text-[9px] text-zinc-500 font-bold block mb-0.5">Début</label>
           <input

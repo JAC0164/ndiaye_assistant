@@ -13,7 +13,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
 
   if (error || !user) {
     return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
@@ -42,10 +45,7 @@ export async function POST(request: NextRequest) {
     })
 
     const profileService = new ProfileService(supabase)
-    await profileService.saveProfileCache(
-      user.id,
-      (result.studentProfileContext as string) ?? ""
-    )
+    await profileService.saveProfileCache(user.id, (result.studentProfileContext as string) ?? "")
 
     return NextResponse.json({
       studentProfileContext: result.studentProfileContext,

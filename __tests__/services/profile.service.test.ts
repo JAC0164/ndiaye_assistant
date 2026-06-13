@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { createMockSupabase } from "@/src/test/utils/mock-supabase"
-import { ProfileService, Profile, CachedAnalysis } from "@/src/services/profile.service"
+import { ProfileService, Profile } from "@/src/services/profile.service"
 import { OnboardingForm, ProfileMetadata } from "@/src/types/planning.types"
 
 describe("ProfileService", () => {
@@ -62,9 +62,7 @@ describe("ProfileService", () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("not found") })
       })
-      await expect(service.getByUserId("user-1")).rejects.toThrow(
-        "Erreur lors de la récupération du profil: not found"
-      )
+      await expect(service.getByUserId("user-1")).rejects.toThrow("Erreur lors de la récupération du profil: not found")
     })
   })
 
@@ -73,9 +71,7 @@ describe("ProfileService", () => {
       serie: "S1",
       weakSubjects: ["maths", "physique"],
       bedtime: "22:00",
-      blockedSlots: [
-        { id: "1", day: "monday", startTime: "08:00", endTime: "10:00", reason: "school" },
-      ],
+      blockedSlots: [{ id: "1", day: "monday", startTime: "08:00", endTime: "10:00", reason: "school" }],
     }
 
     it("should merge onboarding data into metadata and update", async () => {
