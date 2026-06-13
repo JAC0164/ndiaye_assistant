@@ -1,6 +1,7 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
+import { logger } from "@/src/lib/logger"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
@@ -26,7 +27,7 @@ export async function visionAgent(
   modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
   if (state.extractedTimetableMarkdown) {
-    console.log(`\x1b[33m[Skip] VISION\x1b[0m (timetable=${state.extractedTimetableMarkdown.length}c valid=${state.isValidTimetable})`)
+    logger.info({ length: state.extractedTimetableMarkdown.length, valid: state.isValidTimetable }, "[Skip] VISION")
     return {
       extractedTimetableMarkdown: state.extractedTimetableMarkdown,
       isValidTimetable: state.isValidTimetable,

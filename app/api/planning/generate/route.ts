@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createClient as createDirectClient } from "@supabase/supabase-js"
 import { z } from "zod"
 
-import { createClient } from "@/src/lib/supabase/server"
+import { createClient as createSSRClient } from "@/src/lib/supabase/server"
 import { checkRateLimit } from "@/src/lib/rate-limit"
 import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 import type { ModelOverrides } from "@/src/lib/langgraph/providers"
@@ -10,7 +10,8 @@ import type { ModelOverrides } from "@/src/lib/langgraph/providers"
 export const runtime = "nodejs"
 export const maxDuration = 120
 
-const REQUEST_TIMEOUT = 60_000
+const REQUEST_TIMEOUT = Number(process.env.NDIAYE_REQUEST_TIMEOUT ?? 60_000)
+const MAX_IMAGE_SIZE = Number(process.env.NDIAYE_MAX_IMAGE_SIZE ?? 10 * 1024 * 1024)
 
 type ErrorResponse = {
   error: string
@@ -87,7 +88,7 @@ async function fileToBuffer(
     throw new Error("Le fichier timetableImage doit être une image.")
   }
 
-  if (value.size > 10 * 1024 * 1024) {
+  if (value.size > MAX_IMAGE_SIZE) {
     throw new Error("L'image ne doit pas dépasser 10 Mo.")
   }
 
@@ -103,7 +104,7 @@ async function createAuthenticatedSupabase(request: NextRequest) {
     ?.match(/^Bearer\s+(.+)$/i)?.[1]
 
   if (!bearerToken) {
-    const supabase = await createClient()
+    const supabase = await createSSRClient()
     const {
       data: { user },
       error,
@@ -112,7 +113,7 @@ async function createAuthenticatedSupabase(request: NextRequest) {
     return { supabase, user, error }
   }
 
-  const supabase = createSupabaseClient(
+  const supabase = createDirectClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

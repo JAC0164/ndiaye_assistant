@@ -3,6 +3,7 @@ import { CoefficientService } from "@/src/services/coefficient.service"
 import { EcheanceService } from "@/src/services/echeance.service"
 import { HistoriqueService } from "@/src/services/historique.service"
 import { ProfileService } from "@/src/services/profile.service"
+import { logger } from "@/src/lib/logger"
 import { createPlanningGraph } from "./graph"
 import type { OnboardingForm } from "@/src/types/planning.types"
 import type { PlanningGraphState } from "./state"
@@ -10,10 +11,10 @@ import type { ModelOverrides } from "./providers"
 
 export type PlanningWorkflowResult = PlanningGraphState
 
-const COEFFICIENTS_CACHE_TTL = 3_600_000
-const coefficientsCache = new Map<string, { data: string; expiry: number }>()
-
-let compiledGraph: ReturnType<typeof createPlanningGraph> | null = null
+const COEFFICIENTS_CACHE_TTL = Number(process.env.COEFFICIENTS_CACHE_TTL ?? 3_600_000)
+const COEFFICIENTS_CACHE_MAX = 50
+const coefficientsCache = new Map<string, { data: string; expiry: number; order: number }>()
+let cacheOrderCounter = 0
 
 function getClassNameFromSerie(serie: string): string {
   if (serie === "L'") return "Terminale L'1"
@@ -28,9 +29,21 @@ function getCachedCoefficients(className: string): string | null {
 }
 
 function setCachedCoefficients(className: string, data: string): void {
+  if (coefficientsCache.size >= COEFFICIENTS_CACHE_MAX) {
+    let oldestKey: string | null = null
+    let oldestOrder = Infinity
+    for (const [k, v] of coefficientsCache) {
+      if (v.order < oldestOrder) {
+        oldestOrder = v.order
+        oldestKey = k
+      }
+    }
+    if (oldestKey) coefficientsCache.delete(oldestKey)
+  }
   coefficientsCache.set(className, {
     data,
     expiry: Date.now() + COEFFICIENTS_CACHE_TTL,
+    order: ++cacheOrderCounter,
   })
 }
 
@@ -54,9 +67,7 @@ export async function runPlanningWorkflow(
     extractedTimetable = cached.extractedTimetableMarkdown
     isValidTimetable = cached.isValidTimetable
     studentProfileContext = cached.studentProfileContext
-    console.log(
-      `\x1b[36m[Cache]\x1b[0m timetable=${extractedTimetable.length}c valid=${isValidTimetable} profile=${studentProfileContext.length}c`
-    )
+    logger.info({ timetableLength: extractedTimetable.length, valid: isValidTimetable, profileLength: studentProfileContext.length }, "[Cache] Restored cached analysis")
   }
 
   try {
@@ -93,7 +104,7 @@ export async function runPlanningWorkflow(
         .join(", ")
       if (subjects) lines.push(`Répartition : ${subjects}`)
       weeklyStats = lines.join("\n")
-      console.log(`\x1b[36m[Feedback]\x1b[0m ${stats.sessionCount} sessions, ${stats.totalMinutes} min, note=${stats.averageRating}`)
+      logger.info({ sessionCount: stats.sessionCount, totalMinutes: stats.totalMinutes, averageRating: stats.averageRating }, "[Feedback] Weekly stats")
     }
   } catch (err) {
     console.error("Failed to fetch weekly stats:", err)
@@ -115,8 +126,7 @@ export async function runPlanningWorkflow(
     console.error("Failed to fetch upcoming echeances:", err)
   }
 
-  if (!compiledGraph) compiledGraph = createPlanningGraph()
-  const graph = modelOverrides ? createPlanningGraph(modelOverrides) : compiledGraph
+  const graph = createPlanningGraph(modelOverrides)
 
   const state = await graph.invoke({
     timetableImage: imageBuffer,

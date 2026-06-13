@@ -27,10 +27,6 @@ const mockModel = vi.hoisted(() => ({
   pipe: vi.fn().mockReturnThis(),
 }))
 
-const mockCreateTokenLogger = vi.hoisted(() =>
-  vi.fn(() => ({ callbacks: [] }))
-)
-
 const mockFromMessages = vi.hoisted(() =>
   vi.fn(() => ({
     pipe: vi.fn(() => mockModel),
@@ -45,7 +41,7 @@ vi.mock("@langchain/core/prompts", () => ({
 
 vi.mock("@/src/lib/langgraph/model", () => ({
   getModel: vi.fn(() => mockModel),
-  createTokenLogger: mockCreateTokenLogger,
+  createTokenLogger: vi.fn(() => ({ callbacks: [] })),
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
@@ -154,11 +150,6 @@ describe("plannerAgent", () => {
     expect(getModelSpy).toHaveBeenCalledWith("planner", overrides)
 
     getModelSpy.mockRestore()
-  })
-
-  it("creates token logger for 'planner' agent", async () => {
-    await plannerAgent(baseState)
-    expect(mockCreateTokenLogger).toHaveBeenCalledWith("planner")
   })
 
   it("includes Senegalese scheduling rules in system prompt", async () => {

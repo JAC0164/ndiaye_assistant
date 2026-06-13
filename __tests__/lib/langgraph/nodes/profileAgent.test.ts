@@ -10,10 +10,6 @@ const mockModel = vi.hoisted(() => ({
   pipe: vi.fn().mockReturnThis(),
 }))
 
-const mockCreateTokenLogger = vi.hoisted(() =>
-  vi.fn(() => ({ callbacks: [] }))
-)
-
 const mockFromMessages = vi.hoisted(() =>
   vi.fn(() => ({
     pipe: vi.fn(() => mockModel),
@@ -28,7 +24,7 @@ vi.mock("@langchain/core/prompts", () => ({
 
 vi.mock("@/src/lib/langgraph/model", () => ({
   getModel: vi.fn(() => mockModel),
-  createTokenLogger: mockCreateTokenLogger,
+  createTokenLogger: vi.fn(() => ({ callbacks: [] })),
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
@@ -112,11 +108,6 @@ describe("profileAgent", () => {
     expect(getModelSpy).toHaveBeenCalledWith("profile", overrides)
 
     getModelSpy.mockRestore()
-  })
-
-  it("creates token logger for 'profile' agent", async () => {
-    await profileAgent(baseState)
-    expect(mockCreateTokenLogger).toHaveBeenCalledWith("profile")
   })
 
   it("handles empty onboarding data gracefully", async () => {

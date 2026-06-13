@@ -5,9 +5,9 @@ vi.mock("@langchain/langgraph", () => {
     const instance: Record<string, any> = {}
     instance._nodeNames = [] as string[]
     instance._edgeFromTo = [] as Array<{ from: string | string[]; to: string }>
-    instance._condEdges = [] as Array<{ from: string; condition: Function; mappings: Record<string, string> }>
+    instance._condEdges = [] as Array<{ from: string; condition: (...args: unknown[]) => unknown; mappings: Record<string, string> }>
 
-    instance.addNode = vi.fn(function (this: any, name: string, _fn: Function) {
+    instance.addNode = vi.fn(function (this: any, name: string, _fn: (...args: unknown[]) => unknown) {
       this._nodeNames.push(name)
       if (!this._nodeFns) this._nodeFns = {}
       this._nodeFns[name] = _fn
@@ -22,7 +22,7 @@ vi.mock("@langchain/langgraph", () => {
     instance.addConditionalEdges = vi.fn(function (
       this: any,
       from: string,
-      condition: Function,
+      condition: (...args: unknown[]) => unknown,
       mappings: Record<string, string>
     ) {
       this._condEdges.push({ from, condition, mappings })

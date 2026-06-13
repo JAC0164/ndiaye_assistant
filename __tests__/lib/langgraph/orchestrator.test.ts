@@ -60,8 +60,8 @@ describe("runPlanningWorkflow", () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    const module = await import("@/src/lib/langgraph/orchestrator")
-    runPlanningWorkflow = module.runPlanningWorkflow
+    const orchestratorModule = await import("@/src/lib/langgraph/orchestrator")
+    runPlanningWorkflow = orchestratorModule.runPlanningWorkflow
 
     const mockSupabase = createMockSupabase()
     supabase = mockSupabase.supabase
@@ -297,7 +297,7 @@ describe("runPlanningWorkflow", () => {
     expect(mockSaveAnalysisCache).not.toHaveBeenCalled()
   })
 
-  it("compiles graph once and caches for subsequent calls", async () => {
+  it("creates a new graph for each invocation", async () => {
     mockGetCachedAnalysis.mockResolvedValue(null)
     mockGetCoefficientsByClassName.mockResolvedValue([])
     mockGetWeeklyStats.mockResolvedValue({
@@ -320,7 +320,7 @@ describe("runPlanningWorkflow", () => {
     expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(1)
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(1)
+    expect(mockCreatePlanningGraph).toHaveBeenCalledTimes(2)
   })
 
   it("creates a new graph when modelOverrides are given, even if cached", async () => {

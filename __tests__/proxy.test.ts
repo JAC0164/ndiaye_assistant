@@ -3,7 +3,7 @@ import { proxy, config } from "../proxy"
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 
-let mockGetUser = vi.fn()
+const mockGetUser = vi.fn()
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({

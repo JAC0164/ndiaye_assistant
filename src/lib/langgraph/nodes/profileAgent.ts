@@ -1,6 +1,7 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
+import { logger } from "@/src/lib/logger"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
@@ -14,7 +15,7 @@ export async function profileAgent(
   modelOverrides?: Partial<ModelProviderConfig>
 ): Promise<PlanningGraphAnnotationUpdate> {
   if (state.studentProfileContext) {
-    console.log(`\x1b[33m[Skip] PROFILE\x1b[0m (context=${state.studentProfileContext.length}c)`)
+    logger.info({ contextLength: state.studentProfileContext.length }, "[Skip] PROFILE")
     return {
       studentProfileContext: state.studentProfileContext,
     }

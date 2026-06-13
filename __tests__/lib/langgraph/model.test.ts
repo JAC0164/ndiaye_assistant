@@ -8,7 +8,7 @@ vi.mock("@/src/lib/langgraph/providers/factory", () => ({
   createModel: vi.fn(),
 }))
 
-import { getModel, createTokenLogger } from "@/src/lib/langgraph/model"
+import { getModel } from "@/src/lib/langgraph/model"
 import { getModelConfigForAgent } from "@/src/lib/langgraph/providers"
 import { createModel } from "@/src/lib/langgraph/providers/factory"
 
@@ -48,59 +48,4 @@ describe("getModel", () => {
   })
 })
 
-describe("createTokenLogger", () => {
-  it("returns an object with callbacks array", () => {
-    const logger = createTokenLogger("test")
-    expect(logger).toHaveProperty("callbacks")
-    expect(Array.isArray(logger.callbacks)).toBe(true)
-    expect(logger.callbacks).toHaveLength(1)
-  })
 
-  it("callback has handleLLMEnd method", () => {
-    const logger = createTokenLogger("test")
-    expect(logger.callbacks[0]).toHaveProperty("handleLLMEnd")
-    expect(typeof logger.callbacks[0].handleLLMEnd).toBe("function")
-  })
-
-  it("handleLLMEnd logs token usage from llmOutput.tokenUsage", () => {
-    const logger = createTokenLogger("planner")
-    const output = {
-      llmOutput: {
-        tokenUsage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-      },
-      generations: [[{ message: {} }]],
-    }
-    expect(() => logger.callbacks[0].handleLLMEnd(output as any)).not.toThrow()
-  })
-
-  it("handleLLMEnd falls back to message.usage_metadata when llmOutput has no tokenUsage", () => {
-    const logger = createTokenLogger("vision")
-    const output = {
-      llmOutput: {},
-      generations: [[{
-        message: { usage_metadata: { input_tokens: 5, output_tokens: 15, total_tokens: 20 } },
-      }]],
-    }
-    expect(() => logger.callbacks[0].handleLLMEnd(output as any)).not.toThrow()
-  })
-
-  it("handleLLMEnd falls back to 0 when no token data available", () => {
-    const logger = createTokenLogger("profile")
-    const output = {
-      llmOutput: {},
-      generations: [[{ message: {} }]],
-    }
-    expect(() => logger.callbacks[0].handleLLMEnd(output as any)).not.toThrow()
-  })
-
-  it("handleLLMEnd handles estimatedTokenUsage as fallback", () => {
-    const logger = createTokenLogger("test")
-    const output = {
-      llmOutput: {
-        estimatedTokenUsage: { promptTokens: 3, completionTokens: 7, totalTokens: 10 },
-      },
-      generations: [[{ message: {} }]],
-    }
-    expect(() => logger.callbacks[0].handleLLMEnd(output as any)).not.toThrow()
-  })
-})

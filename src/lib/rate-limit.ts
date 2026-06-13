@@ -1,5 +1,5 @@
-const RATE_LIMIT_WINDOW = 60_000
-const RATE_LIMIT_MAX = 10
+const RATE_LIMIT_WINDOW = Number(process.env.RATE_LIMIT_WINDOW ?? 60_000)
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX ?? 10)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
 export function checkRateLimit(key: string): boolean {

@@ -1,6 +1,7 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 
 import { getModel, createTokenLogger } from "../model"
+import { logger } from "@/src/lib/logger"
 import {
   PlanningGraphAnnotationState,
   PlanningGraphAnnotationUpdate,
@@ -23,9 +24,7 @@ export async function plannerAgent(
     process.env.STOP_AT_AGENT === "vision" ||
     process.env.STOP_AT_AGENT === "profile"
   ) {
-    console.log(
-      `\x1b[33m[Stop] PLANNER  | Halted because STOP_AT_AGENT="${process.env.STOP_AT_AGENT}".\x1b[0m`
-    )
+    logger.info({ stopAtAgent: process.env.STOP_AT_AGENT }, "[Stop] PLANNER")
     return {
       generatedPlanning: [],
     }
