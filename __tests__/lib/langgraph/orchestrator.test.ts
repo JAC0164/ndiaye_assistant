@@ -13,6 +13,8 @@ const mockGetByClassId = vi.hoisted(() => vi.fn())
 const mockGetCoefficientsByClassName = vi.hoisted(() => vi.fn())
 const mockGetWeeklyStats = vi.hoisted(() => vi.fn())
 const mockGetDaysSinceLastRevisionBySubject = vi.hoisted(() => vi.fn())
+const mockGetRessentBySubject = vi.hoisted(() => vi.fn())
+const mockGetDureeReelleBySubject = vi.hoisted(() => vi.fn())
 const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
 const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvoke })))
@@ -50,6 +52,8 @@ vi.mock("@/src/services/historique.service", () => ({
     return {
       getWeeklyStats: mockGetWeeklyStats,
       getDaysSinceLastRevisionBySubject: mockGetDaysSinceLastRevisionBySubject,
+      getRessentBySubject: mockGetRessentBySubject,
+      getDureeReelleBySubject: mockGetDureeReelleBySubject,
     }
   }),
 }))
@@ -112,6 +116,8 @@ describe("runPlanningWorkflow", () => {
       completedBySubject: {},
     })
     mockGetDaysSinceLastRevisionBySubject.mockResolvedValue(new Map())
+    mockGetRessentBySubject.mockResolvedValue(new Map())
+    mockGetDureeReelleBySubject.mockResolvedValue(new Map())
     mockGetUpcoming.mockResolvedValue([])
     mockInvoke.mockResolvedValue({
       extractedTimetable: mockTimetable,
@@ -268,6 +274,33 @@ describe("runPlanningWorkflow", () => {
   it("handles coefficient fetch errors gracefully (does not propagate)", async () => {
     mockGetByClassId.mockRejectedValue(new Error("DB error"))
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
+  })
+
+  it("fetches feedback data from HistoriqueService and passes to graph", async () => {
+    const ressentiMap = new Map([["MATH", 2.0]])
+    const dureeMap = new Map([["MATH", 40]])
+    mockGetRessentBySubject.mockResolvedValue(ressentiMap)
+    mockGetDureeReelleBySubject.mockResolvedValue(dureeMap)
+
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+
+    expect(mockGetRessentBySubject).toHaveBeenCalledWith("user-1")
+    expect(mockGetDureeReelleBySubject).toHaveBeenCalledWith("user-1")
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ressentBySubject: { MATH: 2.0 },
+        dureeReelleBySubject: { MATH: 40 },
+      })
+    )
+  })
+
+  it("handles feedback data fetch errors gracefully (does not propagate)", async () => {
+    mockGetRessentBySubject.mockRejectedValue(new Error("Feedback error"))
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to fetch feedback data"
+    )
   })
 
   it("excludes Note moyenne line from weeklyStats when averageRating is null", async () => {

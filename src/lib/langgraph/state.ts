@@ -72,6 +72,8 @@ export interface PlanningGraphState {
   coefficientTable: string
   preplannerConstraints: string
   planningValidation: ValidationResult | null
+  ressentBySubject: Record<string, number>
+  dureeReelleBySubject: Record<string, number>
 }
 
 export const PlanningGraphAnnotation = Annotation.Root({
@@ -128,6 +130,14 @@ export const PlanningGraphAnnotation = Annotation.Root({
   planningValidation: Annotation<ValidationResult | null>({
     value: (_current, update) => update,
     default: () => null,
+  }),
+  ressentBySubject: Annotation<Record<string, number>>({
+    value: (_current, update) => update,
+    default: () => ({}),
+  }),
+  dureeReelleBySubject: Annotation<Record<string, number>>({
+    value: (_current, update) => update,
+    default: () => ({}),
   }),
 })
 

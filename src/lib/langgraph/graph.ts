@@ -73,7 +73,8 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
   const totalAvailableMinutes = freeSlots.reduce((sum, slot) => sum + slot.durationMinutes, 0)
 
   // 3. computeBudgets
-  const budgets = computeBudgets(subjects, totalAvailableMinutes, period)
+  const dureeReelleMap = new Map(Object.entries(state.dureeReelleBySubject || {}))
+  const budgets = computeBudgets(subjects, totalAvailableMinutes, period, dureeReelleMap)
 
   // 4. computePriority
   const daysSinceMap = new Map<string, number>(onboarding.daysSinceLastRevision || [])
@@ -83,7 +84,8 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
       performanceLevels.set(subj.trim().toUpperCase(), "weak")
     }
   }
-  const priorities = computePriority(subjects, daysSinceMap, performanceLevels)
+  const ressentBySubjectMap = new Map(Object.entries(state.ressentBySubject || {}))
+  const priorities = computePriority(subjects, daysSinceMap, performanceLevels, ressentBySubjectMap)
 
   // 5. Format preplannerConstraints
   const lines: string[] = ["ALLOWLIST & BUDGETS:"]

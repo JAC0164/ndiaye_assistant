@@ -1,0 +1,131 @@
+import { SupabaseClient } from "@supabase/supabase-js"
+import { ExtractedTimetable, BlockedSlot, FreeSlot } from "@/src/types/planning.types"
+import { buildFreeSlots, parseTime } from "../lib/planning/buildFreeSlots"
+import { logger } from "@/src/lib/logger"
+
+export interface RescheduleSessionInfo {
+  id: string
+  sessionId: string | null
+  subject: string
+  sessionType: string
+  pedagogicalNote: string
+  dayOfWeek: string
+  endTime: string
+}
+
+export class RescheduleService {
+  static async findNextSlot(
+    supabase: SupabaseClient,
+    params: {
+      userId: string
+      missedSession: RescheduleSessionInfo
+      timetable: ExtractedTimetable
+      bedtime: string
+      blockedSlots: BlockedSlot[]
+    }
+  ): Promise<FreeSlot | null> {
+    const { userId, missedSession, timetable, bedtime, blockedSlots } = params
+
+    // Convert dayOfWeek + endTime to a reference point in minutes since Sunday
+    const dayOrder: Record<string, number> = {
+      monday: 0,
+      tuesday: 1,
+      wednesday: 2,
+      thursday: 3,
+      friday: 4,
+      saturday: 5,
+      sunday: 6,
+    }
+    const sessionDayIndex = dayOrder[missedSession.dayOfWeek] ?? 0
+    const sessionEndMinutes = parseTime(missedSession.endTime)
+    const sessionDuration = 25 // default 25 min minimum
+
+    // Fetch all sessions scheduled for this user (weekly template)
+    const { data: existingSessions } = await supabase
+      .from("sessions")
+      .select("day_of_week, start_time, end_time")
+      .eq("user_id", userId)
+
+    const existingByDay = new Map<string, { start: number; end: number }[]>()
+    for (const s of (existingSessions || []) as Array<{
+      day_of_week: string
+      start_time: string
+      end_time: string
+    }>) {
+      const day = s.day_of_week.toLowerCase()
+      if (!existingByDay.has(day)) existingByDay.set(day, [])
+      existingByDay.get(day)!.push({
+        start: parseTime(s.start_time),
+        end: parseTime(s.end_time),
+      })
+    }
+
+    // Compute all free slots from the timetable
+    const allFreeSlots = buildFreeSlots(timetable, bedtime, blockedSlots)
+
+    // Filter to relevant slots: within 48h of missed session, after its end time, long enough
+    const afterTime = sessionEndMinutes
+    const maxDayIndex = sessionDayIndex + 2 // 48h window
+
+    const candidateSlots = allFreeSlots.filter((slot) => {
+      const slotDayIndex = dayOrder[slot.day] ?? 0
+      const slotStartMinutes = parseTime(slot.start)
+
+      // Must be within 48h window from the missed session day
+      if (slotDayIndex < sessionDayIndex || slotDayIndex > maxDayIndex) return false
+
+      // On the same day, must be after the missed session's end time (or now)
+      if (slotDayIndex === sessionDayIndex && slotStartMinutes <= afterTime) return false
+
+      // Must be long enough for the session
+      if (slot.durationMinutes < sessionDuration) return false
+
+      // Must not overlap existing sessions on that day
+      const dayExisting = existingByDay.get(slot.day) || []
+      const slotEndMinutes = parseTime(slot.end)
+      for (const existing of dayExisting) {
+        if (slotStartMinutes < existing.end && slotEndMinutes > existing.start) {
+          return false
+        }
+      }
+
+      return true
+    })
+
+    if (candidateSlots.length === 0) return null
+
+    // Return the earliest available slot
+    const bestSlot = candidateSlots[0]
+    return bestSlot
+  }
+
+  static async createRescheduledRow(
+    supabase: SupabaseClient,
+    params: {
+      userId: string
+      originalHistoriqueId: string
+      subject: string
+      sessionType: string
+      pedagogicalNote: string
+      targetSlot: FreeSlot
+    }
+  ): Promise<void> {
+    const { userId, originalHistoriqueId, subject, sessionType, pedagogicalNote, targetSlot } = params
+
+    const { error } = await supabase.from("historique").insert({
+      user_id: userId,
+      subject,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      session_type: sessionType as any,
+      pedagogical_note: pedagogicalNote,
+      completed: null,
+      rescheduled_from: originalHistoriqueId,
+      completed_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      logger.error({ error }, "Failed to create rescheduled historique row")
+      throw new Error(`Erreur lors de la reprogrammation: ${error.message}`)
+    }
+  }
+}

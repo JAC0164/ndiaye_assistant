@@ -86,6 +86,105 @@ export class HistoriqueService extends BaseService<Historique> {
     }
   }
 
+  async saveFeedback(
+    sessionId: string,
+    userId: string,
+    feedback: { completed: boolean; ressenti?: number; duree_reelle_min?: number }
+  ): Promise<void> {
+    const updatePayload: Record<string, unknown> = {
+      completed: feedback.completed,
+    }
+    if (feedback.ressenti !== undefined) updatePayload.ressenti = feedback.ressenti
+    if (feedback.duree_reelle_min !== undefined) updatePayload.duree_reelle_min = feedback.duree_reelle_min
+
+    const { error } = await this.supabase
+      .from(this.tableName)
+      .update(updatePayload)
+      .eq("id", sessionId)
+      .eq("user_id", userId)
+
+    if (error) {
+      throw new Error(`Erreur lors de l'enregistrement du feedback: ${error.message}`)
+    }
+  }
+
+  async getRessentBySubject(userId: string): Promise<Map<string, number>> {
+    const fourWeeksAgo = new Date()
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+    const cutoff = fourWeeksAgo.toISOString()
+
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("subject, ressenti, completed_at")
+      .eq("user_id", userId)
+      .eq("completed", true)
+      .not("ressenti", "is", null)
+      .gte("completed_at", cutoff)
+
+    if (error) {
+      throw new Error(`Erreur lors de la récupération des ressentis: ${error.message}`)
+    }
+
+    const grouped = new Map<string, { weightedSum: number; weightSum: number }>()
+
+    for (const row of data || []) {
+      if (!row.subject || row.ressenti === null) continue
+      const daysAgo = Math.floor((Date.now() - new Date(row.completed_at).getTime()) / (1000 * 60 * 60 * 24))
+      let weight: number
+      if (daysAgo <= 7) weight = 4
+      else if (daysAgo <= 14) weight = 3
+      else if (daysAgo <= 21) weight = 2
+      else weight = 1
+
+      const entry = grouped.get(row.subject) || { weightedSum: 0, weightSum: 0 }
+      entry.weightedSum += row.ressenti * weight
+      entry.weightSum += weight
+      grouped.set(row.subject, entry)
+    }
+
+    const result = new Map<string, number>()
+    for (const [subject, { weightedSum, weightSum }] of grouped) {
+      result.set(subject, parseFloat((weightedSum / weightSum).toFixed(2)))
+    }
+
+    return result
+  }
+
+  async getDureeReelleBySubject(userId: string): Promise<Map<string, number>> {
+    const fourWeeksAgo = new Date()
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+    const cutoff = fourWeeksAgo.toISOString()
+
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("subject, duree_reelle_min")
+      .eq("user_id", userId)
+      .eq("completed", true)
+      .not("duree_reelle_min", "is", null)
+      .gte("completed_at", cutoff)
+
+    if (error) {
+      throw new Error(`Erreur lors de la récupération des durées réelles: ${error.message}`)
+    }
+
+    const sumBySubject = new Map<string, { total: number; count: number }>()
+
+    for (const row of data || []) {
+      if (!row.subject || row.duree_reelle_min === null) continue
+      const entry = sumBySubject.get(row.subject) || { total: 0, count: 0 }
+      entry.total += row.duree_reelle_min
+      entry.count++
+      sumBySubject.set(row.subject, entry)
+    }
+
+    const result = new Map<string, number>()
+    for (const [subject, { total, count }] of sumBySubject) {
+      result.set(subject, Math.round(total / count))
+    }
+
+    return result
+  }
+
   /**
    * For each subject, return the number of days since the last completed revision.
    * Used by computePriority() for urgency scoring.

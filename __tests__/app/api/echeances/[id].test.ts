@@ -83,6 +83,24 @@ describe("Echéance [id] API", () => {
       expect(data).toEqual(updated)
     })
 
+    it("returns 500 when service throws", async () => {
+      shared.supabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: userId } },
+        error: null,
+      })
+
+      vi.mocked(EcheanceService).mockImplementation(function () {
+        return { update: vi.fn().mockRejectedValue(new Error("DB error")) }
+      })
+
+      const request = createMockRequest("PATCH", { body: { title: "test" } })
+      const response = await PATCH(request, { params })
+
+      expect(response.status).toBe(500)
+      const data = await response.json()
+      expect(data).toHaveProperty("error")
+    })
+
     it("returns 400 when body is invalid JSON", async () => {
       shared.supabase.auth.getUser.mockResolvedValue({
         data: { user: { id: userId } },
@@ -179,6 +197,24 @@ describe("Echéance [id] API", () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data).toEqual({ success: true })
+    })
+
+    it("returns 500 when delete service throws", async () => {
+      shared.supabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: userId } },
+        error: null,
+      })
+
+      vi.mocked(EcheanceService).mockImplementation(function () {
+        return { delete: vi.fn().mockRejectedValue(new Error("DB error")) }
+      })
+
+      const request = createMockRequest("DELETE")
+      const response = await DELETE(request, { params })
+
+      expect(response.status).toBe(500)
+      const data = await response.json()
+      expect(data).toHaveProperty("error")
     })
   })
 

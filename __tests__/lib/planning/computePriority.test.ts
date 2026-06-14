@@ -45,6 +45,36 @@ describe("computePriority", () => {
     expect(priority.get("MATH")).toBe(5.5)
   })
 
+  it("uses ressenti feedback when available, falling back to static multiplier", () => {
+    const ressenti = new Map<string, number>([["FR", 2.0]]) // moyen → M = 1 + (3-2)*0.25 = 1.25
+    // FR (coeff 5), default days=7
+    // FR: 5 * 1.375 * 1.25 = 8.59375 → 8.59
+    // MATH: no ressenti → uses neutral (1.0): 4 * 1.375 * 1.0 = 5.5
+    const priority = computePriority(TEST_SUBJECTS, new Map(), new Map(), ressenti)
+
+    expect(priority.get("FR")).toBe(8.59)
+    expect(priority.get("MATH")).toBe(5.5)
+  })
+
+  it("ressenti 1 (difficile) produces higher score than ressenti 3 (facile) for same subject", () => {
+    const difficile = new Map<string, number>([["FR", 1.0]]) // M = 1 + (3-1)*0.25 = 1.5
+    const facile = new Map<string, number>([["FR", 3.0]]) // M = 1 + (3-3)*0.25 = 1.0
+
+    const priorityDifficile = computePriority(TEST_SUBJECTS, new Map(), new Map(), difficile)
+    const priorityFacile = computePriority(TEST_SUBJECTS, new Map(), new Map(), facile)
+
+    expect(priorityDifficile.get("FR")!).toBeGreaterThan(priorityFacile.get("FR")!)
+  })
+
+  it("falls back to static performance multiplier when no ressenti feedback exists", () => {
+    const perfLevels = new Map<string, PerformanceLevel>([["FR", "weak"]]) // multiplier 1.3
+    // No ressenti map passed → fallback to static
+    const priority = computePriority(TEST_SUBJECTS, new Map(), perfLevels)
+
+    // FR (coeff 5), default days=7, weak=1.3: 5 * 1.375 * 1.3 = 8.9375 → 8.94
+    expect(priority.get("FR")).toBe(8.94)
+  })
+
   it("incorporates days since last revision correctly", () => {
     const daysSince = new Map<string, number>([
       ["FR", 1], // D_S = 1, coeff = 5, perf = neutral (1.0) -> 5 * (1 + 3 / 2) * 1 = 12.5

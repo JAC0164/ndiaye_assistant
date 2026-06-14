@@ -128,6 +128,17 @@ export async function runPlanningWorkflow(
     logger.error({ err }, "Failed to fetch coefficients for AI workflow")
   }
 
+  // Fetch feedback data from DB
+  let ressentBySubject = new Map<string, number>()
+  let dureeReelleBySubject = new Map<string, number>()
+  try {
+    const historiqueService = new HistoriqueService(supabase)
+    ressentBySubject = await historiqueService.getRessentBySubject(userId)
+    dureeReelleBySubject = await historiqueService.getDureeReelleBySubject(userId)
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch feedback data")
+  }
+
   // Fetch weekly stats from DB
   try {
     const historiqueService = new HistoriqueService(supabase)
@@ -188,6 +199,8 @@ export async function runPlanningWorkflow(
     preplannerConstraints: "",
     planningValidation: null,
     subjectCoefficients: coefficientTable, // keep for backward compatibility
+    ressentBySubject: Object.fromEntries(ressentBySubject),
+    dureeReelleBySubject: Object.fromEntries(dureeReelleBySubject),
   })
 
   // Post-graph validation

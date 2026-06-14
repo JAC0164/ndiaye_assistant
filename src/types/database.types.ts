@@ -239,6 +239,10 @@ export interface Database {
           self_rating: number | null
           feedback: Database["public"]["Enums"]["feedback_rating"]
           notes: string | null
+          completed: boolean | null
+          ressenti: number | null
+          duree_reelle_min: number | null
+          rescheduled_from: string | null
         }
         Insert: {
           id?: string
@@ -251,6 +255,10 @@ export interface Database {
           self_rating?: number | null
           feedback?: Database["public"]["Enums"]["feedback_rating"]
           notes?: string | null
+          completed?: boolean | null
+          ressenti?: number | null
+          duree_reelle_min?: number | null
+          rescheduled_from?: string | null
         }
         Update: {
           id?: string
@@ -263,6 +271,10 @@ export interface Database {
           self_rating?: number | null
           feedback?: Database["public"]["Enums"]["feedback_rating"]
           notes?: string | null
+          completed?: boolean | null
+          ressenti?: number | null
+          duree_reelle_min?: number | null
+          rescheduled_from?: string | null
         }
       }
       user_push_tokens: {

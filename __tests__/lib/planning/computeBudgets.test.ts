@@ -96,6 +96,55 @@ describe("computeBudgets", () => {
     expect(budgets.size).toBe(1)
   })
 
+  it("adjusts budget upward when real duration exceeds theoretical (45 min)", () => {
+    const dureeReelle = new Map<string, number>([
+      ["FR", 60], // ratio = 60/45 = 1.33 → clamped to 1.1 → 10% increase
+    ])
+    const budgetsBase = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre")
+    const budgetsAdjusted = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre", dureeReelle)
+
+    const baseFR = budgetsBase.get("FR")!.totalMinutes
+    const adjFR = budgetsAdjusted.get("FR")!.totalMinutes
+    // Adjusted should be higher (+10% max), but other subjects unchanged
+    expect(adjFR).toBeGreaterThanOrEqual(baseFR)
+    // MATH (no dureeReelle) should be unchanged
+    expect(budgetsAdjusted.get("MATH")!.totalMinutes).toBe(budgetsBase.get("MATH")!.totalMinutes)
+  })
+
+  it("adjusts budget downward when real duration is below theoretical", () => {
+    const dureeReelle = new Map<string, number>([
+      ["FR", 20], // ratio = 20/45 = 0.44 → clamped to 0.9 → 10% decrease
+    ])
+    const budgetsBase = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre")
+    const budgetsAdjusted = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre", dureeReelle)
+
+    const baseFR = budgetsBase.get("FR")!.totalMinutes
+    const adjFR = budgetsAdjusted.get("FR")!.totalMinutes
+    expect(adjFR).toBeLessThanOrEqual(baseFR)
+  })
+
+  it("clamps ratio to max 1.1 even when real duration is 3x theoretical", () => {
+    const dureeReelle = new Map<string, number>([
+      ["FR", 180], // ratio = 180/45 = 4.0 → clamped to 1.1
+    ])
+    const budgetsBase = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre")
+    const budgetsAdjusted = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre", dureeReelle)
+
+    const baseFR = budgetsBase.get("FR")!.totalMinutes
+    const adjFR = budgetsAdjusted.get("FR")!.totalMinutes
+    // Max increase: base * 1.1, not base * 4.0
+    const maxExpected = Math.round(baseFR * 1.1)
+    expect(adjFR).toBeLessThanOrEqual(maxExpected)
+  })
+
+  it("leaves budget unchanged when no dureeReelle data is provided", () => {
+    const budgetsWithout = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre")
+    const budgetsWithEmpty = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre", new Map())
+
+    expect(budgetsWithout.get("FR")!.totalMinutes).toBe(budgetsWithEmpty.get("FR")!.totalMinutes)
+    expect(budgetsWithout.get("MATH")!.totalMinutes).toBe(budgetsWithEmpty.get("MATH")!.totalMinutes)
+  })
+
   it("splits budgets into review and td according to subjectType ratios", () => {
     const budgets = computeBudgets(TEST_SUBJECTS, 600, "milieu_trimestre")
 

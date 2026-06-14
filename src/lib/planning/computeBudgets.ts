@@ -5,10 +5,15 @@ import { AcademicPeriod, PLANNING_CONFIG } from "./planningConfig"
  * Compute weekly revision time budgets per subject.
  * Proportional to coefficient, with floor/ceiling + period scaling + review/td split.
  */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 export function computeBudgets(
   subjects: SubjectInfo[],
   totalAvailableMinutes: number,
-  period: AcademicPeriod
+  period: AcademicPeriod,
+  dureeReelleBySubject?: Map<string, number>
 ): Map<string, SubjectBudget> {
   const result = new Map<string, SubjectBudget>()
   if (!subjects || subjects.length === 0) {
@@ -31,9 +36,17 @@ export function computeBudgets(
 
   for (const subject of subjects) {
     const rawBudget = (subject.coefficient / sumCoeff) * adjustedTotal
+
+    // Adjust budget based on real duration ratio from feedback
+    const dureeReelle = dureeReelleBySubject?.get(subject.name)
+    const adjustedBudget =
+      dureeReelle !== undefined
+        ? Math.round(rawBudget * clamp(dureeReelle / PLANNING_CONFIG.maxSessionMinutes, 0.9, 1.1))
+        : rawBudget
+
     const clamped = Math.max(
       PLANNING_CONFIG.minWeeklyMinutesPerSubject,
-      Math.min(PLANNING_CONFIG.maxWeeklyMinutesPerSubject, rawBudget)
+      Math.min(PLANNING_CONFIG.maxWeeklyMinutesPerSubject, adjustedBudget)
     )
     clampedBudgets.set(subject.name, clamped)
     totalClamped += clamped

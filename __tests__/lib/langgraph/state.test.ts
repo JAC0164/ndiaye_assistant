@@ -284,7 +284,9 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("coefficientTable")
     expect(keys).toContain("preplannerConstraints")
     expect(keys).toContain("planningValidation")
-    expect(keys).toHaveLength(15)
+    expect(keys).toContain("ressentBySubject")
+    expect(keys).toContain("dureeReelleBySubject")
+    expect(keys).toHaveLength(17)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -434,6 +436,28 @@ describe("PlanningGraphAnnotation", () => {
     expect(typeof entry.initialValueFactory).toBe("function")
     expect(entry.initialValueFactory()).toBeNull()
     expect(entry.value).toBeNull()
+  })
+
+  it("ressentBySubject replaces with update and defaults to empty object", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.ressentBySubject
+    expect(typeof entry.operator).toBe("function")
+    expect(entry.operator({}, { FR: 2.5 })).toEqual({ FR: 2.5 })
+    expect(entry.operator({ FR: 3.0 }, { FR: 2.0 })).toEqual({ FR: 2.0 })
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toEqual({})
+    expect(entry.value).toEqual({})
+  })
+
+  it("dureeReelleBySubject replaces with update and defaults to empty object", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.dureeReelleBySubject
+    expect(typeof entry.operator).toBe("function")
+    expect(entry.operator({}, { MATH: 45 })).toEqual({ MATH: 45 })
+    expect(entry.operator({ MATH: 45 }, { MATH: 50 })).toEqual({ MATH: 50 })
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toEqual({})
+    expect(entry.value).toEqual({})
   })
 
   describe("type exports", () => {
