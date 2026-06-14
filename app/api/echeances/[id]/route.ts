@@ -39,8 +39,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const service = new EcheanceService(supabase)
-    const echeance = await service.update(id, { ...parsed.data, updated_at: new Date().toISOString() })
-    return NextResponse.json(echeance)
+    const echeance = await service.update(id, user.id, { ...parsed.data, updated_at: new Date().toISOString() })
+    return NextResponse.json(echeance, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    })
   } catch (err) {
     logger.error({ err }, "Error updating echeance")
     return NextResponse.json({ error: "Erreur lors de la mise à jour de l'échéance." }, { status: 500 })
@@ -56,8 +58,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const service = new EcheanceService(supabase)
-    await service.delete(id)
-    return NextResponse.json({ success: true })
+    await service.delete(id, user.id)
+    return NextResponse.json(
+      { success: true },
+      {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+      }
+    )
   } catch (err) {
     logger.error({ err }, "Error deleting echeance")
     return NextResponse.json({ error: "Erreur lors de la suppression de l'échéance." }, { status: 500 })

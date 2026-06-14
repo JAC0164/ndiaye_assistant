@@ -21,10 +21,6 @@ vi.mock("@/src/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue(shared.supabase),
 }))
 
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
-}))
-
 vi.mock("@/src/services/historique.service", () => ({
   HistoriqueService: vi.fn(function () {
     return {
@@ -36,8 +32,6 @@ vi.mock("@/src/services/historique.service", () => ({
 
 import { GET, POST } from "@/app/api/historique/route"
 import { HistoriqueService } from "@/src/services/historique.service"
-import { checkRateLimit } from "@/src/lib/rate-limit"
-
 describe("Historique API", () => {
   const userId = "user-123"
 
@@ -271,30 +265,6 @@ describe("Historique API", () => {
       const response = await POST(request)
 
       expect(response.status).toBe(500)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
-    })
-  })
-
-  describe("Rate limiting", () => {
-    it("returns 429 for GET when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("GET")
-      const response = await GET(request)
-
-      expect(response.status).toBe(429)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
-    })
-
-    it("returns 429 for POST when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("POST")
-      const response = await POST(request)
-
-      expect(response.status).toBe(429)
       const data = await response.json()
       expect(data).toHaveProperty("error")
     })

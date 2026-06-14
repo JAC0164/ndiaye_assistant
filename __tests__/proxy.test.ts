@@ -18,6 +18,7 @@ vi.mock("next/server", () => ({
       headers: init?.request?.headers ?? new Headers(),
     })),
     json: vi.fn(),
+    redirect: vi.fn((url) => ({ status: 307, headers: new Headers({ Location: url.toString() }) })),
   },
   NextRequest: vi.fn(),
 }))
@@ -37,7 +38,10 @@ function createMockRequest(): NextRequest {
       }),
     },
     headers: new Headers({ "content-type": "application/json" }),
-    nextUrl: new URL("http://localhost:3000/dashboard"),
+    nextUrl: {
+      ...new URL("http://localhost:3000/dashboard"),
+      clone: () => new URL("http://localhost:3000/auth"),
+    } as unknown as URL,
     url: "http://localhost:3000/dashboard",
   } as unknown as NextRequest
 }
@@ -146,7 +150,7 @@ describe("proxy", () => {
     const request = createMockRequest()
     const result = await proxy(request)
 
-    expect(result).toBeDefined()
+    expect(NextResponse.redirect).toHaveBeenCalled()
   })
 
   it("handles auth rejection gracefully (getUser throws)", async () => {

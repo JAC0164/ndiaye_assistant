@@ -100,13 +100,13 @@ describe("buildFreeSlots", () => {
     const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "22:00", [])
     const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
 
-    expect(saturdaySlots).toHaveLength(2)
+    expect(saturdaySlots).toHaveLength(6) // maxSessionsPerFreeDay
     expect(saturdaySlots[0].start).toBe("09:00")
-    expect(saturdaySlots[0].end).toBe("12:30")
-    expect(saturdaySlots[0].durationMinutes).toBe(210)
-    expect(saturdaySlots[1].start).toBe("14:00")
-    expect(saturdaySlots[1].end).toBe("22:00")
-    expect(saturdaySlots[1].durationMinutes).toBe(480)
+    expect(saturdaySlots[0].end).toBe("09:45")
+    expect(saturdaySlots[0].durationMinutes).toBe(45)
+    // Last two slots fall in the afternoon
+    expect(saturdaySlots[4].start).toBe("14:00")
+    expect(saturdaySlots[5].start).toBe("14:55")
   })
 
   it("extracts school day intra-day gaps >= 2 hours", () => {
@@ -198,19 +198,19 @@ describe("buildFreeSlots", () => {
   })
 
   it("does not push buffer segment when buffer extends beyond window end (line 130 false branch)", () => {
-    // Saturday free day 09:00-20:00, lunch break 12:30-14:00, blocked 19:35-19:50
+    // Friday free day 08:00-20:00 (assume no classes for simplicity, eveningStart = 08:00), blocked 19:35-19:50
     const blocked: BlockedSlot[] = [
-      { id: "1", day: "saturday", startTime: "19:35", endTime: "19:50", reason: "Late block" },
+      { id: "1", day: "friday", startTime: "19:35", endTime: "19:50", reason: "Late block" },
     ]
     const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "20:00", blocked)
-    const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
-    // Expected: 09:00-12:30 and 14:00-19:35
+    const fridaySlots = freeSlots.filter((s) => s.day === "friday")
+    // Expected: 08:00-19:35
     // 20:10-20:00 is not added because resumeAt (19:50+20min=20:10) >= win.end (20:00)
-    expect(saturdaySlots).toHaveLength(2)
-    expect(saturdaySlots[0].start).toBe("09:00")
-    expect(saturdaySlots[0].end).toBe("12:30")
-    expect(saturdaySlots[1].start).toBe("14:00")
-    expect(saturdaySlots[1].end).toBe("19:35")
+    expect(fridaySlots).toHaveLength(2)
+    expect(fridaySlots[0].start).toBe("09:00")
+    expect(fridaySlots[0].end).toBe("12:30")
+    expect(fridaySlots[1].start).toBe("14:00")
+    expect(fridaySlots[1].end).toBe("19:35")
   })
 
   it("skips intra-day gap window when mandatory break exceeds gap duration (line 88 false branch)", () => {

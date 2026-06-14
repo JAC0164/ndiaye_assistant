@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
   try {
     const service = new HistoriqueService(supabase)
     const stats = await service.getWeeklyStats(user.id)
-    return NextResponse.json(stats)
+    return NextResponse.json(stats, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    })
   } catch (err) {
     logger.error({ err }, "Error fetching historique")
     return NextResponse.json({ error: "Erreur lors du chargement de l'historique." }, { status: 500 })
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
   try {
     const service = new HistoriqueService(supabase)
     const log = await service.logCompletion({ ...parsed.data, user_id: user.id })
-    return NextResponse.json(log, { status: 201 })
+    return NextResponse.json(log, { status: 201, headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } })
   } catch (err) {
     logger.error({ err }, "Error logging historique")
     return NextResponse.json({ error: "Erreur lors de l'enregistrement." }, { status: 500 })

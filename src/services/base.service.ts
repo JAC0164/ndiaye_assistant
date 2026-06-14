@@ -16,12 +16,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     this.tableName = tableName
   }
 
-  async getAll(userId?: string, options?: QueryOptions): Promise<T[]> {
-    let query = this.supabase.from(this.tableName).select("*")
-
-    if (userId) {
-      query = query.eq("user_id", userId)
-    }
+  async getAll(userId: string, options?: QueryOptions): Promise<T[]> {
+    let query = this.supabase.from(this.tableName).select("*").eq("user_id", userId)
 
     if (options?.orderBy) {
       query = query.order(options.orderBy.column, {
@@ -47,8 +43,13 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     return data as T[]
   }
 
-  async getById(id: string): Promise<T | null> {
-    const { data, error } = await this.supabase.from(this.tableName).select("*").eq("id", id).single()
+  async getById(id: string, userId: string): Promise<T | null> {
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single()
 
     if (error) {
       logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService getById failed")
@@ -69,8 +70,14 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     return data as T
   }
 
-  async update(id: string, payload: Record<string, unknown>): Promise<T> {
-    const { data, error } = await this.supabase.from(this.tableName).update(payload).eq("id", id).select().single()
+  async update(id: string, userId: string, payload: Record<string, unknown>): Promise<T> {
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select()
+      .single()
 
     if (error) {
       logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService update failed")
@@ -80,8 +87,8 @@ export abstract class BaseService<T extends Record<string, unknown>> {
     return data as T
   }
 
-  async delete(id: string): Promise<void> {
-    const { error } = await this.supabase.from(this.tableName).delete().eq("id", id)
+  async delete(id: string, userId: string): Promise<void> {
+    const { error } = await this.supabase.from(this.tableName).delete().eq("id", id).eq("user_id", userId)
 
     if (error) {
       logger.error({ table: this.tableName, id, supabaseError: error.message }, "BaseService delete failed")

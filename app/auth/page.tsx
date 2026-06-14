@@ -72,11 +72,11 @@ export default function AuthPage() {
 
         <input
           type="password"
-          placeholder="Mot de passe (min. 6 caractères)"
+          placeholder="Mot de passe (min. 12 caractères)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={12}
           className="rounded-lg border border-zinc-300 px-4 py-2 text-sm focus:border-zinc-500 focus:outline-none"
         />
 

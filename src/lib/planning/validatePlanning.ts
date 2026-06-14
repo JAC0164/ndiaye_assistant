@@ -123,7 +123,6 @@ export function validatePlanning(
       if (block.day.toLowerCase() === day) {
         const blockStart = parseTime(block.startTime)
         const blockEnd = parseTime(block.endTime)
-        // Overlap condition: start1 < end2 && start2 < end1
         if (startMin < blockEnd && blockStart < endMin) {
           errors.push({
             check: "blocked_slot_overlap",
@@ -131,6 +130,9 @@ export function validatePlanning(
             message: `La séance de ${sessionCopy.subject} chevauche un créneau indisponible : ${block.reason} (${block.startTime}-${block.endTime}).`,
             session: sessionCopy,
           })
+          keepSession = false
+          wasRepaired = true
+          removedSessions.push(sessionCopy)
         }
       }
     }
@@ -180,6 +182,69 @@ export function validatePlanning(
       })
     }
   }
+
+  // 6. Cleanup orphan breaks
+  const cleanedPlanning: GeneratedSeance[] = []
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+  for (const day of days) {
+    const daySessions = validatedPlanning.filter((s) => s.day_of_week.toLowerCase() === day)
+    daySessions.sort((a, b) => parseTime(a.start_time) - parseTime(b.start_time))
+
+    const filteredDay: GeneratedSeance[] = []
+    for (let i = 0; i < daySessions.length; i++) {
+      const s = daySessions[i]
+      if (s.session_type === "break") {
+        const prev = filteredDay.length > 0 ? filteredDay[filteredDay.length - 1] : null
+        const next = daySessions.slice(i + 1).find((x) => x.session_type !== "break")
+
+        if (prev && prev.session_type !== "break" && next) {
+          filteredDay.push(s)
+        } else {
+          removedSessions.push(s)
+          wasRepaired = true
+        }
+      } else {
+        filteredDay.push(s)
+      }
+    }
+    cleanedPlanning.push(...filteredDay)
+  }
+
+  validatedPlanning.splice(0, validatedPlanning.length, ...cleanedPlanning)
+
+  // 7. Inject missing pauses for intra-day gaps
+  const withPauses: GeneratedSeance[] = []
+  for (const day of days) {
+    const daySessions = validatedPlanning.filter((s) => s.day_of_week.toLowerCase() === day)
+    daySessions.sort((a, b) => parseTime(a.start_time) - parseTime(b.start_time))
+
+    const filledDay: GeneratedSeance[] = []
+    for (let i = 0; i < daySessions.length; i++) {
+      filledDay.push(daySessions[i])
+      if (i < daySessions.length - 1) {
+        const current = daySessions[i]
+        const next = daySessions[i + 1]
+        const currentEnd = parseTime(current.end_time)
+        const nextStart = parseTime(next.start_time)
+
+        if (currentEnd < nextStart) {
+          const newBreak: GeneratedSeance = {
+            day_of_week: current.day_of_week,
+            start_time: current.end_time,
+            end_time: next.start_time,
+            subject: "Pause",
+            session_type: "break",
+            pedagogical_note: "Détente bien méritée !",
+          }
+          filledDay.push(newBreak)
+        }
+      }
+    }
+    withPauses.push(...filledDay)
+  }
+
+  validatedPlanning.splice(0, validatedPlanning.length, ...withPauses)
 
   return {
     validatedPlanning,

@@ -25,16 +25,11 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => shared.supabase),
 }))
 
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
-}))
-
 vi.mock("@/src/lib/langgraph/orchestrator", () => ({
   runPlanningWorkflow: vi.fn(),
 }))
 
 import { POST } from "@/app/api/planning/generate/route"
-import { checkRateLimit } from "@/src/lib/rate-limit"
 import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 
 const validWorkflowResult = {
@@ -79,7 +74,19 @@ function createFormDataWithImage(image?: Partial<File>): FormData {
   )
   const fd = new FormData()
   fd.append("timetableImage", file)
-  fd.append("onboardingData", JSON.stringify({ class_name: "Terminale S" }))
+  fd.append(
+    "onboardingData",
+    JSON.stringify({
+      class_name: "Terminale S",
+      blockedSlots: [
+        { id: "1", day: "monday", startTime: "08:00", endTime: "17:00", reason: "school" },
+        { id: "2", day: "tuesday", startTime: "08:00", endTime: "17:00", reason: "school" },
+        { id: "3", day: "wednesday", startTime: "08:00", endTime: "12:00", reason: "school" },
+        { id: "4", day: "thursday", startTime: "08:00", endTime: "17:00", reason: "school" },
+        { id: "5", day: "friday", startTime: "08:00", endTime: "16:00", reason: "school" },
+      ],
+    })
+  )
   return fd
 }
 
@@ -271,7 +278,20 @@ describe("POST /api/planning/generate", () => {
       vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
 
       const formData = createFormDataWithImage()
-      formData.set("onboardingData", JSON.stringify({ class_name: "Terminale S", series_name: "S" }))
+      formData.set(
+        "onboardingData",
+        JSON.stringify({
+          class_name: "Terminale S",
+          series_name: "S",
+          blockedSlots: [
+            { id: "1", day: "monday", startTime: "08:00", endTime: "17:00", reason: "school" },
+            { id: "2", day: "tuesday", startTime: "08:00", endTime: "17:00", reason: "school" },
+            { id: "3", day: "wednesday", startTime: "08:00", endTime: "12:00", reason: "school" },
+            { id: "4", day: "thursday", startTime: "08:00", endTime: "17:00", reason: "school" },
+            { id: "5", day: "friday", startTime: "08:00", endTime: "16:00", reason: "school" },
+          ],
+        })
+      )
 
       const request = createMockRequest("POST", { formData })
       const response = await POST(request)
@@ -399,19 +419,6 @@ describe("POST /api/planning/generate", () => {
       expect(response.status).toBe(400)
       const data = await response.json()
       expect(data.error).toBe("Requête invalide.")
-    })
-  })
-
-  describe("Rate limiting", () => {
-    it("returns 429 when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("POST", { formData: new FormData() })
-      const response = await POST(request)
-
-      expect(response.status).toBe(429)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
     })
   })
 })

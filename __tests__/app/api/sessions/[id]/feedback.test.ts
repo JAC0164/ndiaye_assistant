@@ -58,10 +58,6 @@ vi.mock("@/src/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue(shared.supabase),
 }))
 
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
-}))
-
 const mockSaveFeedback = vi.fn()
 const mockHistoriqueGetById = vi.fn()
 vi.mock("@/src/services/historique.service", () => ({
@@ -92,7 +88,6 @@ vi.mock("@/src/services/reschedule.service", () => ({
 }))
 
 import { PATCH } from "@/app/api/sessions/[id]/feedback/route"
-import { checkRateLimit } from "@/src/lib/rate-limit"
 
 describe("PATCH /api/sessions/[id]/feedback", () => {
   const userId = "user-123"
@@ -105,17 +100,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(checkRateLimit).mockReturnValue(true)
     resetBuilders()
-  })
-
-  it("returns 429 when rate limit is exceeded", async () => {
-    vi.mocked(checkRateLimit).mockReturnValue(false)
-
-    const request = createMockRequest("PATCH", { body: { completed: true } })
-    const response = await PATCH(request, { params })
-
-    expect(response.status).toBe(429)
   })
 
   it("returns 401 when user is not authenticated", async () => {

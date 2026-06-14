@@ -133,6 +133,21 @@ export function buildFreeSlots(
       currentWindows = nextWindows
     }
 
+    if (day === "saturday" || day === "sunday") {
+      const chunks: { start: number; end: number }[] = []
+      for (const win of currentWindows) {
+        let cursor = win.start
+        while (cursor + PLANNING_CONFIG.minSessionMinutes <= win.end) {
+          const chunkEnd = Math.min(cursor + PLANNING_CONFIG.maxSessionMinutes, win.end)
+          chunks.push({ start: cursor, end: chunkEnd })
+          cursor = chunkEnd + PLANNING_CONFIG.betweenSessionBreakMinutes
+          if (chunks.length >= PLANNING_CONFIG.maxSessionsPerFreeDay) break
+        }
+        if (chunks.length >= PLANNING_CONFIG.maxSessionsPerFreeDay) break
+      }
+      currentWindows = chunks
+    }
+
     // Filter windows that are shorter than minSessionMinutes and format them
     for (const win of currentWindows) {
       const duration = win.end - win.start

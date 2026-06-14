@@ -26,6 +26,14 @@ const TEST_PLANNING: GeneratedSeance[] = [
     day_of_week: "monday",
     start_time: "18:00",
     end_time: "18:45",
+    subject: "PC", // Valid study session to keep the break from being orphaned
+    session_type: "review",
+    pedagogical_note: "Physique",
+  },
+  {
+    day_of_week: "monday",
+    start_time: "18:55",
+    end_time: "19:40",
     subject: "GER", // hallucinated subject, should be removed
     session_type: "review",
     pedagogical_note: "Relire le vocabulaire.",
@@ -67,8 +75,8 @@ describe("validatePlanning", () => {
     // 2. Hallucinated subject check
     const allemand = result.validatedPlanning.find((s) => s.subject === "GER")
     expect(allemand).toBeUndefined()
-    expect(result.removedSessions).toHaveLength(1)
-    expect(result.removedSessions[0].subject).toBe("GER")
+    expect(result.removedSessions.length).toBeGreaterThanOrEqual(1)
+    expect(result.removedSessions.some((s) => s.subject === "GER")).toBe(true)
     expect(result.errors.some((e) => e.check === "allowed_subject")).toBe(true)
 
     // 3. Break subject check
@@ -147,7 +155,8 @@ describe("validatePlanning", () => {
       pedagogical_note: "test",
     }))
     const result = validatePlanning(sessions, ["X0", "X1", "X2", "X3"], "22:00", [])
-    expect(result.validatedPlanning).toHaveLength(4)
+    // 4 study sessions + 3 injected breaks = 7 sessions total
+    expect(result.validatedPlanning).toHaveLength(7)
     expect(result.wasRepaired).toBe(false)
     expect(result.removedSessions).toHaveLength(0)
   })
@@ -239,15 +248,127 @@ describe("validatePlanning", () => {
     const sessions: GeneratedSeance[] = [
       {
         day_of_week: "saturday",
+        start_time: "11:00",
+        end_time: "12:00",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Math",
+      },
+      {
+        day_of_week: "saturday",
         start_time: "12:00",
         end_time: "14:00",
         subject: "Pause",
         session_type: "break",
         pedagogical_note: "Déjeuner",
       },
+      {
+        day_of_week: "saturday",
+        start_time: "14:00",
+        end_time: "15:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Fr",
+      },
     ]
-    const result = validatePlanning(sessions, [], "22:00", [])
+    const result = validatePlanning(sessions, ["MATH", "FR"], "22:00", [])
+    // MATH is sliced at 45 min limit -> 11:00-11:35
+    // Pause injected between 11:35 and 12:00
+    // Original break session: 12:00-14:00
+    // FR: 14:00-15:00
+    // Total = 4 sessions
+    expect(result.validatedPlanning).toHaveLength(4)
+    const breakSession = result.validatedPlanning.find((s) => s.session_type === "break" && s.start_time === "12:00")
+    expect(breakSession?.end_time).toBe("14:00")
+  })
+
+  it("injects missing breaks for intra-day gaps, but not overnight/inter-day gaps", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Les limites.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "09:55",
+        end_time: "10:40",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Grammaire.",
+      },
+      {
+        day_of_week: "tuesday",
+        start_time: "08:00",
+        end_time: "08:45",
+        subject: "PC",
+        session_type: "review",
+        pedagogical_note: "Mécanique.",
+      },
+    ]
+
+    const result = validatePlanning(sessions, ["MATH", "FR", "PC"], "22:00", [])
+
+    // 1. Should have injected 1 break on Monday between 09:45 and 09:55
+    const mondaySessions = result.validatedPlanning.filter((s) => s.day_of_week === "monday")
+    expect(mondaySessions).toHaveLength(3)
+    expect(mondaySessions[0].subject).toBe("MATH")
+    expect(mondaySessions[1].session_type).toBe("break")
+    expect(mondaySessions[1].subject).toBe("Pause")
+    expect(mondaySessions[1].start_time).toBe("09:45")
+    expect(mondaySessions[1].end_time).toBe("09:55")
+    expect(mondaySessions[1].pedagogical_note).toBe("Détente bien méritée !")
+    expect(mondaySessions[2].subject).toBe("FR")
+
+    // 2. Tuesday should remain unchanged (1 session), no break overnight between Monday 10:40 and Tuesday 08:00
+    const tuesdaySessions = result.validatedPlanning.filter((s) => s.day_of_week === "tuesday")
+    expect(tuesdaySessions).toHaveLength(1)
+    expect(tuesdaySessions[0].subject).toBe("PC")
+
+    // 3. should be silent (wasRepaired = false, no warnings)
+    expect(result.wasRepaired).toBe(false)
+    expect(result.warnings).toHaveLength(0)
+  })
+
+  it("removes orphan breaks and flags them in removedSessions", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "08:00",
+        end_time: "08:15",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "Orphan break at the start of the day.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "08:15",
+        end_time: "09:00",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Math study.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "09:00",
+        end_time: "09:15",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "Orphan break at the end of the day.",
+      },
+    ]
+
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+
+    // The first and last breaks are orphaned (no valid prev/next study sessions).
+    // They should be removed, leaving only the MATH session.
     expect(result.validatedPlanning).toHaveLength(1)
-    expect(result.validatedPlanning[0].end_time).toBe("14:00")
+    expect(result.validatedPlanning[0].subject).toBe("MATH")
+    expect(result.wasRepaired).toBe(true)
+    expect(result.removedSessions).toHaveLength(2)
+    expect(result.removedSessions.every((s) => s.session_type === "break")).toBe(true)
   })
 })

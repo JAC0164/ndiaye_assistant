@@ -31,6 +31,37 @@ describe("EcheanceService", () => {
     })
   })
 
+  describe("createEcheance", () => {
+    const validData = {
+      subject: "Maths",
+      title: "Devoir maison",
+      due_date: "2024-02-15",
+      echeance_type: "devoir" as const,
+    }
+
+    it("should create an echeance with the given data and user_id", async () => {
+      const created = { ...baseEcheance }
+      mock.setResult(created)
+      const result = await service.createEcheance(validData, "user-1")
+
+      expect(result).toEqual(created)
+      expect(mock.supabase.from).toHaveBeenCalledWith("echeances")
+      expect(mock.builder.insert).toHaveBeenCalledWith({
+        ...validData,
+        user_id: "user-1",
+      })
+      expect(mock.builder.select).toHaveBeenCalled()
+      expect(mock.builder.single).toHaveBeenCalled()
+    })
+
+    it("should throw on database error", async () => {
+      mock.builder.then.mockImplementation((_resolve, reject) => {
+        reject(new Error("insert error"))
+      })
+      await expect(service.createEcheance(validData, "user-1")).rejects.toThrow("insert error")
+    })
+  })
+
   describe("getUpcoming", () => {
     const echeances: Echeance[] = [
       { ...baseEcheance, due_date: "2024-02-10" },
@@ -113,7 +144,7 @@ describe("EcheanceService", () => {
 
     it("should set is_completed to true and update updated_at", async () => {
       mock.setResult(updatedEcheance)
-      const result = await service.markCompleted("ech-1")
+      const result = await service.markCompleted("user-1", "ech-1")
 
       expect(result).toEqual(updatedEcheance)
       expect(mock.supabase.from).toHaveBeenCalledWith("echeances")
@@ -122,6 +153,7 @@ describe("EcheanceService", () => {
         updated_at: expect.any(String),
       })
       expect(mock.builder.eq).toHaveBeenCalledWith("id", "ech-1")
+      expect(mock.builder.eq).toHaveBeenCalledWith("user_id", "user-1")
       expect(mock.builder.select).toHaveBeenCalled()
       expect(mock.builder.single).toHaveBeenCalled()
     })
@@ -129,7 +161,7 @@ describe("EcheanceService", () => {
     it("should set is_completed to false when isCompleted is false", async () => {
       const uncompletedEcheance = { ...baseEcheance, is_completed: false }
       mock.setResult(uncompletedEcheance)
-      await service.markCompleted("ech-1", false)
+      await service.markCompleted("user-1", "ech-1", false)
 
       expect(mock.builder.update).toHaveBeenCalledWith({
         is_completed: false,
@@ -141,14 +173,14 @@ describe("EcheanceService", () => {
       mock.builder.then.mockImplementation((_resolve, reject) => {
         reject(new Error("update error"))
       })
-      await expect(service.markCompleted("ech-1")).rejects.toThrow("update error")
+      await expect(service.markCompleted("user-1", "ech-1")).rejects.toThrow("update error")
     })
 
     it("should throw with wrapped message when database returns error in response", async () => {
       mock.builder.then.mockImplementation((resolve) => {
         resolve({ data: null, error: new Error("mark error") })
       })
-      await expect(service.markCompleted("ech-1")).rejects.toThrow(
+      await expect(service.markCompleted("user-1", "ech-1")).rejects.toThrow(
         "Erreur lors du marquage de l'échéance comme complétée: mark error"
       )
     })

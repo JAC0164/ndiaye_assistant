@@ -59,9 +59,8 @@ describe("ProfileService", () => {
     })
 
     it("should throw with wrapped message when database returns error in response", async () => {
-      mock.builder.then.mockImplementation((resolve) => {
-        resolve({ data: null, error: new Error("not found") })
-      })
+      mock.builder.maybeSingle.mockResolvedValue({ data: null, error: new Error("not found") })
+      delete mock.builder.then
       await expect(service.getByUserId("user-1")).rejects.toThrow("Erreur lors de la récupération du profil: not found")
     })
   })

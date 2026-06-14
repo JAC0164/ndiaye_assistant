@@ -1,12 +1,25 @@
 import { SupabaseClient } from "@supabase/supabase-js"
+import { z } from "zod"
 import { Database } from "@/src/types/database.types"
 import { BaseService } from "./base.service"
 
 export type Echeance = Database["public"]["Tables"]["echeances"]["Row"]
 
+export const echeanceCreateSchema = z.object({
+  subject: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  echeance_type: z.enum(["devoir", "examen", "composition", "projet"]),
+})
+
 export class EcheanceService extends BaseService<Echeance> {
   constructor(supabase: SupabaseClient) {
     super(supabase, "echeances")
+  }
+
+  async createEcheance(data: z.infer<typeof echeanceCreateSchema>, userId: string): Promise<Echeance> {
+    return this.create({ ...data, user_id: userId })
   }
 
   async getUpcoming(userId: string, daysLimit = 14): Promise<Echeance[]> {
@@ -32,7 +45,7 @@ export class EcheanceService extends BaseService<Echeance> {
     return data as Echeance[]
   }
 
-  async markCompleted(id: string, isCompleted = true): Promise<Echeance> {
+  async markCompleted(userId: string, id: string, isCompleted = true): Promise<Echeance> {
     const { data, error } = await this.supabase
       .from(this.tableName)
       .update({
@@ -40,6 +53,7 @@ export class EcheanceService extends BaseService<Echeance> {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
+      .eq("user_id", userId)
       .select()
       .single()
 

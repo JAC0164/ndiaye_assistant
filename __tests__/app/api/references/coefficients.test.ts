@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
+import { NextResponse } from "next/server"
 import { createMockRequest } from "@/src/test/utils/mock-request"
 
 const shared = vi.hoisted(() => {
@@ -17,12 +18,11 @@ const shared = vi.hoisted(() => {
   return { supabase }
 })
 
-vi.mock("@/src/lib/supabase/server", () => ({
-  createClient: vi.fn().mockResolvedValue(shared.supabase),
-}))
-
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
+vi.mock("@/src/lib/api-middleware", () => ({
+  withAuth: vi.fn().mockResolvedValue({
+    supabase: shared.supabase,
+    user: { id: "user-1", email: "test@test.com" },
+  }),
 }))
 
 vi.mock("@/src/services/reference.service", () => ({
@@ -38,12 +38,10 @@ vi.mock("@/src/services/reference.service", () => ({
 
 import { GET } from "@/app/api/references/coefficients/route"
 import { ReferenceService } from "@/src/services/reference.service"
-import { checkRateLimit } from "@/src/lib/rate-limit"
-
+import { withAuth } from "@/src/lib/api-middleware"
 describe("GET /api/references/coefficients", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(checkRateLimit).mockImplementation(() => true)
   })
 
   it("returns coefficients for a given class_id", async () => {
@@ -78,13 +76,15 @@ describe("GET /api/references/coefficients", () => {
     expect(data).toEqual(mockCoefficients)
   })
 
-  it("returns 429 when rate limit is exceeded", async () => {
-    vi.mocked(checkRateLimit).mockReturnValue(false)
+  it("returns 401 when not authenticated", async () => {
+    vi.mocked(withAuth).mockResolvedValueOnce({
+      error: NextResponse.json({ error: "Authentification requise." }, { status: 401 }),
+    })
 
     const request = createMockRequest("GET")
     const response = await GET(request)
 
-    expect(response.status).toBe(429)
+    expect(response.status).toBe(401)
     const data = await response.json()
     expect(data).toHaveProperty("error")
   })

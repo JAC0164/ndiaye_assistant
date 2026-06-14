@@ -53,11 +53,14 @@ export async function POST(request: NextRequest) {
       (result.isValidTimetable as boolean) ?? true
     )
 
-    return NextResponse.json({
-      extractedTimetableMarkdown: result.extractedTimetableMarkdown as string,
-      isValidTimetable: result.isValidTimetable as boolean,
-      validationErrorMessage: result.validationErrorMessage as string | undefined,
-    })
+    return NextResponse.json(
+      {
+        extractedTimetableMarkdown: result.extractedTimetableMarkdown as string,
+        isValidTimetable: result.isValidTimetable as boolean,
+        validationErrorMessage: result.validationErrorMessage as string | undefined,
+      },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    )
   } catch (err) {
     logger.error({ err }, "Vision agent error")
     return NextResponse.json({ error: "Erreur lors de l'analyse de l'image." }, { status: 500 })

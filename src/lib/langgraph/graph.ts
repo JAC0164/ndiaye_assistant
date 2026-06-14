@@ -26,7 +26,7 @@ function passValidatedVision(): PlanningGraphAnnotationUpdate {
 }
 
 function routeAfterVision(state: PlanningGraphAnnotationState) {
-  if (process.env.STOP_AT_AGENT === "vision") {
+  if (process.env.NODE_ENV !== "production" && process.env.STOP_AT_AGENT === "vision") {
     return "stop"
   }
   return state.isValidTimetable ? "valid" : "invalid"

@@ -42,9 +42,10 @@ export async function POST(request: NextRequest) {
     const profileService = new ProfileService(supabase)
     await profileService.saveProfileCache(user.id, (result.studentProfileContext as string) ?? "")
 
-    return NextResponse.json({
-      studentProfileContext: result.studentProfileContext as string,
-    })
+    return NextResponse.json(
+      { studentProfileContext: result.studentProfileContext as string },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    )
   } catch (err) {
     logger.error({ err }, "Profile agent error")
     return NextResponse.json({ error: "Erreur lors de l'analyse du profil." }, { status: 500 })

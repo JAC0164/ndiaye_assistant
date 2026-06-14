@@ -21,10 +21,6 @@ vi.mock("@/src/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue(shared.supabase),
 }))
 
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
-}))
-
 vi.mock("@/src/lib/langgraph/nodes/visionAgent", () => ({
   visionAgent: vi.fn(),
 }))
@@ -36,7 +32,6 @@ vi.mock("@/src/services/profile.service", () => ({
 }))
 
 import { POST } from "@/app/api/agents/vision/route"
-import { checkRateLimit } from "@/src/lib/rate-limit"
 import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
 import { ProfileService } from "@/src/services/profile.service"
 
@@ -185,19 +180,6 @@ describe("POST /api/agents/vision", () => {
 
       expect(response.status).toBe(200)
       expect(mockSaveVisionCache).toHaveBeenCalledWith(userId, "", true)
-    })
-  })
-
-  describe("Rate limiting", () => {
-    it("returns 429 when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("POST", { formData: new FormData() })
-      const response = await POST(request)
-
-      expect(response.status).toBe(429)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
     })
   })
 })

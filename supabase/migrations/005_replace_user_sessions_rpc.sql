@@ -51,3 +51,6 @@ BEGIN
   RETURN QUERY SELECT * FROM private.replace_user_sessions_internal(p_user_id, p_sessions);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.replace_user_sessions(UUID, JSONB) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.replace_user_sessions(UUID, JSONB) TO authenticated;

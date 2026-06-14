@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient as createDirectClient } from "@supabase/supabase-js"
 import { z } from "zod"
 
-import { createClient as createSSRClient } from "@/src/lib/supabase/server"
-import { checkRateLimit } from "@/src/lib/rate-limit"
+import { withAuth } from "@/src/lib/api-middleware"
 import { logger } from "@/src/lib/logger"
 import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 import type { ModelOverrides } from "@/src/lib/langgraph/providers"
@@ -40,7 +38,10 @@ const modelOverrideSchema = z.object({
 })
 
 function jsonError(status: number, error: string) {
-  return NextResponse.json<ErrorResponse>({ error }, { status })
+  return NextResponse.json<ErrorResponse>(
+    { error },
+    { status, headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+  )
 }
 
 function parseJSONField<T>(value: FormDataEntryValue | null): T | undefined {
@@ -83,43 +84,6 @@ async function fileToBuffer(value: FormDataEntryValue | null): Promise<ImageUplo
   }
 }
 
-async function createAuthenticatedSupabase(request: NextRequest) {
-  const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]
-
-  if (!bearerToken) {
-    const supabase = await createSSRClient()
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    return { supabase, user, error }
-  }
-
-  const supabase = createDirectClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-      global: {
-        headers: {
-          Authorization: `Bearer ${bearerToken}`,
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(bearerToken)
-
-  return { supabase, user, error }
-}
-
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
@@ -130,15 +94,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return jsonError(429, "Trop de requêtes. Veuillez réessayer dans une minute.")
-  }
-  const { supabase, user, error: authError } = await createAuthenticatedSupabase(request)
-
-  if (authError || !user) {
-    return jsonError(401, "Authentification requise.")
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   let imageUpload: ImageUpload
   let onboardingData: unknown
@@ -166,18 +124,21 @@ export async function POST(request: NextRequest) {
           validationErrorMessage: result.validationErrorMessage,
           generatedPlanning: [],
         },
-        { status: 422 }
+        { status: 422, headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
       )
     }
 
-    return NextResponse.json({
-      isValidTimetable: true,
-      extractedTimetable: result.extractedTimetable,
-      extractedTimetableMarkdown: result.extractedTimetableMarkdown,
-      studentProfileContext: result.studentProfileContext,
-      generatedPlanning: result.generatedPlanning,
-      planningValidation: result.planningValidation,
-    })
+    return NextResponse.json(
+      {
+        isValidTimetable: true,
+        extractedTimetable: result.extractedTimetable,
+        extractedTimetableMarkdown: result.extractedTimetableMarkdown,
+        studentProfileContext: result.studentProfileContext,
+        generatedPlanning: result.generatedPlanning,
+        planningValidation: result.planningValidation,
+      },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    )
   } catch (error) {
     logger.error({ error }, "Planning generation error")
     return jsonError(500, "Erreur lors de la génération du planning. Veuillez réessayer.")

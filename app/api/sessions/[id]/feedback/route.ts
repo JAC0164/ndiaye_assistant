@@ -24,11 +24,11 @@ async function handleReschedule(
   historiqueId: string
 ): Promise<NextResponse | null> {
   const historiqueService = new HistoriqueService(supabase)
-  const historiqueRow = await historiqueService.getById(historiqueId)
+  const historiqueRow = await historiqueService.getById(historiqueId, userId)
   if (!historiqueRow || !historiqueRow.session_id) return null
 
   const sessionService = new SessionService(supabase)
-  const sessionRow = await sessionService.getById(historiqueRow.session_id)
+  const sessionRow = await sessionService.getById(historiqueRow.session_id, userId)
   if (!sessionRow) return null
 
   const profileService = new ProfileService(supabase)
@@ -98,11 +98,14 @@ async function handleReschedule(
   })
 
   const dayFr = FULL_DAY_LABELS[nextSlot.day] ?? nextSlot.day
-  return NextResponse.json({
-    ok: true,
-    rescheduled: true,
-    message: `Séance repoussée au ${dayFr} à ${nextSlot.start}`,
-  })
+  return NextResponse.json(
+    {
+      ok: true,
+      rescheduled: true,
+      message: `Séance repoussée au ${dayFr} à ${nextSlot.start}`,
+    },
+    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+  )
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -135,7 +138,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (rescheduleResponse) return rescheduleResponse
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } })
   } catch (err) {
     logger.error({ err }, "Error saving session feedback")
     return NextResponse.json({ error: "Erreur lors de l'enregistrement du feedback." }, { status: 500 })

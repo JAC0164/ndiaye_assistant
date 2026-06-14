@@ -16,7 +16,10 @@ export async function plannerAgent(
     }
   }
 
-  if (process.env.STOP_AT_AGENT === "vision" || process.env.STOP_AT_AGENT === "profile") {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (process.env.STOP_AT_AGENT === "vision" || process.env.STOP_AT_AGENT === "profile")
+  ) {
     logger.info({ stopAtAgent: process.env.STOP_AT_AGENT }, "[Stop] PLANNER")
     return {
       generatedPlanning: [],
@@ -43,7 +46,7 @@ export async function plannerAgent(
         `- Insert a ${PLANNING_CONFIG.betweenSessionBreakMinutes}-min break between consecutive study sessions.`,
         `- For breaks, set session_type to "break" and subject to "Pause".`,
         `- COGNITIVE RULE (Interleaving): Never schedule the exact same subject in consecutive slots. Force cognitive switching (e.g., Math -> Break -> English -> Break -> Math is allowed, but Math -> Break -> Math is FORBIDDEN).`,
-        `- WEEKEND RULE (Eat the Frog): The VERY FIRST study slot on Saturday morning and Sunday morning MUST be allocated to one of the student's "Weak subjects" (from the profile) that has the highest coefficient.`,
+        `- WEEKEND RULE (Eat the Frog): The VERY FIRST study slot on Saturday morning and Sunday morning MUST be allocated to the subject with the HIGHEST "priority" score. Trust the provided priority numbers.`,
         "",
         `- Maximum ${PLANNING_CONFIG.maxSessionsPerFreeDay} study sessions on Saturday and Sunday (breaks excluded).`,
         "",

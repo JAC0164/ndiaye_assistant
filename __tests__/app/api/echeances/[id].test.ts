@@ -21,10 +21,6 @@ vi.mock("@/src/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue(shared.supabase),
 }))
 
-vi.mock("@/src/lib/rate-limit", () => ({
-  checkRateLimit: vi.fn(() => true),
-}))
-
 vi.mock("@/src/services/echeance.service", () => ({
   EcheanceService: vi.fn(function () {
     return {
@@ -36,8 +32,6 @@ vi.mock("@/src/services/echeance.service", () => ({
 
 import { PATCH, DELETE } from "@/app/api/echeances/[id]/route"
 import { EcheanceService } from "@/src/services/echeance.service"
-import { checkRateLimit } from "@/src/lib/rate-limit"
-
 describe("Echéance [id] API", () => {
   const userId = "user-123"
   const echeanceId = "echeance-1"
@@ -213,30 +207,6 @@ describe("Echéance [id] API", () => {
       const response = await DELETE(request, { params })
 
       expect(response.status).toBe(500)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
-    })
-  })
-
-  describe("Rate limiting", () => {
-    it("returns 429 for PATCH when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("PATCH")
-      const response = await PATCH(request, { params })
-
-      expect(response.status).toBe(429)
-      const data = await response.json()
-      expect(data).toHaveProperty("error")
-    })
-
-    it("returns 429 for DELETE when rate limit is exceeded", async () => {
-      vi.mocked(checkRateLimit).mockReturnValue(false)
-
-      const request = createMockRequest("DELETE")
-      const response = await DELETE(request, { params })
-
-      expect(response.status).toBe(429)
       const data = await response.json()
       expect(data).toHaveProperty("error")
     })
