@@ -60,10 +60,13 @@ export async function runPlanningWorkflow(
   let coefficientTable = ""
   let weeklyStats = ""
   let daysSinceLastRevision = new Map<string, number>()
+  let ressentBySubject = new Map<string, number>()
+  let dureeReelleBySubject = new Map<string, number>()
+  let upcomingEcheancesStr = ""
 
   const profileService = new ProfileService(supabase)
   const profile = await profileService.getByUserId(userId)
-  const cached = profile ? await profileService.getCachedAnalysis(userId) : null
+  const cached = profile ? await profileService.getCachedAnalysis(userId, profile) : null
 
   if (cached) {
     const rawTimetable = cached.extractedTimetableMarkdown
@@ -86,97 +89,130 @@ export async function runPlanningWorkflow(
     }
   }
 
-  // Fetch days since last revision from DB
-  try {
-    const historiqueService = new HistoriqueService(supabase)
-    daysSinceLastRevision = await historiqueService.getDaysSinceLastRevisionBySubject(userId)
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch days since last revision")
-  }
+  const classId = profile?.class_id
+  const historiqueService = new HistoriqueService(supabase)
 
-  // Fetch coefficients from DB
-  try {
-    const classId = profile?.class_id
-    if (classId) {
-      const cachedStr = getCachedCoefficients(classId)
-      if (cachedStr) {
-        coefficientTable = cachedStr
-      } else {
-        const coeffService = new CoefficientService(supabase)
-        const coeffs = await coeffService.getByClassId(classId)
-        if (coeffs.length > 0) {
-          coefficientTable = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
-          setCachedCoefficients(classId, coefficientTable)
-        }
+  const [
+    daysSinceLastRevisionResult,
+    coefficientTableResult,
+    ressentBySubjectResult,
+    dureeReelleBySubjectResult,
+    weeklyStatsResult,
+    upcomingEcheancesResult,
+  ] = await Promise.all([
+    // Days since last revision
+    (async () => {
+      try {
+        return await historiqueService.getDaysSinceLastRevisionBySubject(userId)
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch days since last revision")
+        return new Map<string, number>()
       }
-    } else {
-      // Fallback to Terminale S1 coefficients if no class_id is set
-      const fallbackClassName = "Terminale S1"
-      const cachedStr = getCachedCoefficients(fallbackClassName)
-      if (cachedStr) {
-        coefficientTable = cachedStr
-      } else {
+    })(),
+
+    // Coefficients
+    (async () => {
+      try {
+        if (classId) {
+          const cachedStr = getCachedCoefficients(classId)
+          if (cachedStr) return cachedStr
+          const coeffService = new CoefficientService(supabase)
+          const coeffs = await coeffService.getByClassId(classId)
+          if (coeffs.length > 0) {
+            const table = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
+            setCachedCoefficients(classId, table)
+            return table
+          }
+        }
+        const fallbackClassName = "Terminale S1"
+        const cachedStr = getCachedCoefficients(fallbackClassName)
+        if (cachedStr) return cachedStr
         const coeffService = new CoefficientService(supabase)
         const coeffs = await coeffService.getCoefficientsByClassName(fallbackClassName)
         if (coeffs.length > 0) {
-          coefficientTable = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
-          setCachedCoefficients(fallbackClassName, coefficientTable)
+          const table = coeffs.map((c) => `- ${c.subject.toUpperCase()}: ${c.coefficient}`).join("\n")
+          setCachedCoefficients(fallbackClassName, table)
+          return table
         }
+        return ""
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch coefficients for AI workflow")
+        return ""
       }
-    }
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch coefficients for AI workflow")
-  }
+    })(),
 
-  // Fetch feedback data from DB
-  let ressentBySubject = new Map<string, number>()
-  let dureeReelleBySubject = new Map<string, number>()
-  try {
-    const historiqueService = new HistoriqueService(supabase)
-    ressentBySubject = await historiqueService.getRessentBySubject(userId)
-    dureeReelleBySubject = await historiqueService.getDureeReelleBySubject(userId)
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch feedback data")
-  }
+    // Ressenti by subject
+    (async () => {
+      try {
+        return await historiqueService.getRessentBySubject(userId)
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch feedback data")
+        return new Map<string, number>()
+      }
+    })(),
 
-  // Fetch weekly stats from DB
-  try {
-    const historiqueService = new HistoriqueService(supabase)
-    const stats = await historiqueService.getWeeklyStats(userId)
-    if (stats.sessionCount > 0) {
-      const lines: string[] = []
-      lines.push(`Total : ${stats.totalMinutes} min de révision (${stats.sessionCount} sessions)`)
-      if (stats.averageRating !== null) lines.push(`Note moyenne : ${stats.averageRating}/5`)
-      const subjects = Object.entries(stats.completedBySubject)
-        .map(([s, n]) => `${s} ${n}x`)
-        .join(", ")
-      if (subjects) lines.push(`Répartition : ${subjects}`)
-      weeklyStats = lines.join("\n")
-      logger.info(
-        { sessionCount: stats.sessionCount, totalMinutes: stats.totalMinutes, averageRating: stats.averageRating },
-        "[Feedback] Weekly stats"
-      )
-    }
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch weekly stats")
-  }
+    // Durée réelle by subject
+    (async () => {
+      try {
+        return await historiqueService.getDureeReelleBySubject(userId)
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch feedback data")
+        return new Map<string, number>()
+      }
+    })(),
 
-  // Fetch upcoming deadlines from DB
-  let upcomingEcheancesStr = ""
-  try {
-    const echeanceService = new EcheanceService(supabase)
-    const echeances = await echeanceService.getUpcoming(userId, 7)
-    if (echeances.length > 0) {
-      upcomingEcheancesStr = echeances
-        .map(
-          (e) =>
-            `- ${e.subject}: "${e.title}" (${e.echeance_type}) — à rendre le ${new Date(e.due_date).toLocaleDateString("fr-FR")}`
-        )
-        .join("\n")
-    }
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch upcoming echeances")
-  }
+    // Weekly stats
+    (async () => {
+      try {
+        const stats = await historiqueService.getWeeklyStats(userId)
+        if (stats.sessionCount > 0) {
+          const lines: string[] = []
+          lines.push(`Total : ${stats.totalMinutes} min de révision (${stats.sessionCount} sessions)`)
+          if (stats.averageRating !== null) lines.push(`Note moyenne : ${stats.averageRating}/5`)
+          const subjects = Object.entries(stats.completedBySubject)
+            .map(([s, n]) => `${s} ${n}x`)
+            .join(", ")
+          if (subjects) lines.push(`Répartition : ${subjects}`)
+          logger.info(
+            { sessionCount: stats.sessionCount, totalMinutes: stats.totalMinutes, averageRating: stats.averageRating },
+            "[Feedback] Weekly stats"
+          )
+          return lines.join("\n")
+        }
+        return ""
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch weekly stats")
+        return ""
+      }
+    })(),
+
+    // Upcoming echéances
+    (async () => {
+      try {
+        const echeanceService = new EcheanceService(supabase)
+        const echeances = await echeanceService.getUpcoming(userId, 7)
+        if (echeances.length > 0) {
+          return echeances
+            .map(
+              (e) =>
+                `- ${e.subject}: "${e.title}" (${e.echeance_type}) — à rendre le ${new Date(e.due_date).toLocaleDateString("fr-FR")}`
+            )
+            .join("\n")
+        }
+        return ""
+      } catch (err) {
+        logger.error({ err }, "Failed to fetch upcoming echeances")
+        return ""
+      }
+    })(),
+  ])
+
+  daysSinceLastRevision = daysSinceLastRevisionResult
+  coefficientTable = coefficientTableResult
+  ressentBySubject = ressentBySubjectResult
+  dureeReelleBySubject = dureeReelleBySubjectResult
+  weeklyStats = weeklyStatsResult
+  upcomingEcheancesStr = upcomingEcheancesResult
 
   const enrichedOnboarding = {
     ...(onboardingData as Record<string, unknown> | null),

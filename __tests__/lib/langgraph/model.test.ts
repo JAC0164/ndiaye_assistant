@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 vi.mock("@/src/lib/langgraph/providers", () => ({
-  getModelConfigForAgent: vi.fn(),
+  getModelConfigForAgent: vi.fn(() => ({ provider: "gemini", model: "test-model", temperature: 0 })),
 }))
 
 vi.mock("@/src/lib/langgraph/providers/factory", () => ({
@@ -14,7 +14,7 @@ vi.mock("@/src/lib/logger", () => ({
   },
 }))
 
-import { getModel, createTokenLogger } from "@/src/lib/langgraph/model"
+import { getModel, createTokenLogger, resetModelCache } from "@/src/lib/langgraph/model"
 import { logger } from "@/src/lib/logger"
 import { getModelConfigForAgent } from "@/src/lib/langgraph/providers"
 import { createModel } from "@/src/lib/langgraph/providers/factory"
@@ -22,6 +22,7 @@ import { createModel } from "@/src/lib/langgraph/providers/factory"
 describe("getModel", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetModelCache()
   })
 
   it("uses default agent 'planner' when called without arguments", () => {
@@ -52,6 +53,15 @@ describe("getModel", () => {
     vi.mocked(getModelConfigForAgent).mockReturnValue(mockConfig)
     getModel("planner")
     expect(createModel).toHaveBeenCalledWith(mockConfig)
+  })
+
+  it("returns cached model instance on second call with same args", () => {
+    const mockModel = { _isMock: true }
+    vi.mocked(createModel).mockReturnValue(mockModel as any)
+    const first = getModel("planner")
+    const second = getModel("planner")
+    expect(second).toBe(first)
+    expect(createModel).toHaveBeenCalledTimes(1)
   })
 })
 

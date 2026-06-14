@@ -190,10 +190,17 @@ export class HistoriqueService extends BaseService<Historique> {
    * Used by computePriority() for urgency scoring.
    */
   async getDaysSinceLastRevisionBySubject(userId: string): Promise<Map<string, number>> {
+    const ninetyDaysAgo = new Date()
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+    const cutoff = ninetyDaysAgo.toISOString()
+
     const { data, error } = await this.supabase
       .from(this.tableName)
       .select("subject, completed_at")
       .eq("user_id", userId)
+      .eq("completed", true)
+      .gte("completed_at", cutoff)
+      .order("completed_at", { ascending: false })
 
     if (error) {
       throw new Error(`Erreur lors de la récupération de l'historique par matière: ${error.message}`)

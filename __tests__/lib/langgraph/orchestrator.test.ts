@@ -190,7 +190,7 @@ describe("runPlanningWorkflow", () => {
 
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
 
-    expect(mockGetCachedAnalysis).toHaveBeenCalledWith("user-1")
+    expect(mockGetCachedAnalysis).toHaveBeenCalledWith("user-1", expect.objectContaining({ id: "user-1" }))
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
         extractedTimetable: mockTimetable,
@@ -296,6 +296,15 @@ describe("runPlanningWorkflow", () => {
 
   it("handles feedback data fetch errors gracefully (does not propagate)", async () => {
     mockGetRessentBySubject.mockRejectedValue(new Error("Feedback error"))
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error) }),
+      "Failed to fetch feedback data"
+    )
+  })
+
+  it("handles dureeReelleBySubject fetch errors gracefully", async () => {
+    mockGetDureeReelleBySubject.mockRejectedValue(new Error("Duration error"))
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ err: expect.any(Error) }),

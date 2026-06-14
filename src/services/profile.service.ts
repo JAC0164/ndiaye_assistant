@@ -57,11 +57,11 @@ export class ProfileService extends BaseService<Profile> {
     return data as Profile
   }
 
-  async getCachedAnalysis(userId: string): Promise<CachedAnalysis | null> {
-    const profile = await this.getByUserId(userId)
-    if (!profile?.metadata) return null
+  async getCachedAnalysis(userId: string, profile?: Profile): Promise<CachedAnalysis | null> {
+    const p = profile ?? (await this.getByUserId(userId))
+    if (!p?.metadata) return null
 
-    const meta = profile.metadata as ProfileMetadata
+    const meta = p.metadata as ProfileMetadata
 
     const timetable = meta.cachedExtractedTimetable
     const profileCtx = meta.cachedProfileContext
