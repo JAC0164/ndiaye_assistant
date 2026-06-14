@@ -39,7 +39,7 @@ export async function plannerAgent(
         `- ONLY schedule subjects from the allowlist below. Do NOT invent or add any subject.`,
         `- The following subjects are excluded from revision scheduling and must NEVER appear in the output under any circumstances: ${PLANNING_CONFIG.subjectExclusionList.join(", ")}. Do not schedule them as review, td, or any other session type.`,
         `- Respect the per-subject time budget (±15 min tolerance). Prioritize high-priority subjects.`,
-        `- Each session must be between ${PLANNING_CONFIG.minSessionMinutes} and ${PLANNING_CONFIG.maxSessionMinutes} minutes.`,
+        `- STRICT DURATION LIMIT: A single study session MUST NEVER exceed ${PLANNING_CONFIG.maxSessionMinutes} minutes. If you have a large free window (e.g., 2 hours), you MUST slice it into multiple smaller sessions of 30-35 minutes, separated by explicit "Pause" sessions of ${PLANNING_CONFIG.betweenSessionBreakMinutes} minutes. NEVER generate a session that lasts 1 hour or more.`,
         `- Insert a ${PLANNING_CONFIG.betweenSessionBreakMinutes}-min break between consecutive study sessions.`,
         `- For breaks, set session_type to "break" and subject to "Pause".`,
         `- COGNITIVE RULE (Interleaving): Never schedule the exact same subject in consecutive slots. Force cognitive switching (e.g., Math -> Break -> English -> Break -> Math is allowed, but Math -> Break -> Math is FORBIDDEN).`,

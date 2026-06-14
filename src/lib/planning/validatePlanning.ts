@@ -1,6 +1,6 @@
 import { GeneratedSeance } from "@/src/lib/langgraph/state"
 import { BlockedSlot, ValidationError, ValidationResult } from "@/src/types/planning.types"
-import { parseTime } from "./buildFreeSlots"
+import { parseTime, formatTime } from "./buildFreeSlots"
 import { PLANNING_CONFIG } from "./planningConfig"
 
 /**
@@ -22,7 +22,58 @@ export function validatePlanning(
   const bedtimeMin = parseTime(bedtime)
   const normalizedAllowed = allowedSubjects.map((s) => s.toLowerCase().trim())
 
+  // Step 0: session_duration_cap — slice oversized sessions
+  const preprocessed: GeneratedSeance[] = []
   for (const session of planning) {
+    const startMin = parseTime(session.start_time)
+    const endMin = parseTime(session.end_time)
+    const duration = endMin - startMin
+
+    if (duration > PLANNING_CONFIG.maxSessionMinutes && session.session_type !== "break") {
+      errors.push({
+        check: "session_duration_cap",
+        severity: "error",
+        message: `La session de ${session.subject} le ${session.day_of_week} dépassait ${PLANNING_CONFIG.maxSessionMinutes} min (${duration} min). Elle a été découpée.`,
+        session,
+      })
+      wasRepaired = true
+
+      // Slice into 35-min study blocks separated by 10-min pauses
+      let cursor = startMin
+      while (cursor < endMin) {
+        const remaining = endMin - cursor
+        if (remaining < PLANNING_CONFIG.minSessionMinutes) break // drop fragments < 25 min
+
+        const blockDuration = Math.min(35, remaining)
+        preprocessed.push({
+          ...session,
+          start_time: formatTime(cursor),
+          end_time: formatTime(cursor + blockDuration),
+        })
+        cursor += blockDuration
+
+        // Insert pause if there's enough time for another study block after it
+        const afterPause = cursor + PLANNING_CONFIG.betweenSessionBreakMinutes
+        if (afterPause < endMin && endMin - afterPause >= PLANNING_CONFIG.minSessionMinutes) {
+          preprocessed.push({
+            day_of_week: session.day_of_week,
+            start_time: formatTime(cursor),
+            end_time: formatTime(afterPause),
+            subject: "Pause",
+            session_type: "break",
+            pedagogical_note: "Fais une pause pour te détendre.",
+          })
+          cursor = afterPause
+        } else {
+          break // not enough room for pause + study block
+        }
+      }
+    } else {
+      preprocessed.push(session)
+    }
+  }
+
+  for (const session of preprocessed) {
     let keepSession = true
     const sessionCopy = { ...session }
 

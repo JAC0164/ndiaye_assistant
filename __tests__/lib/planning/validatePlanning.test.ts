@@ -185,4 +185,69 @@ describe("validatePlanning", () => {
     expect(result.wasRepaired).toBe(true)
     expect(result.warnings.some((w) => w.check === "empty_pedagogical_note")).toBe(true)
   })
+
+  it("slices a 100-minute session into 35-min study blocks with pauses", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "tuesday",
+        start_time: "20:20",
+        end_time: "22:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Schématise le chapitre.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["FR"], "22:00", [])
+
+    // 100 min → block 35 + pause 10 + block 35 = 80 min used, remaining 20 min < 25 → dropped
+    const studySessions = result.validatedPlanning.filter((s) => s.session_type !== "break")
+    const pauses = result.validatedPlanning.filter((s) => s.session_type === "break")
+    expect(studySessions).toHaveLength(2)
+    expect(pauses).toHaveLength(1)
+    expect(studySessions[0].start_time).toBe("20:20")
+    expect(studySessions[0].end_time).toBe("20:55")
+    expect(pauses[0].start_time).toBe("20:55")
+    expect(pauses[0].end_time).toBe("21:05")
+    expect(studySessions[1].start_time).toBe("21:05")
+    expect(studySessions[1].end_time).toBe("21:40")
+    // Each study block inherits the original note and subject
+    expect(studySessions[0].subject).toBe("FR")
+    expect(studySessions[0].pedagogical_note).toBe("Schématise le chapitre.")
+    expect(result.wasRepaired).toBe(true)
+    expect(result.errors.some((e) => e.check === "session_duration_cap")).toBe(true)
+  })
+
+  it("does not slice a session at exactly maxSessionMinutes (45 min)", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "18:45",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "test",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.validatedPlanning).toHaveLength(1)
+    expect(result.validatedPlanning[0].start_time).toBe("18:00")
+    expect(result.validatedPlanning[0].end_time).toBe("18:45")
+    expect(result.errors.some((e) => e.check === "session_duration_cap")).toBe(false)
+  })
+
+  it("does not slice a break session even if it exceeds maxSessionMinutes", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "12:00",
+        end_time: "14:00",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "Déjeuner",
+      },
+    ]
+    const result = validatePlanning(sessions, [], "22:00", [])
+    expect(result.validatedPlanning).toHaveLength(1)
+    expect(result.validatedPlanning[0].end_time).toBe("14:00")
+  })
 })
