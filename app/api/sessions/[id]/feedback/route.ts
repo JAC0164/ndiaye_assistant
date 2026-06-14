@@ -121,7 +121,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                     pedagogicalNote: historiqueRow.pedagogical_note || "",
                     targetSlot: nextSlot,
                   })
+
+                  return NextResponse.json({
+                    ok: true,
+                    rescheduled: true,
+                    message: `Séance repoussée à ${nextSlot.day} ${nextSlot.start}`,
+                  })
                 }
+
+                return NextResponse.json({
+                  ok: true,
+                  rescheduled: false,
+                  message: "Ton planning est trop chargé pour replacer cette séance cette semaine.",
+                })
               } catch (parseErr) {
                 logger.error({ err: parseErr }, "Failed to parse cached timetable for reschedule")
               }
