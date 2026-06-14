@@ -153,9 +153,11 @@ describe("plannerAgent", () => {
     await plannerAgent(baseState)
     const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
-    expect(systemMessage).toContain("Planner Agent")
+    expect(systemMessage).toContain("mentor")
     expect(systemMessage).toContain("allowlist")
     expect(systemMessage).toContain("same-day consolidation")
-    expect(systemMessage).toContain("Cognitive alternation")
+    expect(systemMessage).toContain("COGNITIVE RULE (Interleaving)")
+    expect(systemMessage).toContain("WEEKEND RULE (Eat the Frog)")
+    expect(systemMessage).toContain("Active Recall")
   })
 })

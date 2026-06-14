@@ -3,7 +3,7 @@ import { PerformanceLevel, PLANNING_CONFIG } from "./planningConfig"
 
 /**
  * Compute dynamic priority scores for subject ordering.
- * Formula: Score(S) = C_S * (1 + α / (D_S + 1)) * M_S
+ * Formula: Score(S) = C_S * (1 + α / (D_S + 1)) * M_S * ebbinghausMultiplier
  */
 export function computePriority(
   subjects: SubjectInfo[],
@@ -34,8 +34,18 @@ export function computePriority(
             performanceLevels.has(subject.name) ? performanceLevels.get(subject.name)! : "neutral"
           ] ?? 1.0)
 
-    // Score(S) = C_S * (1 + α / (D_S + 1)) * M_S
-    const score = c_s * (1 + alpha / (d_s + 1)) * m_s
+    // Ebbinghaus spaced repetition multiplier
+    let ebbinghausMultiplier = 1.0
+    if (d_s === 0) {
+      ebbinghausMultiplier = 1.5
+    } else if (d_s === 2 || d_s === 3) {
+      ebbinghausMultiplier = 1.3
+    } else if (d_s === 6 || d_s === 7) {
+      ebbinghausMultiplier = 1.4
+    }
+
+    // Score(S) = C_S * (1 + α / (D_S + 1)) * M_S * ebbinghausMultiplier
+    const score = c_s * (1 + alpha / (d_s + 1)) * m_s * ebbinghausMultiplier
 
     // Round to 2 decimal places
     const roundedScore = Math.round(score * 100) / 100
