@@ -114,7 +114,7 @@ describe("RescheduleService", () => {
       expect(result!.day).toBe("tuesday")
     })
 
-    it("uses fallback day index 0 when dayOfWeek is unknown", async () => {
+    it("falls back to dégradée pass for unknown dayOfWeek with far slot", async () => {
       const freeSlots: FreeSlot[] = [{ day: "sunday", start: "14:00", end: "15:00", durationMinutes: 60 }]
       vi.mocked(buildFreeSlots).mockReturnValue(freeSlots)
       mock.setResult([])
@@ -123,7 +123,7 @@ describe("RescheduleService", () => {
         userId: "user-1",
         missedSession: {
           ...missedSession,
-          dayOfWeek: "funday", // not in dayOrder map → falls back to 0
+          dayOfWeek: "funday",
           endTime: "10:00",
         },
         timetable: mockTimetable,
@@ -131,10 +131,10 @@ describe("RescheduleService", () => {
         blockedSlots: mockBlockedSlots,
       })
 
-      // funday → index 0, so sessionDayIndex = 0
-      // maxDayIndex = 0 + 2 = 2
-      // sunday → index 6, 6 > 2 → filtered out
-      expect(result).toBeNull()
+      // funday → index 0, pass 1 max = 2, pass 2 max = 6
+      // sunday (6) passe la passe 2
+      expect(result).not.toBeNull()
+      expect(result!.day).toBe("sunday")
     })
 
     it("filters out slots earlier in the week than the missed session day", async () => {
@@ -154,7 +154,7 @@ describe("RescheduleService", () => {
       expect(result).toBeNull()
     })
 
-    it("filters out slots beyond the 48h window", async () => {
+    it("falls back to dégradée pass for slots outside 48h but within the week", async () => {
       const freeSlots: FreeSlot[] = [{ day: "friday", start: "08:00", end: "09:00", durationMinutes: 60 }]
       vi.mocked(buildFreeSlots).mockReturnValue(freeSlots)
       mock.setResult([])
@@ -167,8 +167,9 @@ describe("RescheduleService", () => {
         blockedSlots: mockBlockedSlots,
       })
 
-      // tuesday = 1, max = 3, friday = 4 > 3 → filtered out
-      expect(result).toBeNull()
+      // tuesday=1, pass1 max=3 → friday(4) rejeté; pass2 max=6 → friday(4) trouvé
+      expect(result).not.toBeNull()
+      expect(result!.day).toBe("friday")
     })
 
     it("filters out slots that are too short", async () => {
@@ -270,6 +271,40 @@ describe("RescheduleService", () => {
       // 20:00 is after both existing sessions → no overlap → should pass
       expect(result).not.toBeNull()
       expect(result!.start).toBe("20:00")
+    })
+
+    it("returns null when slot is before missed session day even with fallback", async () => {
+      const freeSlots: FreeSlot[] = [{ day: "monday", start: "08:00", end: "09:00", durationMinutes: 60 }]
+      vi.mocked(buildFreeSlots).mockReturnValue(freeSlots)
+      mock.setResult([])
+
+      const result = await RescheduleService.findNextSlot(mock.supabase, {
+        userId: "user-1",
+        missedSession: { ...missedSession, dayOfWeek: "wednesday", endTime: "10:00" },
+        timetable: mockTimetable,
+        bedtime: "22:00",
+        blockedSlots: mockBlockedSlots,
+      })
+
+      // monday (0) < wednesday (2), les 2 passes rejettent
+      expect(result).toBeNull()
+    })
+
+    it("does not find 15min slot even in fallback pass", async () => {
+      const freeSlots: FreeSlot[] = [{ day: "monday", start: "14:00", end: "14:15", durationMinutes: 15 }]
+      vi.mocked(buildFreeSlots).mockReturnValue(freeSlots)
+      mock.setResult([])
+
+      const result = await RescheduleService.findNextSlot(mock.supabase, {
+        userId: "user-1",
+        missedSession: { ...missedSession, endTime: "10:00" },
+        timetable: mockTimetable,
+        bedtime: "22:00",
+        blockedSlots: mockBlockedSlots,
+      })
+
+      // pass1 min 25, pass2 min 20, 15 < 20 → toujours rejeté
+      expect(result).toBeNull()
     })
   })
 

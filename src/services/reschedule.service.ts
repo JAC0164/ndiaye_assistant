@@ -38,8 +38,6 @@ export class RescheduleService {
     }
     const sessionDayIndex = dayOrder[missedSession.dayOfWeek] ?? 0
     const sessionEndMinutes = parseTime(missedSession.endTime)
-    const sessionDuration = 25 // default 25 min minimum
-
     // Fetch all sessions scheduled for this user (weekly template)
     const { data: existingSessions } = await supabase
       .from("sessions")
@@ -63,40 +61,35 @@ export class RescheduleService {
     // Compute all free slots from the timetable
     const allFreeSlots = buildFreeSlots(timetable, bedtime, blockedSlots)
 
-    // Filter to relevant slots: within 48h of missed session, after its end time, long enough
-    const afterTime = sessionEndMinutes
-    const maxDayIndex = sessionDayIndex + 2 // 48h window
+    const passes = [
+      { maxDayIndex: sessionDayIndex + 2, minDuration: 25 },
+      { maxDayIndex: 6, minDuration: 20 },
+    ]
 
-    const candidateSlots = allFreeSlots.filter((slot) => {
-      const slotDayIndex = dayOrder[slot.day] ?? 0
-      const slotStartMinutes = parseTime(slot.start)
+    for (const pass of passes) {
+      const candidates = allFreeSlots.filter((slot) => {
+        const slotDayIndex = dayOrder[slot.day] ?? 0
+        const slotStartMinutes = parseTime(slot.start)
 
-      // Must be within 48h window from the missed session day
-      if (slotDayIndex < sessionDayIndex || slotDayIndex > maxDayIndex) return false
+        if (slotDayIndex < sessionDayIndex || slotDayIndex > pass.maxDayIndex) return false
 
-      // On the same day, must be after the missed session's end time (or now)
-      if (slotDayIndex === sessionDayIndex && slotStartMinutes <= afterTime) return false
+        if (slotDayIndex === sessionDayIndex && slotStartMinutes <= sessionEndMinutes) return false
 
-      // Must be long enough for the session
-      if (slot.durationMinutes < sessionDuration) return false
+        if (slot.durationMinutes < pass.minDuration) return false
 
-      // Must not overlap existing sessions on that day
-      const dayExisting = existingByDay.get(slot.day) || []
-      const slotEndMinutes = parseTime(slot.end)
-      for (const existing of dayExisting) {
-        if (slotStartMinutes < existing.end && slotEndMinutes > existing.start) {
-          return false
+        const dayExisting = existingByDay.get(slot.day) || []
+        const slotEndMinutes = parseTime(slot.end)
+        for (const existing of dayExisting) {
+          if (slotStartMinutes < existing.end && slotEndMinutes > existing.start) {
+            return false
+          }
         }
-      }
 
-      return true
-    })
-
-    if (candidateSlots.length === 0) return null
-
-    // Return the earliest available slot
-    const bestSlot = candidateSlots[0]
-    return bestSlot
+        return true
+      })
+      if (candidates.length > 0) return candidates[0]
+    }
+    return null
   }
 
   static async createRescheduledRow(

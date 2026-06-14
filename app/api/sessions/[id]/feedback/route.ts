@@ -122,17 +122,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                     targetSlot: nextSlot,
                   })
 
+                  const FRENCH_DAYS: Record<string, string> = {
+                    monday: "Lundi",
+                    tuesday: "Mardi",
+                    wednesday: "Mercredi",
+                    thursday: "Jeudi",
+                    friday: "Vendredi",
+                    saturday: "Samedi",
+                    sunday: "Dimanche",
+                  }
+                  const dayFr = FRENCH_DAYS[nextSlot.day] ?? nextSlot.day
+
                   return NextResponse.json({
                     ok: true,
                     rescheduled: true,
-                    message: `Séance repoussée à ${nextSlot.day} ${nextSlot.start}`,
+                    message: `Séance repoussée au ${dayFr} à ${nextSlot.start}`,
                   })
                 }
 
                 return NextResponse.json({
                   ok: true,
                   rescheduled: false,
-                  message: "Ton planning est trop chargé pour replacer cette séance cette semaine.",
+                  message:
+                    "Planning trop chargé pour replacer cette séance cette semaine. Elle sera priorisée la semaine prochaine.",
                 })
               } catch (parseErr) {
                 logger.error({ err: parseErr }, "Failed to parse cached timetable for reschedule")

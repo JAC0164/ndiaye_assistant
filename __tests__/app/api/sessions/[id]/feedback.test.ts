@@ -640,6 +640,62 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
       expect(RescheduleService.findNextSlot).toHaveBeenCalled()
     })
 
+    it("handles unknown day name in rescheduled slot (FRENCH_DAYS fallback)", async () => {
+      const { RescheduleService } = await import("@/src/services/reschedule.service")
+
+      shared.supabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: userId } },
+        error: null,
+      })
+      mockSaveFeedback.mockResolvedValue(undefined)
+
+      const historiqeBuilder = shared.getBuilderForTable("historique")
+      historiqeBuilder.resolveWith({
+        data: {
+          id: "hist-1",
+          session_id: "sess-1",
+          subject: "MATH",
+          session_type: "td",
+          pedagogical_note: "",
+          completed_at: "2026-06-13T10:00:00Z",
+        },
+        error: null,
+      })
+
+      const sessionsBuilder = shared.getBuilderForTable("sessions")
+      sessionsBuilder.resolveWith({
+        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
+        error: null,
+      })
+
+      mockGetByUserId.mockResolvedValue({
+        id: userId,
+        metadata: {
+          cachedExtractedTimetable: JSON.stringify({
+            filiere: "Terminale S1",
+            days: [{ day: "monday", slots: [] }],
+          }),
+          bedtime: "22:00",
+          blockedSlots: [],
+        },
+      })
+
+      vi.mocked(RescheduleService.findNextSlot).mockResolvedValue({
+        day: "funday",
+        start: "16:00",
+        end: "16:45",
+        durationMinutes: 45,
+      })
+
+      const request = createMockRequest("PATCH", { body: { completed: false } })
+      const response = await PATCH(request, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.rescheduled).toBe(true)
+      expect(data.message).toContain("funday")
+    })
+
     it("handles errors in the overall try-catch gracefully", async () => {
       shared.supabase.auth.getUser.mockResolvedValue({
         data: { user: { id: userId } },
