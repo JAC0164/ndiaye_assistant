@@ -42,8 +42,6 @@ export function validatePlanning(
       let cursor = startMin
       while (cursor < endMin) {
         const remaining = endMin - cursor
-        if (remaining < PLANNING_CONFIG.minSessionMinutes) break // drop fragments < 25 min
-
         const blockDuration = Math.min(35, remaining)
         preprocessed.push({
           ...session,
