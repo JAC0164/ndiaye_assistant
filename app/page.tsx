@@ -1,30 +1,15 @@
-import Link from "next/link"
-
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">Ndiaye</h1>
-        <p className="mt-2 text-zinc-500">Assistant de planning scolaire — Test API</p>
+    <div className="flex h-screen w-screen items-center justify-center bg-zinc-950">
+      <div className="flex flex-col items-center gap-6">
+        <div className="flex items-center gap-3">
+          <span className="text-4xl">🤖</span>
+          <h1 className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-4xl font-extrabold text-transparent">
+            Ndiaye
+          </h1>
+        </div>
+        <p className="text-zinc-500 text-sm">Assistant pédagogique intelligent</p>
       </div>
-      <div className="flex gap-4">
-        <Link
-          href="/auth"
-          className="rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700"
-        >
-          Connexion
-        </Link>
-        <Link
-          href="/planning"
-          className="rounded-lg border border-zinc-300 px-6 py-2.5 text-sm font-medium transition hover:bg-zinc-100"
-        >
-          Planning
-        </Link>
-      </div>
-      <p className="max-w-md text-center text-xs text-zinc-400">
-        Connecte-toi pour uploader un emploi du temps, générer un planning de révisions intelligent avec l&apos;IA
-        Ndiaye, et visualiser tes séances.
-      </p>
     </div>
   )
 }
