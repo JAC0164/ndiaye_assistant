@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
       onboardingData: null,
       extractedTimetableMarkdown: "",
       studentProfileContext: "",
-      subjectCoefficients: "",
       weeklyStats: "",
       upcomingEcheances: "",
       extractedTimetable: null,
@@ -43,19 +42,21 @@ export async function POST(request: NextRequest) {
       validationErrorMessage: undefined,
       generatedPlanning: [],
       planningValidation: null,
+      ressentBySubject: {},
+      dureeReelleBySubject: {},
     })
 
     const profileService = new ProfileService(supabase)
     await profileService.saveVisionCache(
       user.id,
-      result.extractedTimetableMarkdown ?? "",
-      result.isValidTimetable ?? true
+      (result.extractedTimetableMarkdown as string) ?? "",
+      (result.isValidTimetable as boolean) ?? true
     )
 
     return NextResponse.json({
-      extractedTimetableMarkdown: result.extractedTimetableMarkdown,
-      isValidTimetable: result.isValidTimetable,
-      validationErrorMessage: result.validationErrorMessage,
+      extractedTimetableMarkdown: result.extractedTimetableMarkdown as string,
+      isValidTimetable: result.isValidTimetable as boolean,
+      validationErrorMessage: result.validationErrorMessage as string | undefined,
     })
   } catch (err) {
     logger.error({ err }, "Vision agent error")

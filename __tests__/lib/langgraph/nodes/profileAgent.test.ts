@@ -39,7 +39,6 @@ const baseState: PlanningGraphAnnotationState = {
   onboardingData: { weakSubjects: ["Maths"], blockedSlots: [], bedtime: "22:00" },
   extractedTimetableMarkdown: "",
   studentProfileContext: "",
-  subjectCoefficients: "",
   weeklyStats: "",
   isValidTimetable: true,
   generatedPlanning: [],

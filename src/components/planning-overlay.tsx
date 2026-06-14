@@ -20,6 +20,7 @@ export default function PlanningOverlay() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [elementStart, setElementStart] = useState({ x: 0, y: 0 })
 
+  const containerRef = useRef<HTMLDivElement>(null)
   const sessionServiceRef = useRef<SessionService | null>(null)
   const supabase = useRef(createClient()).current
 

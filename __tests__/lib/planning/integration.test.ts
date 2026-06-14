@@ -124,7 +124,6 @@ describe("Study Planner Redesign Integration Test (L2 reference case)", () => {
       extractedTimetable: TEST_TIMETABLE,
       extractedTimetableMarkdown: "",
       studentProfileContext: "",
-      subjectCoefficients: "",
       weeklyStats: "",
       upcomingEcheances: "",
       isValidTimetable: true,

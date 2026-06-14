@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
       onboardingData,
       extractedTimetableMarkdown: "",
       studentProfileContext: "",
-      subjectCoefficients: "",
       weeklyStats: "",
       upcomingEcheances: "",
       extractedTimetable: null,
@@ -36,13 +35,15 @@ export async function POST(request: NextRequest) {
       validationErrorMessage: undefined,
       generatedPlanning: [],
       planningValidation: null,
+      ressentBySubject: {},
+      dureeReelleBySubject: {},
     })
 
     const profileService = new ProfileService(supabase)
-    await profileService.saveProfileCache(user.id, result.studentProfileContext ?? "")
+    await profileService.saveProfileCache(user.id, (result.studentProfileContext as string) ?? "")
 
     return NextResponse.json({
-      studentProfileContext: result.studentProfileContext,
+      studentProfileContext: result.studentProfileContext as string,
     })
   } catch (err) {
     logger.error({ err }, "Profile agent error")

@@ -56,7 +56,6 @@ const baseState: PlanningGraphAnnotationState = {
   onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
   extractedTimetableMarkdown: "LUNDI:\n- 08:00-09:30: Maths\n- 09:40-11:10: PC",
   studentProfileContext: "- Weak in Maths",
-  subjectCoefficients: "Maths (coeff 5), PC (coeff 4)",
   weeklyStats: "Total: 120 min (2 sessions)",
   isValidTimetable: true,
   upcomingEcheances: "",

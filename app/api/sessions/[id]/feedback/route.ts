@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import type { ExtractedTimetable } from "@/src/types/planning.types"
 import { withAuth } from "@/src/lib/api-middleware"
 import { HistoriqueService } from "@/src/services/historique.service"
 import { SessionService } from "@/src/services/session.service"
@@ -7,6 +8,7 @@ import { ProfileService } from "@/src/services/profile.service"
 import { RescheduleService } from "@/src/services/reschedule.service"
 import { FULL_DAY_LABELS } from "@/src/lib/planning/constants"
 import { logger } from "@/src/lib/logger"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 export const runtime = "nodejs"
 
@@ -17,7 +19,7 @@ const feedbackSchema = z.object({
 })
 
 async function handleReschedule(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   userId: string,
   historiqueId: string
 ): Promise<NextResponse | null> {
@@ -62,11 +64,11 @@ async function handleReschedule(
       sessionId: historiqueRow.session_id,
       subject: historiqueRow.subject ?? "",
       sessionType: historiqueRow.session_type,
-      pedagogicalNote: historiqueRow.pedagogical_note ?? "",
+      pedagogicalNote: sessionRow.pedagogical_note ?? "",
       dayOfWeek: sessionRow.day_of_week,
       endTime: sessionRow.end_time,
     },
-    timetable,
+    timetable: timetable as ExtractedTimetable,
     bedtime,
     blockedSlots: blockedSlots.map((b) => ({
       id: b.id,
@@ -91,7 +93,7 @@ async function handleReschedule(
     originalHistoriqueId: historiqueRow.id,
     subject: historiqueRow.subject ?? "",
     sessionType: historiqueRow.session_type,
-    pedagogicalNote: historiqueRow.pedagogical_note ?? "",
+    pedagogicalNote: sessionRow.pedagogical_note ?? "",
     targetSlot: nextSlot,
   })
 
