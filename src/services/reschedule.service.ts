@@ -1,13 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 import { ExtractedTimetable, BlockedSlot, FreeSlot } from "@/src/types/planning.types"
 import { buildFreeSlots, parseTime } from "../lib/planning/buildFreeSlots"
+import { DAY_ORDER } from "../lib/planning/constants"
 import { logger } from "@/src/lib/logger"
 
 export interface RescheduleSessionInfo {
   id: string
   sessionId: string | null
   subject: string
-  sessionType: string
+  sessionType: "td" | "review" | "break"
   pedagogicalNote: string
   dayOfWeek: string
   endTime: string
@@ -26,17 +27,7 @@ export class RescheduleService {
   ): Promise<FreeSlot | null> {
     const { userId, missedSession, timetable, bedtime, blockedSlots } = params
 
-    // Convert dayOfWeek + endTime to a reference point in minutes since Sunday
-    const dayOrder: Record<string, number> = {
-      monday: 0,
-      tuesday: 1,
-      wednesday: 2,
-      thursday: 3,
-      friday: 4,
-      saturday: 5,
-      sunday: 6,
-    }
-    const sessionDayIndex = dayOrder[missedSession.dayOfWeek] ?? 0
+    const sessionDayIndex = DAY_ORDER[missedSession.dayOfWeek] ?? 0
     const sessionEndMinutes = parseTime(missedSession.endTime)
     // Fetch all sessions scheduled for this user (weekly template)
     const { data: existingSessions } = await supabase
@@ -68,7 +59,7 @@ export class RescheduleService {
 
     for (const pass of passes) {
       const candidates = allFreeSlots.filter((slot) => {
-        const slotDayIndex = dayOrder[slot.day] ?? 0
+        const slotDayIndex = DAY_ORDER[slot.day] ?? 0
         const slotStartMinutes = parseTime(slot.start)
 
         if (slotDayIndex < sessionDayIndex || slotDayIndex > pass.maxDayIndex) return false
@@ -98,7 +89,7 @@ export class RescheduleService {
       userId: string
       originalHistoriqueId: string
       subject: string
-      sessionType: string
+      sessionType: "td" | "review" | "break"
       pedagogicalNote: string
       targetSlot: FreeSlot
     }
@@ -108,8 +99,7 @@ export class RescheduleService {
     const { error } = await supabase.from("historique").insert({
       user_id: userId,
       subject,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      session_type: sessionType as any,
+      session_type: sessionType as "td" | "review" | "break",
       pedagogical_note: pedagogicalNote,
       completed: null,
       rescheduled_from: originalHistoriqueId,

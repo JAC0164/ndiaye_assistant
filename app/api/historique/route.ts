@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createClient } from "@/src/lib/supabase/server"
-import { checkRateLimit } from "@/src/lib/rate-limit"
+import { withAuth } from "@/src/lib/api-middleware"
 import { HistoriqueService } from "@/src/services/historique.service"
 import { logger } from "@/src/lib/logger"
 
@@ -17,19 +16,9 @@ const logSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   try {
     const service = new HistoriqueService(supabase)
@@ -42,19 +31,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   let body: unknown
   try {

@@ -1,5 +1,9 @@
 export const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
 
+export const SUNDAY_FIRST_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const
+
+export type DayOfWeek = (typeof DAYS)[number]
+
 export const DAY_LABELS: Record<string, string> = {
   monday: "Lun",
   tuesday: "Mar",
@@ -18,6 +22,26 @@ export const FULL_DAY_LABELS: Record<string, string> = {
   friday: "Vendredi",
   saturday: "Samedi",
   sunday: "Dimanche",
+}
+
+export const ENGLISH_DAYS: Record<string, string> = {
+  dimanche: "sunday",
+  lundi: "monday",
+  mardi: "tuesday",
+  mercredi: "wednesday",
+  jeudi: "thursday",
+  vendredi: "friday",
+  samedi: "saturday",
+}
+
+export const DAY_ORDER: Record<string, number> = {
+  monday: 0,
+  tuesday: 1,
+  wednesday: 2,
+  thursday: 3,
+  friday: 4,
+  saturday: 5,
+  sunday: 6,
 }
 
 export const BEDTIME_OPTIONS = ["20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"]

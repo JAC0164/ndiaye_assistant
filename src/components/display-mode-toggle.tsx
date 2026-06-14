@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useDisplayMode } from "@/src/components/providers/DisplayModeProvider"
+import { useDisplayMode } from "@/src/components/providers/display-mode-provider"
 
 export default function DisplayModeToggle() {
   const { mode, toggleDisplayMode } = useDisplayMode()

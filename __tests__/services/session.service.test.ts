@@ -117,67 +117,6 @@ describe("SessionService", () => {
     })
   })
 
-  describe("createMany", () => {
-    const newSessions: GeneratedSeance[] = [
-      {
-        day_of_week: "monday",
-        start_time: "08:00",
-        end_time: "09:00",
-        subject: "Maths",
-        session_type: "td",
-        pedagogical_note: "Focus on algebra",
-      },
-      {
-        day_of_week: "tuesday",
-        start_time: "10:00",
-        end_time: "11:00",
-        subject: "Physics",
-        session_type: "td",
-        pedagogical_note: "Exercises",
-      },
-    ]
-
-    const createdSeances: Seance[] = newSessions.map((s, i) => ({
-      ...s,
-      id: `new-${i}`,
-      user_id: "user-1",
-      created_at: "2024-01-01T00:00:00Z",
-      updated_at: "2024-01-01T00:00:00Z",
-    }))
-
-    it("should insert multiple sessions with user_id attached", async () => {
-      mock.setResult(createdSeances)
-      const result = await service.createMany("user-1", newSessions)
-
-      expect(result).toEqual(createdSeances)
-      expect(mock.builder.insert).toHaveBeenCalledWith(newSessions.map((s) => ({ ...s, user_id: "user-1" })))
-      expect(mock.builder.select).toHaveBeenCalled()
-    })
-
-    it("should return empty array when sessions array is empty", async () => {
-      const result = await service.createMany("user-1", [])
-
-      expect(result).toEqual([])
-      expect(mock.supabase.from).not.toHaveBeenCalled()
-    })
-
-    it("should throw on database error", async () => {
-      mock.builder.then.mockImplementation((_resolve, reject) => {
-        reject(new Error("insert error"))
-      })
-      await expect(service.createMany("user-1", newSessions)).rejects.toThrow("insert error")
-    })
-
-    it("should throw with wrapped message when database returns error in response", async () => {
-      mock.builder.then.mockImplementation((resolve) => {
-        resolve({ data: null, error: new Error("batch insert error") })
-      })
-      await expect(service.createMany("user-1", newSessions)).rejects.toThrow(
-        "Erreur lors de la création des séances: batch insert error"
-      )
-    })
-  })
-
   describe("replaceAll", () => {
     const newSessions: GeneratedSeance[] = [
       {

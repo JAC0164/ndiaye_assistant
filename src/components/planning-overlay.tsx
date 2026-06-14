@@ -1,8 +1,11 @@
 "use client"
 
 import React, { useEffect, useState, useRef, useCallback } from "react"
-import { useDisplayMode } from "@/src/components/providers/DisplayModeProvider"
+import { useDisplayMode } from "@/src/components/providers/display-mode-provider"
+import { clientLogger } from "@/src/lib/client-logger"
 import { createClient } from "@/src/lib/supabase/client"
+import { SessionService } from "@/src/services/session.service"
+import { SUNDAY_FIRST_DAYS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
 import type { User } from "@supabase/supabase-js"
 import type { DbSession as Session } from "@/src/services/session.service"
 
@@ -17,28 +20,22 @@ export default function PlanningOverlay() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [elementStart, setElementStart] = useState({ x: 0, y: 0 })
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
+  const sessionServiceRef = useRef<SessionService | null>(null)
+  const supabase = useRef(createClient()).current
 
   const fetchTodaySessions = useCallback(
     async (userId: string) => {
       try {
         setLoading(true)
-        const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-        const todayEnglish = days[new Date().getDay()]
+        if (!sessionServiceRef.current) {
+          sessionServiceRef.current = new SessionService(supabase)
+        }
+        const todayEnglish = SUNDAY_FIRST_DAYS[new Date().getDay()]
 
-        const { data, error } = await supabase
-          .from("sessions")
-          .select("*")
-          .eq("user_id", userId)
-          .eq("day_of_week", todayEnglish)
-          .order("start_time", { ascending: true })
-
-        if (error) throw error
+        const data = await sessionServiceRef.current.getSessionsForDay(userId, todayEnglish)
         setSessions(data || [])
       } catch (err) {
-        console.error("Error fetching daily sessions for overlay:", err)
+        clientLogger.error("Erreur lors du chargement des séances du jour:", err)
       } finally {
         setLoading(false)
       }
@@ -46,7 +43,6 @@ export default function PlanningOverlay() {
     [supabase]
   )
 
-  // Track authentication state
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
@@ -70,8 +66,7 @@ export default function PlanningOverlay() {
     })
 
     return () => subscription.unsubscribe()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [supabase, fetchTodaySessions])
 
   // Refetch when planning page revalidates or saving is complete (simple custom event or short polling fallback)
   useEffect(() => {
@@ -135,10 +130,8 @@ export default function PlanningOverlay() {
     }
   }, [isDragging, dragStart, elementStart])
 
-  // Get current day name in French
   const getFrenchDay = () => {
-    const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
-    return days[new Date().getDay()]
+    return FULL_DAY_LABELS[SUNDAY_FIRST_DAYS[new Date().getDay()]] ?? ""
   }
 
   // Format time (HH:MM:SS -> HHhMM)

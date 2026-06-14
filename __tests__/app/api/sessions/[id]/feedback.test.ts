@@ -63,9 +63,17 @@ vi.mock("@/src/lib/rate-limit", () => ({
 }))
 
 const mockSaveFeedback = vi.fn()
+const mockHistoriqueGetById = vi.fn()
 vi.mock("@/src/services/historique.service", () => ({
   HistoriqueService: vi.fn(function () {
-    return { saveFeedback: mockSaveFeedback }
+    return { saveFeedback: mockSaveFeedback, getById: mockHistoriqueGetById }
+  }),
+}))
+
+const mockSessionGetById = vi.fn()
+vi.mock("@/src/services/session.service", () => ({
+  SessionService: vi.fn(function () {
+    return { getById: mockSessionGetById }
   }),
 }))
 
@@ -197,36 +205,46 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     expect(RescheduleService.findNextSlot).not.toHaveBeenCalled()
   })
 
+  type HistoriqueRow = {
+    id: string
+    session_id: string | null
+    subject: string
+    session_type: string
+    pedagogical_note: string | null
+    completed_at: string
+  }
+  type SessionRow = { day_of_week: string; start_time: string; end_time: string }
+
+  function setupRescheduleMocks(
+    historiqeRow: HistoriqueRow | null,
+    sessionRow: SessionRow | null,
+    profileResult: unknown
+  ) {
+    shared.supabase.auth.getUser.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    })
+    mockSaveFeedback.mockResolvedValue(undefined)
+    mockHistoriqueGetById.mockResolvedValue(historiqeRow)
+    mockSessionGetById.mockResolvedValue(sessionRow)
+    mockGetByUserId.mockResolvedValue(profileResult)
+  }
+
   describe("reschedule path (completed = false)", () => {
+    const defaultHistoriqueRow = {
+      id: "hist-1",
+      session_id: "sess-1",
+      subject: "MATH",
+      session_type: "td",
+      pedagogical_note: "" as string | null,
+      completed_at: "2026-06-13T10:00:00Z",
+    }
+    const defaultSessionRow = { day_of_week: "monday", start_time: "10:00", end_time: "12:00" }
+
     it("attempts reschedule with non-empty blockedSlots triggering the map callback", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: JSON.stringify({
@@ -256,35 +274,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("attempts reschedule when session has a session_id and timetable is cached", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      // Mock historiqe lookup result
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "Do exercises",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      // Mock sessions lookup result
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      // Mock profile with cached timetable
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks({ ...defaultHistoriqueRow, pedagogical_note: "Do exercises" }, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: JSON.stringify({
@@ -314,24 +304,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when historiqe row has no session_id", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: null,
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
+      setupRescheduleMocks({ ...defaultHistoriqueRow, session_id: null }, null, null)
 
       const request = createMockRequest("PATCH", { body: { completed: false } })
       const response = await PATCH(request, { params })
@@ -343,33 +316,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when profile has no cached timetable", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      // Profile with no cached timetable
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: { bedtime: "22:00", blockedSlots: [] },
       })
@@ -384,32 +331,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("handles JSON parse error in cached timetable gracefully", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: "{broken json}",
@@ -428,33 +350,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when sessionRow is not found", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      // Sessions lookup returns null
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: null,
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, null, {
         id: userId,
         metadata: { cachedExtractedTimetable: "{}", bedtime: "22:00", blockedSlots: [] },
       })
@@ -469,33 +365,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when profile has no metadata", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      // Profile with null metadata
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: null,
       })
@@ -510,32 +380,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when profile is not found", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue(null)
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, null)
 
       const request = createMockRequest("PATCH", { body: { completed: false } })
       const response = await PATCH(request, { params })
@@ -547,32 +392,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("skips reschedule when findNextSlot returns null", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: JSON.stringify({ filiere: "S1", days: [] }),
@@ -594,32 +414,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("uses default bedtime when metadata has no bedtime field", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: JSON.stringify({ filiere: "S1", days: [] }),
@@ -643,32 +438,7 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
     it("handles unknown day name in rescheduled slot (FRENCH_DAYS fallback)", async () => {
       const { RescheduleService } = await import("@/src/services/reschedule.service")
 
-      shared.supabase.auth.getUser.mockResolvedValue({
-        data: { user: { id: userId } },
-        error: null,
-      })
-      mockSaveFeedback.mockResolvedValue(undefined)
-
-      const historiqeBuilder = shared.getBuilderForTable("historique")
-      historiqeBuilder.resolveWith({
-        data: {
-          id: "hist-1",
-          session_id: "sess-1",
-          subject: "MATH",
-          session_type: "td",
-          pedagogical_note: "",
-          completed_at: "2026-06-13T10:00:00Z",
-        },
-        error: null,
-      })
-
-      const sessionsBuilder = shared.getBuilderForTable("sessions")
-      sessionsBuilder.resolveWith({
-        data: { day_of_week: "monday", start_time: "10:00", end_time: "12:00" },
-        error: null,
-      })
-
-      mockGetByUserId.mockResolvedValue({
+      setupRescheduleMocks(defaultHistoriqueRow, defaultSessionRow, {
         id: userId,
         metadata: {
           cachedExtractedTimetable: JSON.stringify({
@@ -694,6 +464,36 @@ describe("PATCH /api/sessions/[id]/feedback", () => {
       const data = await response.json()
       expect(data.rescheduled).toBe(true)
       expect(data.message).toContain("funday")
+    })
+
+    it("handles null subject and pedagogical_note in reschedule paths (?? fallback)", async () => {
+      const { RescheduleService } = await import("@/src/services/reschedule.service")
+
+      setupRescheduleMocks({ ...defaultHistoriqueRow, subject: null, pedagogical_note: null }, defaultSessionRow, {
+        id: userId,
+        metadata: {
+          cachedExtractedTimetable: JSON.stringify({
+            filiere: "Terminale S1",
+            days: [{ day: "monday", slots: [] }],
+          }),
+          bedtime: "22:00",
+          blockedSlots: [],
+        },
+      })
+
+      vi.mocked(RescheduleService.findNextSlot).mockResolvedValue({
+        day: "tuesday",
+        start: "16:00",
+        end: "16:45",
+        durationMinutes: 45,
+      })
+
+      const request = createMockRequest("PATCH", { body: { completed: false } })
+      const response = await PATCH(request, { params })
+
+      expect(response.status).toBe(200)
+      expect(RescheduleService.findNextSlot).toHaveBeenCalled()
+      expect(RescheduleService.createRescheduledRow).toHaveBeenCalled()
     })
 
     it("handles errors in the overall try-catch gracefully", async () => {

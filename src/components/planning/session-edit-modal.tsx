@@ -18,7 +18,7 @@ export default function SessionEditModal({ isOpen, session, onClose, onSave, onD
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-900 bg-zinc-955 bg-zinc-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-900 bg-zinc-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4">
           <h3 className="text-base font-bold uppercase tracking-wider text-white">Modifier la séance</h3>
           <button onClick={onClose} className="text-zinc-500 hover:text-white text-sm font-semibold cursor-pointer">
@@ -96,7 +96,7 @@ export default function SessionEditModal({ isOpen, session, onClose, onSave, onD
           <div className="flex items-center justify-between border-t border-zinc-900 pt-4 mt-3">
             <button
               onClick={onDelete}
-              className="rounded-lg bg-red-955 bg-red-950/40 border border-red-900/60 px-4 py-2.5 text-sm font-bold text-red-400 hover:bg-red-900/50 cursor-pointer"
+              className="rounded-lg bg-red-950/40 border border-red-900/60 px-4 py-2.5 text-sm font-bold text-red-400 hover:bg-red-900/50 cursor-pointer"
             >
               Supprimer
             </button>

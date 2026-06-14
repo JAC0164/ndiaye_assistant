@@ -23,7 +23,7 @@ export default function BlockedSlotBuilder({ onAdd }: BlockedSlotBuilderProps) {
   }
 
   return (
-    <div className="mt-3 bg-zinc-955 bg-zinc-950/30 border border-zinc-900 rounded-xl p-3 flex flex-col gap-2.5">
+    <div className="mt-3 bg-zinc-950/30 border border-zinc-900 rounded-xl p-3 flex flex-col gap-2.5">
       <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Ajouter une indisponibilité :</p>
 
       <div className="grid grid-cols-3 gap-2">

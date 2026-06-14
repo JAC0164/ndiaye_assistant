@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createClient } from "@/src/lib/supabase/server"
-import { checkRateLimit } from "@/src/lib/rate-limit"
+import { withAuth } from "@/src/lib/api-middleware"
 import { HistoriqueService } from "@/src/services/historique.service"
+import { SessionService } from "@/src/services/session.service"
 import { ProfileService } from "@/src/services/profile.service"
-import { RescheduleService, RescheduleSessionInfo } from "@/src/services/reschedule.service"
+import { RescheduleService } from "@/src/services/reschedule.service"
+import { FULL_DAY_LABELS } from "@/src/lib/planning/constants"
 import { logger } from "@/src/lib/logger"
 
 export const runtime = "nodejs"
@@ -15,21 +16,98 @@ const feedbackSchema = z.object({
   duree_reelle_min: z.number().int().min(0).max(180).optional(),
 })
 
+async function handleReschedule(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  historiqueId: string
+): Promise<NextResponse | null> {
+  const historiqueService = new HistoriqueService(supabase)
+  const historiqueRow = await historiqueService.getById(historiqueId)
+  if (!historiqueRow || !historiqueRow.session_id) return null
+
+  const sessionService = new SessionService(supabase)
+  const sessionRow = await sessionService.getById(historiqueRow.session_id)
+  if (!sessionRow) return null
+
+  const profileService = new ProfileService(supabase)
+  const profile = await profileService.getByUserId(userId)
+  if (!profile?.metadata) return null
+
+  const meta = profile.metadata as Record<string, unknown>
+  const cachedTimetable = meta.cachedExtractedTimetable
+  if (typeof cachedTimetable !== "string") return null
+
+  const bedtime = (meta.bedtime as string) || "22:00"
+  const blockedSlots =
+    (meta.blockedSlots as Array<{
+      id: string
+      day: string
+      startTime: string
+      endTime: string
+      reason: string
+    }>) || []
+
+  let timetable: unknown
+  try {
+    timetable = JSON.parse(cachedTimetable)
+  } catch {
+    logger.error("Failed to parse cached timetable for reschedule")
+    return null
+  }
+
+  const nextSlot = await RescheduleService.findNextSlot(supabase, {
+    userId,
+    missedSession: {
+      id: historiqueRow.id,
+      sessionId: historiqueRow.session_id,
+      subject: historiqueRow.subject ?? "",
+      sessionType: historiqueRow.session_type,
+      pedagogicalNote: historiqueRow.pedagogical_note ?? "",
+      dayOfWeek: sessionRow.day_of_week,
+      endTime: sessionRow.end_time,
+    },
+    timetable,
+    bedtime,
+    blockedSlots: blockedSlots.map((b) => ({
+      id: b.id,
+      day: b.day as "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday",
+      startTime: b.startTime,
+      endTime: b.endTime,
+      reason: b.reason,
+    })),
+  })
+
+  if (!nextSlot) {
+    return NextResponse.json({
+      ok: true,
+      rescheduled: false,
+      message:
+        "Planning trop chargé pour replacer cette séance cette semaine. Elle sera priorisée la semaine prochaine.",
+    })
+  }
+
+  await RescheduleService.createRescheduledRow(supabase, {
+    userId,
+    originalHistoriqueId: historiqueRow.id,
+    subject: historiqueRow.subject ?? "",
+    sessionType: historiqueRow.session_type,
+    pedagogicalNote: historiqueRow.pedagogical_note ?? "",
+    targetSlot: nextSlot,
+  })
+
+  const dayFr = FULL_DAY_LABELS[nextSlot.day] ?? nextSlot.day
+  return NextResponse.json({
+    ok: true,
+    rescheduled: true,
+    message: `Séance repoussée au ${dayFr} à ${nextSlot.start}`,
+  })
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
-
+  const { supabase, user } = auth
   const { id } = await params
 
   let body: unknown
@@ -51,108 +129,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await historiqueService.saveFeedback(id, user.id, feedback)
 
     if (!feedback.completed) {
-      // Fetch the historique row to get session_id and details
-      const { data: historiqueRow } = await supabase
-        .from("historique")
-        .select("id, session_id, subject, session_type, pedagogical_note, completed_at")
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .single()
-
-      if (historiqueRow && historiqueRow.session_id) {
-        // Fetch the original session details for timing info
-        const { data: sessionRow } = await supabase
-          .from("sessions")
-          .select("day_of_week, start_time, end_time")
-          .eq("id", historiqueRow.session_id)
-          .single()
-
-        if (sessionRow) {
-          // Fetch profile to get timetable, bedtime, blocked slots
-          const profileService = new ProfileService(supabase)
-          const profile = await profileService.getByUserId(user.id)
-
-          if (profile?.metadata) {
-            const meta = profile.metadata as Record<string, unknown>
-            const cachedTimetable = meta.cachedExtractedTimetable
-            const bedtime = (meta.bedtime as string) || "22:00"
-            const blockedSlots =
-              (meta.blockedSlots as Array<{
-                id: string
-                day: string
-                startTime: string
-                endTime: string
-                reason: string
-              }>) || []
-
-            if (cachedTimetable && typeof cachedTimetable === "string") {
-              try {
-                const timetable = JSON.parse(cachedTimetable)
-                const missedSession: RescheduleSessionInfo = {
-                  id: historiqueRow.id,
-                  sessionId: historiqueRow.session_id,
-                  subject: historiqueRow.subject,
-                  sessionType: historiqueRow.session_type,
-                  pedagogicalNote: historiqueRow.pedagogical_note || "",
-                  dayOfWeek: sessionRow.day_of_week,
-                  endTime: sessionRow.end_time,
-                }
-
-                const nextSlot = await RescheduleService.findNextSlot(supabase, {
-                  userId: user.id,
-                  missedSession,
-                  timetable,
-                  bedtime,
-                  blockedSlots: blockedSlots.map((b) => ({
-                    id: b.id,
-                    day: b.day as "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday",
-                    startTime: b.startTime,
-                    endTime: b.endTime,
-                    reason: b.reason,
-                  })),
-                })
-
-                if (nextSlot) {
-                  await RescheduleService.createRescheduledRow(supabase, {
-                    userId: user.id,
-                    originalHistoriqueId: historiqueRow.id,
-                    subject: historiqueRow.subject,
-                    sessionType: historiqueRow.session_type,
-                    pedagogicalNote: historiqueRow.pedagogical_note || "",
-                    targetSlot: nextSlot,
-                  })
-
-                  const FRENCH_DAYS: Record<string, string> = {
-                    monday: "Lundi",
-                    tuesday: "Mardi",
-                    wednesday: "Mercredi",
-                    thursday: "Jeudi",
-                    friday: "Vendredi",
-                    saturday: "Samedi",
-                    sunday: "Dimanche",
-                  }
-                  const dayFr = FRENCH_DAYS[nextSlot.day] ?? nextSlot.day
-
-                  return NextResponse.json({
-                    ok: true,
-                    rescheduled: true,
-                    message: `Séance repoussée au ${dayFr} à ${nextSlot.start}`,
-                  })
-                }
-
-                return NextResponse.json({
-                  ok: true,
-                  rescheduled: false,
-                  message:
-                    "Planning trop chargé pour replacer cette séance cette semaine. Elle sera priorisée la semaine prochaine.",
-                })
-              } catch (parseErr) {
-                logger.error({ err: parseErr }, "Failed to parse cached timetable for reschedule")
-              }
-            }
-          }
-        }
-      }
+      const rescheduleResponse = await handleReschedule(supabase, user.id, id)
+      if (rescheduleResponse) return rescheduleResponse
     }
 
     return NextResponse.json({ ok: true })

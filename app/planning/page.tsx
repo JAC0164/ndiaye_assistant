@@ -1,399 +1,53 @@
 "use client"
 
-import { useEffect, useState, useRef, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/src/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import type { GeneratedSeance } from "@/src/lib/langgraph/state"
-import type { ModelProvider, ModelProviderConfig, ModelOverrides } from "@/src/lib/langgraph/providers"
+import Image from "next/image"
 import { getProviderLabel } from "@/src/lib/langgraph/providers"
-import WeeklySchedule from "@/src/components/WeeklySchedule"
-import MarkdownPreview from "@/src/components/planning/MarkdownPreview"
-import { saveUserSessionsAction } from "./actions"
-import type { OnboardingForm, ApiResponse } from "@/src/types/planning.types"
-
-const PROVIDERS: ModelProvider[] = ["gemini", "openai", "anthropic", "ollama", "deepseek"]
-
-import OnboardingFormPanel from "@/src/components/planning/OnboardingFormPanel"
-import SessionEditModal from "@/src/components/planning/SessionEditModal"
-
-type AgentSlot = "vision" | "profile" | "planner"
-
-interface AgentOverrideEntry {
-  provider: ModelProvider
-  model: string
-}
-
-const DEFAULT_ONBOARDING = JSON.stringify(
-  {
-    weakSubjects: ["MATH", "PC"],
-    bedtime: "22:00",
-    blockedSlots: [
-      {
-        id: "1",
-        day: "tuesday",
-        startTime: "18:00",
-        endTime: "20:00",
-        reason: "Cours du soir",
-      },
-      {
-        id: "2",
-        day: "thursday",
-        startTime: "18:00",
-        endTime: "20:00",
-        reason: "Cours du soir",
-      },
-    ],
-  },
-  null,
-  2
-)
-
-function resizeImage(file: File, maxDim = 1568): Promise<Blob> {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement("canvas")
-        let w = img.width
-        let h = img.height
-
-        if (w > h) {
-          if (w > maxDim) {
-            h = Math.round((h * maxDim) / w)
-            w = maxDim
-          }
-        } else {
-          if (h > maxDim) {
-            w = Math.round((w * maxDim) / h)
-            h = maxDim
-          }
-        }
-
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext("2d")
-        if (!ctx) {
-          resolve(file)
-          return
-        }
-        ctx.drawImage(img, 0, 0, w, h)
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(blob)
-            } else {
-              resolve(file)
-            }
-          },
-          file.type || "image/jpeg",
-          0.85
-        )
-      }
-      img.onerror = () => resolve(file)
-      img.src = e.target?.result as string
-    }
-    reader.onerror = () => resolve(file)
-    reader.readAsDataURL(file)
-  })
-}
+import WeeklySchedule from "@/src/components/weekly-schedule"
+import MarkdownPreview from "@/src/components/planning/markdown-preview"
+import OnboardingFormPanel from "@/src/components/planning/onboarding-form-panel"
+import SessionEditModal from "@/src/components/planning/session-edit-modal"
+import { PROVIDERS, usePlanningPage } from "./usePlanningPage"
 
 export default function PlanningPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
-
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([])
-
-  // Onboarding States
-  const [inputTab, setInputTab] = useState<"form" | "json">("form")
-  const [onboardingData, setOnboardingData] = useState(DEFAULT_ONBOARDING)
-  const [formOnboarding, setFormOnboarding] = useState<OnboardingForm>(() => {
-    try {
-      const parsed = JSON.parse(DEFAULT_ONBOARDING)
-      return {
-        weakSubjects: parsed.weakSubjects || [],
-        bedtime: parsed.bedtime || "22:00",
-        blockedSlots: parsed.blockedSlots || [],
-      }
-    } catch {
-      return {
-        weakSubjects: [],
-        bedtime: "22:00",
-        blockedSlots: [],
-      }
-    }
-  })
-
-  const [generating, setGenerating] = useState(false)
-  const [result, setResult] = useState<ApiResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const [showModelConfig, setShowModelConfig] = useState(false)
-  const [modelOverrides, setModelOverrides] = useState<Record<AgentSlot | "default", AgentOverrideEntry>>({
-    default: { provider: "gemini", model: "gemini-2.5-flash" },
-    vision: { provider: "gemini", model: "gemini-2.5-flash" },
-    profile: { provider: "gemini", model: "gemini-2.5-flash" },
-    planner: { provider: "gemini", model: "gemini-2.5-flash" },
-  })
-
-  // Output view state
-  const [outputTab, setOutputTab] = useState<"schedule" | "markdown" | "profile">("schedule")
-
-  // Interactive Session Editing
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editingSessionIndex, setEditingSessionIndex] = useState<number | null>(null)
-  const [editingSession, setEditingSession] = useState<GeneratedSeance | null>(null)
-
-  // Save to DB state
-  const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
-  const [savingError, setSavingError] = useState<string | null>(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) {
-        router.push("/auth")
-        return
-      }
-      setUser(user)
-
-      // Fetch user profile and class coefficients
-      try {
-        const { data: profile } = await supabase.from("profiles").select("class_id").eq("id", user.id).maybeSingle()
-
-        const classId = profile?.class_id
-        const queryParam = classId ? `class_id=${classId}` : `class_name=Terminale S1`
-        const res = await fetch(`/api/references/coefficients?${queryParam}`)
-        if (res.ok) {
-          const coeffs = await res.json()
-          if (Array.isArray(coeffs)) {
-            const subjects = coeffs.map((c: { subject: string }) => c.subject.toUpperCase())
-            setAvailableSubjects(subjects)
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load user profile or coefficients:", err)
-      }
-
-      setLoading(false)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router])
-
-  // Image preview hook
-  const imagePreviewUrl = useMemo(() => {
-    if (!imageFile) return null
-    return URL.createObjectURL(imageFile)
-  }, [imageFile])
-
-  useEffect(() => {
-    return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl)
-      }
-    }
-  }, [imagePreviewUrl])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push("/auth")
-    router.refresh()
-  }
-
-  // Sync Form changes to JSON representation
-  const handleFormChange = (newForm: OnboardingForm) => {
-    setFormOnboarding(newForm)
-    setOnboardingData(JSON.stringify(newForm, null, 2))
-  }
-
-  // Sync JSON text area changes back to Form fields in background
-  const handleJsonChange = (jsonStr: string) => {
-    setOnboardingData(jsonStr)
-    try {
-      const parsed = JSON.parse(jsonStr)
-      if (parsed && typeof parsed === "object") {
-        setFormOnboarding({
-          weakSubjects: Array.isArray(parsed.weakSubjects) ? parsed.weakSubjects : [],
-          bedtime: parsed.bedtime || "22:00",
-          blockedSlots: Array.isArray(parsed.blockedSlots) ? parsed.blockedSlots : [],
-        })
-      }
-    } catch {
-      // Don't sync invalid JSON to prevent editing cursor issues
-    }
-  }
-
-  const prettifyJson = () => {
-    try {
-      const parsed = JSON.parse(onboardingData)
-      setOnboardingData(JSON.stringify(parsed, null, 2))
-    } catch {
-      setError("Données JSON invalides. Impossible de formater.")
-    }
-  }
-
-  // Edit schedule session handlers
-  const handleStartEditSession = (session: GeneratedSeance, index: number) => {
-    setEditingSessionIndex(index)
-    setEditingSession({ ...session })
-    setShowEditModal(true)
-  }
-
-  const handleSaveEditedSession = () => {
-    if (editingSessionIndex === null || !editingSession || !result) return
-    const updated = [...result.generatedPlanning]
-    updated[editingSessionIndex] = editingSession
-    setResult({
-      ...result,
-      generatedPlanning: updated,
-    })
-    setShowEditModal(false)
-  }
-
-  const handleDeleteSession = () => {
-    if (editingSessionIndex === null || !result) return
-    const updated = result.generatedPlanning.filter((_, idx) => idx !== editingSessionIndex)
-    setResult({
-      ...result,
-      generatedPlanning: updated,
-    })
-    setShowEditModal(false)
-  }
-
-  const handleAddSession = (day: string) => {
-    if (!result) return
-    const defaultSubject = availableSubjects[0] || "MATH"
-    const newSession: GeneratedSeance = {
-      day_of_week: day as "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday",
-      start_time: "17:00",
-      end_time: "17:45",
-      subject: defaultSubject,
-      session_type: "review",
-      pedagogical_note: "Réviser le cours du jour",
-    }
-    setResult({
-      ...result,
-      generatedPlanning: [...result.generatedPlanning, newSession],
-    })
-  }
-
-  // Save changes back to Supabase via server action
-  const handleSaveToDatabase = async () => {
-    if (!result || result.generatedPlanning.length === 0) return
-    setSavingStatus("saving")
-    setSavingError(null)
-
-    try {
-      const response = await saveUserSessionsAction(result.generatedPlanning)
-      if (response.success) {
-        setSavingStatus("success")
-        // Trigger overlay refresh
-        window.dispatchEvent(new Event("ndiaye-sessions-saved"))
-        setTimeout(() => setSavingStatus("idle"), 3000)
-      }
-    } catch (err) {
-      setSavingStatus("error")
-      setSavingError(err instanceof Error ? err.message : "Erreur de sauvegarde")
-    }
-  }
-
-  function buildModelOverridesPayload(): ModelOverrides | undefined {
-    const defaultCfg = modelOverrides.default
-    const overrides: ModelOverrides = {}
-
-    for (const agent of ["vision", "profile", "planner"] as AgentSlot[]) {
-      const cfg = modelOverrides[agent]
-      if (cfg.provider !== defaultCfg.provider || cfg.model !== defaultCfg.model) {
-        const partial: Partial<ModelProviderConfig> = {}
-        if (cfg.provider !== defaultCfg.provider) partial.provider = cfg.provider
-        if (cfg.model !== defaultCfg.model) partial.model = cfg.model
-        overrides[agent] = partial
-      }
-    }
-
-    return Object.keys(overrides).length > 0 ? overrides : undefined
-  }
-
-  const handleGenerate = async () => {
-    setError(null)
-    setResult(null)
-
-    if (!imageFile) {
-      setError("Veuillez sélectionner une image d'emploi du temps.")
-      return
-    }
-
-    let parsedOnboarding: unknown
-    try {
-      parsedOnboarding = JSON.parse(onboardingData)
-    } catch {
-      setError("Les données d'onboarding contiennent un JSON invalide.")
-      return
-    }
-
-    setGenerating(true)
-
-    try {
-      const formData = new FormData()
-      let uploadFile: Blob | File | null = imageFile
-      if (imageFile) {
-        try {
-          uploadFile = await resizeImage(imageFile, 1568)
-        } catch {
-          // Fallback
-        }
-      }
-      if (uploadFile) {
-        formData.set("timetableImage", uploadFile, imageFile?.name || "timetable.jpg")
-      }
-      formData.set("onboardingData", JSON.stringify(parsedOnboarding))
-
-      const payload = buildModelOverridesPayload()
-      if (payload) {
-        formData.set("modelOverrides", JSON.stringify(payload))
-      }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const headers: Record<string, string> = {}
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`
-      }
-
-      const res = await fetch("/api/planning/generate", {
-        method: "POST",
-        headers,
-        body: formData,
-      })
-
-      const body: ApiResponse = await res.json()
-
-      if (!res.ok && res.status !== 422) {
-        setError(body && "error" in body ? (body as unknown as { error: string }).error : "Erreur serveur")
-        return
-      }
-
-      setResult(body)
-      setOutputTab("schedule")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur réseau")
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  function updateAgentOverride(agent: AgentSlot | "default", field: keyof AgentOverrideEntry, value: string) {
-    setModelOverrides((prev) => ({
-      ...prev,
-      [agent]: { ...prev[agent], [field]: value },
-    }))
-  }
+  const {
+    user,
+    loading,
+    imageFile,
+    setImageFile,
+    availableSubjects,
+    inputTab,
+    setInputTab,
+    onboardingData,
+    formOnboarding,
+    generating,
+    result,
+    error,
+    fileRef,
+    showModelConfig,
+    setShowModelConfig,
+    modelOverrides,
+    outputTab,
+    setOutputTab,
+    showEditModal,
+    editingSession,
+    editingSessionIndex,
+    savingStatus,
+    savingError,
+    imagePreviewUrl,
+    handleLogout,
+    handleFormChange,
+    handleJsonChange,
+    prettifyJson,
+    handleStartEditSession,
+    handleSaveEditedSession,
+    handleDeleteSession,
+    handleAddSession,
+    handleSaveToDatabase,
+    handleGenerate,
+    updateAgentOverride,
+    setEditingSession,
+    setShowEditModal,
+  } = usePlanningPage()
 
   if (loading) {
     return (
@@ -442,12 +96,15 @@ export default function PlanningPage() {
             <div className="flex-1 flex flex-col justify-center">
               {imagePreviewUrl ? (
                 <div className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 flex flex-col items-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imagePreviewUrl}
-                    alt="Timetable Preview"
-                    className="max-h-[220px] rounded-lg object-contain bg-zinc-900"
-                  />
+                  <div className="relative w-full h-[220px]">
+                    <Image
+                      src={imagePreviewUrl}
+                      alt="Timetable Preview"
+                      fill
+                      unoptimized
+                      className="rounded-lg object-contain"
+                    />
+                  </div>
                   <div className="mt-4 flex w-full items-center justify-between px-2 py-1 text-sm">
                     <span className="truncate text-zinc-400 font-mono text-xs">
                       {imageFile?.name} ({Math.round((imageFile?.size ?? 0) / 1024)} KB)
@@ -491,7 +148,6 @@ export default function PlanningPage() {
                 <span>👤</span> Profil & Contraintes
               </h2>
 
-              {/* Tab Selector */}
               <div className="flex rounded-lg bg-zinc-950 p-1 border border-zinc-900 shrink-0">
                 <button
                   onClick={() => setInputTab("form")}
@@ -516,7 +172,6 @@ export default function PlanningPage() {
               </div>
             </div>
 
-            {/* Form Editor View */}
             {inputTab === "form" ? (
               <OnboardingFormPanel
                 form={formOnboarding}
@@ -524,7 +179,6 @@ export default function PlanningPage() {
                 availableSubjects={availableSubjects}
               />
             ) : (
-              /* Raw JSON Textarea Editor */
               <div className="flex flex-col flex-1 gap-3">
                 <textarea
                   value={onboardingData}
@@ -556,7 +210,7 @@ export default function PlanningPage() {
             <span className="text-xs text-zinc-500 font-bold">{showModelConfig ? "Fermer ▲" : "Configurer ▼"}</span>
           </button>
           {showModelConfig && (
-            <div className="border-t border-zinc-900 px-6 py-6 bg-zinc-955 bg-zinc-950/40 rounded-b-2xl">
+            <div className="border-t border-zinc-900 px-6 py-6 bg-zinc-950/40 rounded-b-2xl">
               <div className="grid gap-3.5">
                 {(["default", "vision", "profile", "planner"] as const).map((agent) => (
                   <div
@@ -568,7 +222,7 @@ export default function PlanningPage() {
                       {agent !== "default" &&
                         (modelOverrides[agent].provider !== modelOverrides.default.provider ||
                           modelOverrides[agent].model !== modelOverrides.default.model) && (
-                          <span className="ml-2 rounded-full bg-amber-955 bg-amber-955 bg-amber-955 bg-amber-950/50 border border-amber-900 px-2 py-0.5 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">
+                          <span className="ml-2 rounded-full bg-amber-950/50 border border-amber-900 px-2 py-0.5 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">
                             Surchargé
                           </span>
                         )}
@@ -630,7 +284,6 @@ export default function PlanningPage() {
         {/* Generation Results View */}
         {result && (
           <div className="flex flex-col gap-6 mt-4">
-            {/* Validation Banner */}
             <div
               className={`rounded-2xl border p-4.5 ${
                 result.isValidTimetable
@@ -647,7 +300,6 @@ export default function PlanningPage() {
               )}
             </div>
 
-            {/* Result Navigation Tabs */}
             <div className="flex border-b border-zinc-900">
               <button
                 onClick={() => setOutputTab("schedule")}
@@ -685,17 +337,13 @@ export default function PlanningPage() {
               )}
             </div>
 
-            {/* Tab content area */}
             <div className="mt-2">
-              {/* Schedule grid view with Save trigger */}
               {outputTab === "schedule" && (
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">
                       Calendrier hebdomadaire cyclique ({result.generatedPlanning.length} séances)
                     </h3>
-
-                    {/* Database Commit Button */}
                     <div className="flex items-center gap-3.5">
                       {savingStatus === "success" && (
                         <span className="text-sm font-bold text-emerald-400 animate-pulse">
@@ -705,7 +353,6 @@ export default function PlanningPage() {
                       {savingStatus === "error" && (
                         <span className="text-sm font-bold text-red-400">⚠️ {savingError}</span>
                       )}
-
                       <button
                         onClick={handleSaveToDatabase}
                         disabled={savingStatus === "saving" || result.generatedPlanning.length === 0}
@@ -729,7 +376,6 @@ export default function PlanningPage() {
                 </div>
               )}
 
-              {/* Markdown rendering view */}
               {outputTab === "markdown" && result.extractedTimetableMarkdown && (
                 <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6">
                   <div className="flex justify-between items-center mb-4">
@@ -749,7 +395,6 @@ export default function PlanningPage() {
                 </div>
               )}
 
-              {/* Profile reasoning text view */}
               {outputTab === "profile" && result.studentProfileContext && (
                 <div className="rounded-2xl border border-zinc-900 bg-zinc-900/30 backdrop-blur-sm p-6">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4">
@@ -769,7 +414,6 @@ export default function PlanningPage() {
         )}
       </div>
 
-      {/* Interactive Modal for Editing a Session */}
       <SessionEditModal
         key={editingSessionIndex}
         isOpen={showEditModal}

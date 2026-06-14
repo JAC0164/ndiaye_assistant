@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react"
+import React, { createContext, useContext, useCallback, useSyncExternalStore } from "react"
 
 export type DisplayMode = "standard" | "overlay"
 
@@ -12,38 +12,35 @@ interface DisplayModeContextType {
 
 const DisplayModeContext = createContext<DisplayModeContextType | undefined>(undefined)
 
-function getInitialMode(): DisplayMode {
+const STORAGE_KEY = "ndiaye-display-mode"
+
+function getSnapshot(): DisplayMode {
   if (typeof window !== "undefined") {
-    const savedMode = localStorage.getItem("ndiaye-display-mode") as DisplayMode
-    if (savedMode === "standard" || savedMode === "overlay") {
-      return savedMode
-    }
+    const savedMode = localStorage.getItem(STORAGE_KEY) as DisplayMode | null
+    if (savedMode === "standard" || savedMode === "overlay") return savedMode
   }
   return "standard"
 }
 
-export function DisplayModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<DisplayMode>(getInitialMode)
-  const [mounted, setMounted] = useState(false)
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback)
+  return () => window.removeEventListener("storage", callback)
+}
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true)
+export function DisplayModeProvider({ children }: { children: React.ReactNode }) {
+  const mode: DisplayMode = useSyncExternalStore(subscribe, getSnapshot, () => "standard")
+
+  const setDisplayMode = useCallback((newMode: DisplayMode) => {
+    localStorage.setItem(STORAGE_KEY, newMode)
+    window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY, newValue: newMode }))
   }, [])
 
-  const setDisplayMode = (newMode: DisplayMode) => {
-    setModeState(newMode)
-    localStorage.setItem("ndiaye-display-mode", newMode)
-  }
+  const toggleDisplayMode = useCallback(() => {
+    setDisplayMode(mode === "standard" ? "overlay" : "standard")
+  }, [mode, setDisplayMode])
 
-  const toggleDisplayMode = () => {
-    const newMode = mode === "standard" ? "overlay" : "standard"
-    setDisplayMode(newMode)
-  }
-
-  // Prevent SSR flash of wrong state by only rendering children once mounted
   return (
-    <DisplayModeContext.Provider value={{ mode: mounted ? mode : "standard", setDisplayMode, toggleDisplayMode }}>
+    <DisplayModeContext.Provider value={{ mode, setDisplayMode, toggleDisplayMode }}>
       {children}
     </DisplayModeContext.Provider>
   )

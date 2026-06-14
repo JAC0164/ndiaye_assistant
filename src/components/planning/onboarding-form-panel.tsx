@@ -2,7 +2,7 @@
 
 import type { OnboardingForm, BlockedSlot } from "@/src/types/planning.types"
 import { BEDTIME_OPTIONS, FULL_DAY_LABELS } from "@/src/lib/planning/constants"
-import BlockedSlotBuilder from "./BlockedSlotBuilder"
+import BlockedSlotBuilder from "./blocked-slot-builder"
 
 interface OnboardingFormPanelProps {
   form: OnboardingForm
@@ -68,7 +68,7 @@ export default function OnboardingFormPanel({ form, onChange, availableSubjects 
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition cursor-pointer ${
                     isWeak
                       ? "bg-amber-500/10 border-amber-500 text-amber-200"
-                      : "bg-zinc-955 bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
+                      : "bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800 hover:text-zinc-350"
                   }`}
                 >
                   <span>{isWeak ? "⚠️" : "📚"}</span>
@@ -119,7 +119,7 @@ export default function OnboardingFormPanel({ form, onChange, availableSubjects 
             return (
               <div
                 key={slot.id}
-                className="flex items-center justify-between gap-3 rounded-xl bg-zinc-955 bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs"
+                className="flex items-center justify-between gap-3 rounded-xl bg-zinc-950/60 border border-zinc-900 px-3 py-2 text-xs"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-red-400">🚫</span>

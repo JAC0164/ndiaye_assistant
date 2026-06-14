@@ -235,7 +235,6 @@ describe("PlanningGraphAnnotation", () => {
       onboardingData: PLACEHOLDER,
       extractedTimetableMarkdown: PLACEHOLDER,
       studentProfileContext: PLACEHOLDER,
-      subjectCoefficients: PLACEHOLDER,
       weeklyStats: PLACEHOLDER,
       isValidTimetable: PLACEHOLDER,
       validationErrorMessage: PLACEHOLDER,
@@ -250,7 +249,6 @@ describe("PlanningGraphAnnotation", () => {
     expect(stateShape).toHaveProperty("onboardingData")
     expect(stateShape).toHaveProperty("extractedTimetableMarkdown")
     expect(stateShape).toHaveProperty("studentProfileContext")
-    expect(stateShape).toHaveProperty("subjectCoefficients")
     expect(stateShape).toHaveProperty("weeklyStats")
     expect(stateShape).toHaveProperty("isValidTimetable")
     expect(stateShape).toHaveProperty("validationErrorMessage")
@@ -266,7 +264,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(PlanningGraphAnnotation).toHaveProperty("spec")
   })
 
-  it("has a spec with all 15 fields", () => {
+  it("has a spec with all fields", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const keys = Object.keys(spec)
     expect(keys).toContain("timetableImage")
@@ -274,7 +272,6 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("onboardingData")
     expect(keys).toContain("extractedTimetableMarkdown")
     expect(keys).toContain("studentProfileContext")
-    expect(keys).toContain("subjectCoefficients")
     expect(keys).toContain("weeklyStats")
     expect(keys).toContain("upcomingEcheances")
     expect(keys).toContain("isValidTimetable")
@@ -286,7 +283,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("planningValidation")
     expect(keys).toContain("ressentBySubject")
     expect(keys).toContain("dureeReelleBySubject")
-    expect(keys).toHaveLength(17)
+    expect(keys).toHaveLength(16)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -310,7 +307,7 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields use value reducer that replaces old with new", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "subjectCoefficients", "weeklyStats"]
+    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "weeklyStats"]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.operator).toBe("function")
@@ -320,7 +317,7 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields default to empty string", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "subjectCoefficients", "weeklyStats"]
+    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "weeklyStats"]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.initialValueFactory).toBe("function")

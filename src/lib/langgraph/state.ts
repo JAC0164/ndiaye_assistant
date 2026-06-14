@@ -56,26 +56,6 @@ export const plannerAgentOutputSchema = z.object({
 
 export type GeneratedSeance = z.infer<typeof generatedSeanceSchema>
 
-export interface PlanningGraphState {
-  timetableImage: Buffer | string
-  timetableImageMimeType: string
-  onboardingData: unknown
-  extractedTimetableMarkdown: string
-  studentProfileContext: string
-  subjectCoefficients: string
-  weeklyStats: string
-  upcomingEcheances: string
-  isValidTimetable: boolean
-  validationErrorMessage?: string
-  generatedPlanning: GeneratedSeance[]
-  extractedTimetable: ExtractedTimetable | null
-  coefficientTable: string
-  preplannerConstraints: string
-  planningValidation: ValidationResult | null
-  ressentBySubject: Record<string, number>
-  dureeReelleBySubject: Record<string, number>
-}
-
 export const PlanningGraphAnnotation = Annotation.Root({
   timetableImage: Annotation<Buffer | string>(),
   timetableImageMimeType: Annotation<string>({
@@ -88,10 +68,6 @@ export const PlanningGraphAnnotation = Annotation.Root({
     default: () => "",
   }),
   studentProfileContext: Annotation<string>({
-    value: (_current, update) => update,
-    default: () => "",
-  }),
-  subjectCoefficients: Annotation<string>({
     value: (_current, update) => update,
     default: () => "",
   }),

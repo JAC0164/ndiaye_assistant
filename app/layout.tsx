@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   description: "Application de test pour l'API de planning Ndiaye",
 }
 
-import { DisplayModeProvider } from "@/src/components/providers/DisplayModeProvider"
-import PlanningOverlay from "@/src/components/PlanningOverlay"
-import DisplayModeToggle from "@/src/components/DisplayModeToggle"
+import { DisplayModeProvider } from "@/src/components/providers/display-mode-provider"
+import PlanningOverlay from "@/src/components/planning-overlay"
+import DisplayModeToggle from "@/src/components/display-mode-toggle"
 
 export default function RootLayout({
   children,

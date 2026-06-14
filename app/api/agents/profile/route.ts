@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/src/lib/supabase/server"
-import { checkRateLimit } from "@/src/lib/rate-limit"
+import { withAuth } from "@/src/lib/api-middleware"
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
 import { ProfileService } from "@/src/services/profile.service"
 import { logger } from "@/src/lib/logger"
@@ -8,20 +7,9 @@ import { logger } from "@/src/lib/logger"
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes. Veuillez réessayer dans une minute." }, { status: 429 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   let onboardingData: unknown
   try {
@@ -51,7 +39,7 @@ export async function POST(request: NextRequest) {
     })
 
     const profileService = new ProfileService(supabase)
-    await profileService.saveProfileCache(user.id, (result.studentProfileContext as string) ?? "")
+    await profileService.saveProfileCache(user.id, result.studentProfileContext ?? "")
 
     return NextResponse.json({
       studentProfileContext: result.studentProfileContext,

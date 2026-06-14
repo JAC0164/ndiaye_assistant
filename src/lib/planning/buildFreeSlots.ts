@@ -1,5 +1,6 @@
 import { ExtractedTimetable, BlockedSlot, FreeSlot } from "@/src/types/planning.types"
 import { PLANNING_CONFIG } from "./planningConfig"
+import { DAYS } from "./constants"
 
 export function parseTime(s: string): number {
   const [h, m] = s.split(":").map(Number)
@@ -11,8 +12,6 @@ export function formatTime(m: number): string {
   const mins = m % 60
   return `${String(h).padStart(2, "0")}:${String(mins).padStart(2, "0")}`
 }
-
-const DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
 
 /**
  * Extract all available time windows for revision in the week.
@@ -29,7 +28,7 @@ export function buildFreeSlots(
   // Group blocked slots by day, distinguishing user-defined (buffered) from internal (no buffer)
   type InternalBlock = { start: number; end: number; buffered: boolean }
   const blockedByDay = new Map<string, InternalBlock[]>()
-  for (const day of DAYS_OF_WEEK) {
+  for (const day of DAYS) {
     blockedByDay.set(day, [])
   }
 
@@ -45,7 +44,7 @@ export function buildFreeSlots(
   }
 
   // Iterate over each day of the week
-  for (const day of DAYS_OF_WEEK) {
+  for (const day of DAYS) {
     const daySlots = timetable.days?.find((d) => d.day.toLowerCase() === day)?.slots || []
     const isSchoolDay = daySlots.length > 0 && day !== "saturday" && day !== "sunday"
 

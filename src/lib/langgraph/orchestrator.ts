@@ -6,13 +6,13 @@ import { ProfileService } from "@/src/services/profile.service"
 import { logger } from "@/src/lib/logger"
 import { createPlanningGraph } from "./graph"
 import type { OnboardingForm, ExtractedTimetable } from "@/src/types/planning.types"
-import type { PlanningGraphState } from "./state"
+import type { PlanningGraphAnnotationState } from "./state"
 import type { ModelOverrides } from "./providers"
 import { extractSubjects } from "../planning/extractSubjects"
 import { validatePlanning } from "../planning/validatePlanning"
 import { timetableToMarkdown } from "./nodes/visionAgent"
 
-export type PlanningWorkflowResult = PlanningGraphState
+export type PlanningWorkflowResult = PlanningGraphAnnotationState
 
 const COEFFICIENTS_CACHE_TTL = Number(process.env.COEFFICIENTS_CACHE_TTL ?? 3_600_000)
 const COEFFICIENTS_CACHE_MAX = 50
@@ -198,7 +198,6 @@ export async function runPlanningWorkflow(
     extractedTimetable,
     preplannerConstraints: "",
     planningValidation: null,
-    subjectCoefficients: coefficientTable, // keep for backward compatibility
     ressentBySubject: Object.fromEntries(ressentBySubject),
     dureeReelleBySubject: Object.fromEntries(dureeReelleBySubject),
   })

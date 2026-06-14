@@ -14,9 +14,6 @@ export const PLANNING_CONFIG = {
   minWeeklyMinutesPerSubject: 25,
   maxWeeklyMinutesPerSubject: 120,
 
-  // Pedagogical boosts
-  sameDayReviewBoost: 1.2,
-
   // Break rules
   mandatoryBreakAfterClassMinutes: 30,
   bufferAfterBlockedSlotMinutes: 20,
@@ -30,7 +27,6 @@ export const PLANNING_CONFIG = {
   schoolDayLunchBreakEnd: "14:00",
   schoolDayLunchBreakMorningCutoff: "13:30",
   maxSessionsPerFreeDay: 6,
-  maxSundaySessions: 3,
 
   // Subjects excluded from revision scheduling
   subjectExclusionList: ["Développement Personnel", "DEV-PERSO"],

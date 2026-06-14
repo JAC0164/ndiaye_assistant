@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { createClient } from "@/src/lib/supabase/server"
-import { checkRateLimit } from "@/src/lib/rate-limit"
+import { withAuth } from "@/src/lib/api-middleware"
 import { EcheanceService } from "@/src/services/echeance.service"
 import { logger } from "@/src/lib/logger"
 
@@ -20,19 +19,9 @@ const updateSchema = z.object({
 })
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   const { id } = await params
 
@@ -59,19 +48,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 })
-  }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ error: "Authentification requise." }, { status: 401 })
-  }
+  const auth = await withAuth(request)
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   const { id } = await params
 

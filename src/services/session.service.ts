@@ -47,25 +47,6 @@ export class SessionService extends BaseService<DbSession> {
     return data as DbSession[]
   }
 
-  async createMany(userId: string, sessions: GeneratedSeance[]): Promise<Seance[]> {
-    if (sessions.length === 0) {
-      return []
-    }
-
-    const payload = sessions.map((session) => ({
-      ...session,
-      user_id: userId,
-    }))
-
-    const { data, error } = await this.supabase.from(this.tableName).insert(payload).select()
-
-    if (error) {
-      throw new Error(`Erreur lors de la création des séances: ${error.message}`)
-    }
-
-    return data as Seance[]
-  }
-
   async replaceAll(userId: string, sessions: GeneratedSeance[]): Promise<Seance[]> {
     const { data, error } = await this.supabase.rpc("replace_user_sessions", {
       p_user_id: userId,
