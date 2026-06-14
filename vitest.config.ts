@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],
-      include: ["src/lib/**", "src/services/**", "app/api/**", "app/auth/callback/route.ts", "proxy.ts"],
+      include: ["src/lib/**", "src/services/**", "app/api/**", "proxy.ts"],
       exclude: ["src/lib/langgraph/providers/index.ts", "node_modules/**"],
     },
   },
