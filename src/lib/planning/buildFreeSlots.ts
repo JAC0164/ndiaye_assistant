@@ -68,13 +68,20 @@ export function buildFreeSlots(
         })
       }
 
-      // Evening window: last class end + 30 min -> bedtime
+      // Evening window: last class end + buffer -> capped end
       const lastClass = sortedSlots[sortedSlots.length - 1]
       const lastClassEnd = parseTime(lastClass.end)
-      const eveningStart = lastClassEnd + PLANNING_CONFIG.mandatoryBreakAfterClassMinutes
+      const hasEveningBlockedSlot = blockedByDay.get(day)!.some((b) => b.buffered)
+      const eveningBuffer = hasEveningBlockedSlot
+        ? PLANNING_CONFIG.shortBufferBeforeBlockedSlot
+        : PLANNING_CONFIG.mandatoryBreakAfterClassMinutes
+      const eveningEnd = hasEveningBlockedSlot
+        ? Math.min(bedtimeMinutes, parseTime(PLANNING_CONFIG.maxEndTimeAfterEveningClass))
+        : bedtimeMinutes
+      const eveningStart = lastClassEnd + eveningBuffer
 
-      if (eveningStart < bedtimeMinutes) {
-        rawWindows.push({ start: eveningStart, end: bedtimeMinutes })
+      if (eveningStart < eveningEnd) {
+        rawWindows.push({ start: eveningStart, end: eveningEnd })
       }
 
       // Intra-day gaps >= 2 hours (120 minutes)

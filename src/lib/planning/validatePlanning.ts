@@ -137,7 +137,21 @@ export function validatePlanning(
       }
     }
 
-    // 4. Pedagogical note empty check
+    // 4. Oversized break check (> 60 min = LLM hallucination)
+    const breakDuration = endMin - startMin
+    if (sessionCopy.session_type === "break" && breakDuration > 60) {
+      warnings.push({
+        check: "oversized_break_block",
+        severity: "warning",
+        message: `Pause de ${breakDuration} min supprimée (max 30 min). Le créneau correspond probablement à un bloc indisponible.`,
+        session: sessionCopy,
+      })
+      removedSessions.push(sessionCopy)
+      wasRepaired = true
+      continue
+    }
+
+    // 5. Pedagogical note empty check
     if (!sessionCopy.pedagogical_note || sessionCopy.pedagogical_note.trim() === "") {
       const fallback =
         sessionCopy.session_type === "break"
@@ -153,6 +167,21 @@ export function validatePlanning(
         message: `Note pédagogique manquante pour la séance de ${sessionCopy.subject}. Remplie avec une note par défaut.`,
         session: sessionCopy,
       })
+    }
+
+    // 6. Passive verb check (Active Recall enforcement)
+    if (sessionCopy.session_type !== "break" && sessionCopy.pedagogical_note) {
+      const hasPassive = /(?<!sans\s)(?:^|\.\s+|!\s+)(?:relire|revoir|regarder|faire des fiches|lire\s)/gi.test(
+        sessionCopy.pedagogical_note
+      )
+      if (hasPassive) {
+        warnings.push({
+          check: "passive_verb_detected",
+          severity: "warning",
+          message: `La note pédagogique contient un verbe passif. Remplace-le par une action concrète (schématise, résous, explique...).`,
+          session: sessionCopy,
+        })
+      }
     }
 
     validatedPlanning.push(sessionCopy)
@@ -229,10 +258,12 @@ export function validatePlanning(
         const nextStart = parseTime(next.start_time)
 
         if (currentEnd < nextStart) {
+          const gap = nextStart - currentEnd
+          const breakEnd = Math.min(currentEnd + PLANNING_CONFIG.betweenSessionBreakMinutes, nextStart)
           const newBreak: GeneratedSeance = {
             day_of_week: current.day_of_week,
             start_time: current.end_time,
-            end_time: next.start_time,
+            end_time: formatTime(breakEnd),
             subject: "Pause",
             session_type: "break",
             pedagogical_note: "Détente bien méritée !",

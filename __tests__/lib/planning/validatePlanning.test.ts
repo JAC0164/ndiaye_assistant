@@ -273,13 +273,12 @@ describe("validatePlanning", () => {
     ]
     const result = validatePlanning(sessions, ["MATH", "FR"], "22:00", [])
     // MATH is sliced at 45 min limit -> 11:00-11:35
-    // Pause injected between 11:35 and 12:00
-    // Original break session: 12:00-14:00
+    // Original break session 12:00-14:00 is > 60 min → removed (oversized_break_block)
+    // Step 7 injects a capped 10-min break (11:35-11:45)
     // FR: 14:00-15:00
-    // Total = 4 sessions
-    expect(result.validatedPlanning).toHaveLength(4)
-    const breakSession = result.validatedPlanning.find((s) => s.session_type === "break" && s.start_time === "12:00")
-    expect(breakSession?.end_time).toBe("14:00")
+    // Total = 3 sessions
+    expect(result.validatedPlanning).toHaveLength(3)
+    expect(result.warnings.some((w) => w.check === "oversized_break_block")).toBe(true)
   })
 
   it("injects missing breaks for intra-day gaps, but not overnight/inter-day gaps", () => {
@@ -370,5 +369,126 @@ describe("validatePlanning", () => {
     expect(result.wasRepaired).toBe(true)
     expect(result.removedSessions).toHaveLength(2)
     expect(result.removedSessions.every((s) => s.session_type === "break")).toBe(true)
+  })
+
+  it("removes oversized breaks > 60 minutes as LLM hallucinations", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "tuesday",
+        start_time: "15:40",
+        end_time: "20:20",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "Cours du soir",
+      },
+      {
+        day_of_week: "tuesday",
+        start_time: "20:20",
+        end_time: "21:00",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Révision",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.validatedPlanning).toHaveLength(1)
+    expect(result.validatedPlanning[0].subject).toBe("MATH")
+    expect(result.warnings.some((w) => w.check === "oversized_break_block")).toBe(true)
+    expect(result.wasRepaired).toBe(true)
+    expect(result.removedSessions).toHaveLength(1)
+    expect(result.removedSessions[0].subject).toBe("Pause")
+  })
+
+  it("keeps break sessions <= 60 minutes", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "test",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "17:45",
+        end_time: "18:00",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "18:45",
+        subject: "FR",
+        session_type: "td",
+        pedagogical_note: "test",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH", "FR"], "22:00", [])
+    const breaks = result.validatedPlanning.filter((s) => s.session_type === "break")
+    expect(breaks).toHaveLength(1)
+    expect(result.warnings.some((w) => w.check === "oversized_break_block")).toBe(false)
+  })
+
+  it("flags passive verbs at start of pedagogical note", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Relire le cours ce soir.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "passive_verb_detected")).toBe(true)
+  })
+
+  it("flags passive verbs after sentence boundary", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Fais 3 exercices. Revoir le cours après.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "passive_verb_detected")).toBe(true)
+  })
+
+  it("does not flag passive verbs after 'sans '", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Résous 3 exercices sans regarder tes notes.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "passive_verb_detected")).toBe(false)
+  })
+
+  it("does not flag active recall verbs in clean notes", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Schématise de mémoire les fonctions.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "passive_verb_detected")).toBe(false)
   })
 })

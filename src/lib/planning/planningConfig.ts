@@ -16,6 +16,8 @@ export const PLANNING_CONFIG = {
 
   // Break rules
   mandatoryBreakAfterClassMinutes: 30,
+  shortBufferBeforeBlockedSlot: 15,
+  maxEndTimeAfterEveningClass: "21:00",
   bufferAfterBlockedSlotMinutes: 20,
   betweenSessionBreakMinutes: 10,
 

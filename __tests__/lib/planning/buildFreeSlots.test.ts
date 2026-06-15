@@ -129,24 +129,24 @@ describe("buildFreeSlots", () => {
   })
 
   it("filters out free slots shorter than minSessionMinutes", () => {
-    // Say we have a blocked slot that leaves only 15 minutes of a raw window.
-    // Monday evening starts at 17:00 (last class 16:30 + 30min) to bedtime 22:00.
-    // If we block Monday 17:15 to 22:00, the remaining window is 17:00 to 17:15 (15 mins), which is < minSessionMinutes (25).
-    // It should be discarded.
+    // Wednesday: evening window is 14:05 (last class 13:50 + 15min short buffer) to 21:00 (capped).
+    // Block Wednesday 14:25-22:00 → pre-block window is 14:05-14:25 = 20 min, < minSessionMinutes (25).
+    // The 20-min pre-block window is discarded. The intra-day gap (10:30-12:20 = 110 min) survives.
     const blocked: BlockedSlot[] = [
-      { id: "1", day: "monday", startTime: "17:15", endTime: "22:00", reason: "Something" },
+      { id: "1", day: "wednesday", startTime: "14:25", endTime: "22:00", reason: "Something" },
     ]
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", blocked)
-    const mondaySlots = freeSlots.filter((s) => s.day === "monday")
+    const wednesdaySlots = freeSlots.filter((s) => s.day === "wednesday")
 
-    // Check that we don't have a 17:00-17:15 slot
-    const shortSlot = mondaySlots.find((s) => s.start === "17:00")
-    expect(shortSlot).toBeUndefined()
+    expect(wednesdaySlots).toHaveLength(1)
+    expect(wednesdaySlots[0].start).toBe("10:30")
+    expect(wednesdaySlots[0].end).toBe("12:20")
   })
 
   it("adds 20-minute buffer after blocked slot ends", () => {
-    // Tuesday: cours du soir 18:00-20:00. Classes end at 16:30 so evening starts at 17:00.
-    // After subtraction: 17:00-18:00 (60 mins) and 20:20-22:00 (100 mins), NOT 20:00-22:00.
+    // Tuesday: cours du soir 18:00-20:00. Classes end at 16:30 so evening starts at 16:45 (15-min short buffer).
+    // Evening end capped at 21:00 due to blocked slot.
+    // After subtraction: 16:45-18:00 (75 mins) and 20:20-21:00 (40 mins), NOT 20:00-22:00.
     const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", TEST_BLOCKED)
     const tuesdaySlots = freeSlots.filter((s) => s.day === "tuesday")
 
@@ -154,11 +154,11 @@ describe("buildFreeSlots", () => {
     const noBufferSlot = tuesdaySlots.find((s) => s.start === "20:00")
     expect(noBufferSlot).toBeUndefined()
 
-    // Should have a slot starting at 20:20
+    // Should have a slot starting at 20:20, ending at 21:00 (capped)
     const bufferedSlot = tuesdaySlots.find((s) => s.start === "20:20")
     expect(bufferedSlot).toBeDefined()
-    expect(bufferedSlot?.end).toBe("22:00")
-    expect(bufferedSlot?.durationMinutes).toBe(100)
+    expect(bufferedSlot?.end).toBe("21:00")
+    expect(bufferedSlot?.durationMinutes).toBe(40)
   })
 
   it("skips blocked slots with invalid day names (line 38 false branch)", () => {
@@ -263,5 +263,42 @@ describe("buildFreeSlots", () => {
         expect(startMin).toBeGreaterThanOrEqual(14 * 60)
       }
     }
+  })
+
+  it("uses short buffer before evening blocked slot to extract pre-block window", () => {
+    // Thursday: last class ends at 17:10, blocked slot 18:00-20:00
+    // With short buffer (15min): 17:10 + 15 = 17:25 → 18:00 = 35 min ✓
+    const timetable: ExtractedTimetable = {
+      filiere: "L2",
+      days: [
+        {
+          day: "thursday",
+          slots: [
+            { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" },
+            { start: "15:00", end: "17:10", subject: "ECO", coefficient: 2, subject_type: "literary" },
+          ],
+        },
+      ],
+    }
+    const blocked: BlockedSlot[] = [
+      { id: "1", day: "thursday", startTime: "18:00", endTime: "20:00", reason: "Cours du soir" },
+    ]
+    const freeSlots = buildFreeSlots(timetable, "22:00", blocked)
+    const thursdaySlots = freeSlots.filter((s) => s.day === "thursday")
+
+    const preBlock = thursdaySlots.find((s) => s.start === "17:25" && s.end === "18:00")
+    expect(preBlock).toBeDefined()
+    expect(preBlock?.durationMinutes).toBe(35)
+  })
+
+  it("uses bedtime end when no evening blocked slot exists", () => {
+    // Day without blocked slots: full bedtime range, no 21:00 cap
+    const freeSlots = buildFreeSlots(TEST_TIMETABLE, "22:00", [])
+    const wednesdaySlots = freeSlots.filter((s) => s.day === "wednesday")
+
+    const eveningSlot = wednesdaySlots.find((s) => s.start === "14:20")
+    expect(eveningSlot).toBeDefined()
+    expect(eveningSlot?.end).toBe("22:00")
+    expect(eveningSlot?.durationMinutes).toBe(460)
   })
 })
