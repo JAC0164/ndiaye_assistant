@@ -3,12 +3,12 @@ import type { LLMResult } from "@langchain/core/outputs"
 import { createModel } from "./providers/factory"
 import { getModelConfigForAgent } from "./providers"
 import { logger } from "@/src/lib/logger"
-import type { AgentName, ModelProviderConfig } from "./providers"
+import type { AgentName } from "./providers"
 
 const modelCache = new Map<string, BaseChatModel>()
 
-export function getModel(agentName?: AgentName, overrides?: Partial<ModelProviderConfig>): BaseChatModel {
-  const config = getModelConfigForAgent(agentName ?? "planner", overrides)
+export function getModel(agentName?: AgentName): BaseChatModel {
+  const config = getModelConfigForAgent(agentName ?? "planner")
   const cacheKey = `${agentName ?? "planner"}:${config.provider}:${config.model}:${config.temperature}:${config.maxTokens}:${config.baseUrl ?? ""}`
   const cached = modelCache.get(cacheKey)
   if (cached) return cached

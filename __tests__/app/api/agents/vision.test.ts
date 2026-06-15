@@ -114,7 +114,7 @@ describe("POST /api/agents/vision", () => {
   describe("Success path", () => {
     it("runs vision agent and returns extracted timetable", async () => {
       const mockResult = {
-        extractedTimetableMarkdown: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
+        timetableSummary: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
         isValidTimetable: true,
         validationErrorMessage: undefined,
       }
@@ -126,7 +126,7 @@ describe("POST /api/agents/vision", () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data).toEqual({
-        extractedTimetableMarkdown: mockResult.extractedTimetableMarkdown,
+        timetableSummary: mockResult.timetableSummary,
         isValidTimetable: mockResult.isValidTimetable,
         validationErrorMessage: mockResult.validationErrorMessage,
       })
@@ -134,7 +134,7 @@ describe("POST /api/agents/vision", () => {
 
     it("saves vision cache after successful extraction", async () => {
       vi.mocked(visionAgent).mockResolvedValue({
-        extractedTimetableMarkdown: "| Lundi | 8h | Maths |",
+        timetableSummary: "| Lundi | 8h | Maths |",
         isValidTimetable: true,
         validationErrorMessage: undefined,
       } as never)
@@ -165,7 +165,7 @@ describe("POST /api/agents/vision", () => {
 
     it("handles undefined fields from vision agent with fallback defaults", async () => {
       vi.mocked(visionAgent).mockResolvedValue({
-        extractedTimetableMarkdown: undefined,
+        timetableSummary: undefined,
         isValidTimetable: undefined,
         validationErrorMessage: "Error",
       } as never)

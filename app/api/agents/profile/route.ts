@@ -24,10 +24,8 @@ export async function POST(request: NextRequest) {
       timetableImage: Buffer.from(""),
       timetableImageMimeType: "image/jpeg",
       onboardingData,
-      extractedTimetableMarkdown: "",
+      timetableSummary: "",
       studentProfileContext: "",
-      weeklyStats: "",
-      upcomingEcheances: "",
       extractedTimetable: null,
       coefficientTable: "",
       preplannerConstraints: "",
@@ -35,8 +33,6 @@ export async function POST(request: NextRequest) {
       validationErrorMessage: undefined,
       generatedPlanning: [],
       planningValidation: null,
-      ressentBySubject: {},
-      dureeReelleBySubject: {},
     })
 
     const profileService = new ProfileService(supabase)

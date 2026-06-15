@@ -4,12 +4,11 @@ import { plannerAgent } from "./nodes/plannerAgent"
 import { profileAgent } from "./nodes/profileAgent"
 import { visionAgent } from "./nodes/visionAgent"
 import { PlanningGraphAnnotation, PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate } from "./state"
-import type { ModelOverrides } from "./providers"
 import { extractSubjects } from "../planning/extractSubjects"
 import { buildFreeSlots } from "../planning/buildFreeSlots"
 import { computeBudgets } from "../planning/computeBudgets"
 import { computePriority } from "../planning/computePriority"
-import type { AcademicPeriod } from "../planning/planningConfig"
+import { PLANNING_CONFIG, type AcademicPeriod } from "../planning/planningConfig"
 import { parseCoefficientTable } from "../planning/constants"
 import type { BlockedSlot } from "@/src/types/planning.types"
 
@@ -17,18 +16,10 @@ interface GraphOnboarding {
   bedtime?: string
   blockedSlots?: BlockedSlot[]
   academicPeriod?: string
-  daysSinceLastRevision?: [string, number][]
   weakSubjects?: string[]
 }
 
-function passValidatedVision(): PlanningGraphAnnotationUpdate {
-  return {}
-}
-
 function routeAfterVision(state: PlanningGraphAnnotationState) {
-  if (process.env.NODE_ENV !== "production" && process.env.STOP_AT_AGENT === "vision") {
-    return "stop"
-  }
   return state.isValidTimetable ? "valid" : "invalid"
 }
 
@@ -72,20 +63,19 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
   const freeSlots = buildFreeSlots(timetable, bedtime, blockedSlots)
   const totalAvailableMinutes = freeSlots.reduce((sum, slot) => sum + slot.durationMinutes, 0)
 
-  // 3. computeBudgets
-  const dureeReelleMap = new Map(Object.entries(state.dureeReelleBySubject || {}))
-  const budgets = computeBudgets(subjects, totalAvailableMinutes, period, dureeReelleMap)
+  // 3. computeBudgets — exclude non-revision subjects (DEV-PERSO, etc.)
+  const excludedUpper = PLANNING_CONFIG.subjectExclusionList.map((s) => s.trim().toUpperCase())
+  const filteredForBudgets = subjects.filter((s) => !excludedUpper.includes(s.name))
+  const budgets = computeBudgets(filteredForBudgets, totalAvailableMinutes, period)
 
   // 4. computePriority
-  const daysSinceMap = new Map<string, number>(onboarding.daysSinceLastRevision || [])
   const performanceLevels = new Map<string, "weak">()
   if (onboarding.weakSubjects && Array.isArray(onboarding.weakSubjects)) {
     for (const subj of onboarding.weakSubjects) {
       performanceLevels.set(subj.trim().toUpperCase(), "weak")
     }
   }
-  const ressentBySubjectMap = new Map(Object.entries(state.ressentBySubject || {}))
-  const priorities = computePriority(subjects, daysSinceMap, performanceLevels, ressentBySubjectMap)
+  const priorities = computePriority(subjects, new Map(), performanceLevels)
 
   // 5. Format preplannerConstraints
   const lines: string[] = ["ALLOWLIST & BUDGETS:"]
@@ -117,21 +107,19 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
   }
 }
 
-export function createPlanningGraph(modelOverrides?: ModelOverrides) {
+export function createPlanningGraph() {
   return new StateGraph(PlanningGraphAnnotation)
-    .addNode("vision", (state) => visionAgent(state, modelOverrides?.vision))
-    .addNode("profile", (state) => profileAgent(state, modelOverrides?.profile))
-    .addNode("visionValidated", passValidatedVision)
+    .addNode("vision", (state) => visionAgent(state))
+    .addNode("profile", (state) => profileAgent(state))
     .addNode("prePlanner", prePlannerNode)
-    .addNode("planner", (state) => plannerAgent(state, modelOverrides?.planner))
+    .addNode("planner", (state) => plannerAgent(state))
     .addEdge(START, "vision")
     .addEdge(START, "profile")
     .addConditionalEdges("vision", routeAfterVision, {
-      valid: "visionValidated",
+      valid: "prePlanner",
       invalid: END,
-      stop: END,
     })
-    .addEdge(["visionValidated", "profile"], "prePlanner")
+    .addEdge("profile", "prePlanner")
     .addEdge("prePlanner", "planner")
     .addEdge("planner", END)
     .compile()

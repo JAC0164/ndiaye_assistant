@@ -19,7 +19,6 @@ const { mockTimetable, mockModel } = vi.hoisted(() => {
     withStructuredOutput: vi.fn().mockReturnThis(),
     invoke: vi.fn().mockResolvedValue({
       timetable,
-      isValid: true,
     }),
     pipe: vi.fn().mockReturnThis(),
   }
@@ -47,13 +46,13 @@ vi.mock("@/src/lib/langgraph/nodes/withRetry", () => ({
   withRetry: vi.fn(async <T>(fn: () => Promise<T>, _agentName: string): Promise<T> => fn()),
 }))
 
-import { visionAgent, timetableToMarkdown } from "@/src/lib/langgraph/nodes/visionAgent"
+import { visionAgent, timetableToMarkdown, validateExtractedTimetable } from "@/src/lib/langgraph/nodes/visionAgent"
 
 const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("fake-image-bytes"),
   timetableImageMimeType: "image/jpeg",
   onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
-  extractedTimetableMarkdown: "",
+  timetableSummary: "",
   studentProfileContext: "",
   weeklyStats: "",
   upcomingEcheances: "",
@@ -70,7 +69,99 @@ describe("visionAgent", () => {
     vi.clearAllMocks()
     mockModel.invoke.mockResolvedValue({
       timetable: mockTimetable,
-      isValid: true,
+    })
+  })
+
+  describe("validateExtractedTimetable", () => {
+    const validDay = {
+      day: "monday" as const,
+      slots: [{ start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const }],
+    }
+
+    it("returns isValid:true for a valid timetable", () => {
+      const result = validateExtractedTimetable({ filiere: "S1", days: [validDay] })
+      expect(result.isValid).toBe(true)
+    })
+
+    it("returns invalid when a slot starts before 08:00", () => {
+      const result = validateExtractedTimetable({
+        filiere: "S1",
+        days: [
+          {
+            day: "monday" as const,
+            slots: [
+              { start: "07:30", end: "09:00", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+            ],
+          },
+        ],
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("08:00")
+    })
+
+    it("returns invalid when a slot ends after 19:00", () => {
+      const result = validateExtractedTimetable({
+        filiere: "S1",
+        days: [
+          {
+            day: "monday" as const,
+            slots: [
+              { start: "18:00", end: "19:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+            ],
+          },
+        ],
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("08:00")
+    })
+
+    it("returns invalid when same subject exceeds 3h consecutively", () => {
+      const result = validateExtractedTimetable({
+        filiere: "S1",
+        days: [
+          {
+            day: "monday" as const,
+            slots: [
+              { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              { start: "09:40", end: "11:10", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              { start: "11:20", end: "12:50", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+            ],
+          },
+        ],
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("3h")
+    })
+
+    it("returns invalid when all days have no slots", () => {
+      const result = validateExtractedTimetable({
+        filiere: "S1",
+        days: [{ day: "monday" as const, slots: [] }],
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("Aucun créneau")
+    })
+
+    it("returns invalid when days array is empty", () => {
+      const result = validateExtractedTimetable({ filiere: "S1", days: [] })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("Aucun créneau")
+    })
+
+    it("passes consecutive same-subject slots within 3h (exercise line 38)", () => {
+      const result = validateExtractedTimetable({
+        filiere: "S1",
+        days: [
+          {
+            day: "monday" as const,
+            slots: [
+              { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              { start: "09:40", end: "11:10", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+            ],
+          },
+        ],
+      })
+      expect(result.isValid).toBe(true)
     })
   })
 
@@ -82,37 +173,55 @@ describe("visionAgent", () => {
     )
   })
 
-  it("returns extractedTimetable, extractedTimetableMarkdown, isValidTimetable, and no validationErrorMessage on valid", async () => {
+  it("returns extractedTimetable, timetableSummary, isValidTimetable, and no validationErrorMessage on valid", async () => {
     const result = await visionAgent(baseState)
     expect(result.extractedTimetable).toEqual(mockTimetable)
     expect(result.isValidTimetable).toBe(true)
     expect(result.validationErrorMessage).toBeUndefined()
-    expect(result.extractedTimetableMarkdown).toContain("LUNDI")
-    expect(result.extractedTimetableMarkdown).toContain("MATH")
+    expect(result.timetableSummary).toContain("LUNDI")
+    expect(result.timetableSummary).toContain("MATH")
   })
 
-  it("returns validationErrorMessage when isValid is false", async () => {
+  it("returns validationErrorMessage when LLM returns null timetable", async () => {
     mockModel.invoke.mockResolvedValueOnce({
-      timetable: { filiere: "S1", days: [] },
-      isValid: false,
+      timetable: null,
     })
     const result = await visionAgent(baseState)
     expect(result.isValidTimetable).toBe(false)
-    expect(result.validationErrorMessage).toBe("Emploi du temps invalide ou non conforme au système sénégalais.")
+    expect(result.validationErrorMessage).toBe("Impossible d'extraire l'emploi du temps.")
+  })
+
+  it("returns validationErrorMessage when timetable fails code validation", async () => {
+    mockModel.invoke.mockResolvedValueOnce({
+      timetable: {
+        filiere: "S1",
+        days: [
+          {
+            day: "monday" as const,
+            slots: [
+              { start: "08:00", end: "12:00", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+            ],
+          },
+        ],
+      },
+    })
+    const result = await visionAgent(baseState)
+    expect(result.isValidTimetable).toBe(false)
+    expect(result.validationErrorMessage).toContain("3h")
   })
 
   it("skips model call when extractedTimetable already exists in state", async () => {
     const stateWithTimetable: PlanningGraphAnnotationState = {
       ...baseState,
       extractedTimetable: mockTimetable,
-      extractedTimetableMarkdown: "EXISTING_TIMETABLE",
+      timetableSummary: "EXISTING_TIMETABLE",
       isValidTimetable: false,
       validationErrorMessage: "Previous error",
     }
     const result = await visionAgent(stateWithTimetable)
     expect(mockModel.invoke).not.toHaveBeenCalled()
     expect(result.extractedTimetable).toEqual(mockTimetable)
-    expect(result.extractedTimetableMarkdown).toBe("EXISTING_TIMETABLE")
+    expect(result.timetableSummary).toBe("EXISTING_TIMETABLE")
     expect(result.isValidTimetable).toBe(false)
     expect(result.validationErrorMessage).toBe("Previous error")
   })
@@ -168,19 +277,7 @@ describe("visionAgent", () => {
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
     expect(systemMessage).toContain("Vision Agent")
     expect(systemMessage).toContain("filière")
-    expect(systemMessage).toContain("isValid")
     expect(systemMessage).toContain("coefficient")
-  })
-
-  it("passes modelOverrides to getModel", async () => {
-    const modelModule = await import("@/src/lib/langgraph/model")
-    const getModelSpy = vi.spyOn(modelModule, "getModel")
-
-    const overrides = { temperature: 0.7 }
-    await visionAgent(baseState, overrides)
-    expect(getModelSpy).toHaveBeenCalledWith("vision", overrides)
-
-    getModelSpy.mockRestore()
   })
 
   it("uses fallback filiere S1 when onboarding has no serie", async () => {

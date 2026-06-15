@@ -35,7 +35,7 @@ import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 const validWorkflowResult = {
   isValidTimetable: true,
   extractedTimetable: { filiere: "S1", days: [] },
-  extractedTimetableMarkdown: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
+  timetableSummary: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
   studentProfileContext: "Élève de Terminale S",
   generatedPlanning: [
     {
@@ -176,103 +176,6 @@ describe("POST /api/planning/generate", () => {
     })
   })
 
-  describe("Model Overrides validation", () => {
-    it("accepts valid modelOverrides", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set(
-        "modelOverrides",
-        JSON.stringify({
-          vision: { temperature: 0.5 },
-          planner: { provider: "openai", model: "gpt-4" },
-        })
-      )
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("rejects modelOverrides with temperature > 2", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({ vision: { temperature: 3 } }))
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("rejects modelOverrides with invalid provider", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({ planner: { provider: "unknown-ai" } }))
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("rejects modelOverrides with invalid baseUrl", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({ vision: { baseUrl: "not-a-url" } }))
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("accepts modelOverrides with valid URL baseUrl", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set(
-        "modelOverrides",
-        JSON.stringify({
-          vision: { baseUrl: "https://custom.api.com/v1" },
-        })
-      )
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("accepts modelOverrides with empty string baseUrl", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set("modelOverrides", JSON.stringify({ vision: { baseUrl: "" } }))
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-
-    it("handles invalid JSON in modelOverrides via parseJSONField catch", async () => {
-      vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
-
-      const formData = createFormDataWithImage()
-      formData.set("modelOverrides", "not-valid-json")
-
-      const request = createMockRequest("POST", { formData })
-      const response = await POST(request)
-
-      expect(response.status).toBe(200)
-    })
-  })
-
   describe("Success path", () => {
     it("returns planning result for valid timetable", async () => {
       vi.mocked(runPlanningWorkflow).mockResolvedValue(validWorkflowResult)
@@ -300,7 +203,7 @@ describe("POST /api/planning/generate", () => {
       const data = await response.json()
       expect(data.isValidTimetable).toBe(true)
       expect(data).toHaveProperty("extractedTimetable")
-      expect(data).toHaveProperty("extractedTimetableMarkdown")
+      expect(data).toHaveProperty("timetableSummary")
       expect(data).toHaveProperty("studentProfileContext")
       expect(data).toHaveProperty("generatedPlanning")
       expect(data).toHaveProperty("planningValidation")
@@ -313,7 +216,7 @@ describe("POST /api/planning/generate", () => {
         isValidTimetable: false,
         validationErrorMessage: "Emploi du temps incomplet",
         generatedPlanning: [],
-        extractedTimetableMarkdown: "",
+        timetableSummary: "",
         studentProfileContext: "",
       })
 

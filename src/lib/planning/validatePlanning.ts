@@ -1,5 +1,5 @@
 import { GeneratedSeance } from "@/src/lib/langgraph/state"
-import { BlockedSlot, ValidationError, ValidationResult } from "@/src/types/planning.types"
+import { BlockedSlot, SubjectBudget, SubjectInfo, ValidationError, ValidationResult } from "@/src/types/planning.types"
 import { parseTime, formatTime } from "./buildFreeSlots"
 import { PLANNING_CONFIG } from "./planningConfig"
 
@@ -11,7 +11,12 @@ export function validatePlanning(
   planning: GeneratedSeance[],
   allowedSubjects: string[],
   bedtime: string,
-  blockedSlots: BlockedSlot[]
+  blockedSlots: BlockedSlot[],
+  options?: {
+    budgets?: Map<string, SubjectBudget>
+    weakSubjects?: string[]
+    allSubjects?: SubjectInfo[]
+  }
 ): ValidationResult {
   const errors: ValidationError[] = []
   const warnings: ValidationError[] = []
@@ -184,10 +189,23 @@ export function validatePlanning(
       }
     }
 
+    // 7. Undersized session check
+    if (sessionCopy.session_type !== "break") {
+      const sessionDuration = endMin - startMin
+      if (sessionDuration < PLANNING_CONFIG.minSessionMinutes) {
+        warnings.push({
+          check: "undersized_session",
+          severity: "warning",
+          message: `La séance de ${sessionCopy.subject} ne dure que ${sessionDuration} min (minimum ${PLANNING_CONFIG.minSessionMinutes} min).`,
+          session: sessionCopy,
+        })
+      }
+    }
+
     validatedPlanning.push(sessionCopy)
   }
 
-  // 5. Free day session cap (saturday, sunday)
+  // 8. Free day session cap (saturday, sunday)
   const freeDays = ["saturday", "sunday"]
   for (const day of freeDays) {
     const daySessions = validatedPlanning.filter(
@@ -212,7 +230,53 @@ export function validatePlanning(
     }
   }
 
-  // 6. Cleanup orphan breaks
+  // 9. Eat the Frog check: first study slot on Sat/Sun must be highest-coeff weak subject
+  if (options?.weakSubjects && options.weakSubjects.length > 0 && options?.allSubjects) {
+    const weakUpper = options.weakSubjects.map((s) => s.trim().toUpperCase())
+    const weakWithCoeff = options.allSubjects.filter((s) => weakUpper.includes(s.name))
+    const highestWeak = weakWithCoeff.reduce(
+      (max, s) => (s.coefficient > (max?.coefficient || 0) ? s : max),
+      weakWithCoeff[0]
+    )
+    if (highestWeak) {
+      for (const day of ["saturday", "sunday"]) {
+        const first = validatedPlanning.find((s) => s.day_of_week.toLowerCase() === day && s.session_type !== "break")
+        if (first && first.subject !== highestWeak.name) {
+          warnings.push({
+            check: "eat_the_frog",
+            severity: "warning",
+            message: `Le ${day} devrait commencer par ${highestWeak.name} (coefficient ${highestWeak.coefficient}) mais commence par ${first.subject}.`,
+            session: first,
+          })
+        }
+      }
+    }
+  }
+
+  // 10. Budget exceeded check (aggregate: total planned per subject vs weekly budget)
+  if (options?.budgets) {
+    const subjectTotals = new Map<string, number>()
+    for (const s of validatedPlanning) {
+      if (s.session_type === "break") continue
+      const dur = parseTime(s.end_time) - parseTime(s.start_time)
+      subjectTotals.set(s.subject, (subjectTotals.get(s.subject) || 0) + dur)
+    }
+    for (const [subject, total] of subjectTotals) {
+      const budget = options.budgets.get(subject)
+      if (budget) {
+        const tolerance = Math.round(budget.totalMinutes * 0.15)
+        if (total > budget.totalMinutes + tolerance) {
+          warnings.push({
+            check: "budget_exceeded",
+            severity: "warning",
+            message: `Le budget temps de ${subject} est dépassé : ${total} min planifiées sur ${budget.totalMinutes} min autorisées (tolérance ${tolerance} min).`,
+          })
+        }
+      }
+    }
+  }
+
+  // 11. Cleanup orphan breaks
   const cleanedPlanning: GeneratedSeance[] = []
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 

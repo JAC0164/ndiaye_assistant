@@ -11,11 +11,6 @@ const mockGetCachedAnalysis = vi.hoisted(() => vi.fn())
 const mockSaveAnalysisCache = vi.hoisted(() => vi.fn())
 const mockGetByClassId = vi.hoisted(() => vi.fn())
 const mockGetCoefficientsByClassName = vi.hoisted(() => vi.fn())
-const mockGetWeeklyStats = vi.hoisted(() => vi.fn())
-const mockGetDaysSinceLastRevisionBySubject = vi.hoisted(() => vi.fn())
-const mockGetRessentBySubject = vi.hoisted(() => vi.fn())
-const mockGetDureeReelleBySubject = vi.hoisted(() => vi.fn())
-const mockGetUpcoming = vi.hoisted(() => vi.fn())
 const mockInvoke = vi.hoisted(() => vi.fn())
 const mockCreatePlanningGraph = vi.hoisted(() => vi.fn(() => ({ invoke: mockInvoke })))
 const mockValidatePlanning = vi.hoisted(() =>
@@ -43,25 +38,6 @@ vi.mock("@/src/services/coefficient.service", () => ({
     return {
       getByClassId: mockGetByClassId,
       getCoefficientsByClassName: mockGetCoefficientsByClassName,
-    }
-  }),
-}))
-
-vi.mock("@/src/services/historique.service", () => ({
-  HistoriqueService: vi.fn(function () {
-    return {
-      getWeeklyStats: mockGetWeeklyStats,
-      getDaysSinceLastRevisionBySubject: mockGetDaysSinceLastRevisionBySubject,
-      getRessentBySubject: mockGetRessentBySubject,
-      getDureeReelleBySubject: mockGetDureeReelleBySubject,
-    }
-  }),
-}))
-
-vi.mock("@/src/services/echeance.service", () => ({
-  EcheanceService: vi.fn(function () {
-    return {
-      getUpcoming: mockGetUpcoming,
     }
   }),
 }))
@@ -109,19 +85,9 @@ describe("runPlanningWorkflow", () => {
     mockGetByClassId.mockResolvedValue([{ subject: "Maths", coefficient: 5 }])
     mockGetCachedAnalysis.mockResolvedValue(null)
     mockGetCoefficientsByClassName.mockResolvedValue([{ subject: "Maths", coefficient: 5 }])
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 0,
-      totalMinutes: 0,
-      averageRating: null,
-      completedBySubject: {},
-    })
-    mockGetDaysSinceLastRevisionBySubject.mockResolvedValue(new Map())
-    mockGetRessentBySubject.mockResolvedValue(new Map())
-    mockGetDureeReelleBySubject.mockResolvedValue(new Map())
-    mockGetUpcoming.mockResolvedValue([])
     mockInvoke.mockResolvedValue({
       extractedTimetable: mockTimetable,
-      extractedTimetableMarkdown: "  LUNDI :\n  - 08:00-09:30 : Maths",
+      timetableSummary: "  LUNDI :\n  - 08:00-09:30 : Maths",
       studentProfileContext: "- Weak in Maths",
       isValidTimetable: true,
       generatedPlanning: [],
@@ -163,27 +129,9 @@ describe("runPlanningWorkflow", () => {
     expect(mockGetCoefficientsByClassName).toHaveBeenCalledWith("Terminale S1")
   })
 
-  it("fetches weekly stats from HistoriqueService and passes them to graph", async () => {
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 5,
-      totalMinutes: 225,
-      averageRating: 3.5,
-      completedBySubject: { Maths: 3, PC: 2 },
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockGetWeeklyStats).toHaveBeenCalledWith("user-1")
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weeklyStats: expect.stringContaining("225"),
-      })
-    )
-  })
-
   it("uses cached timetable and profile from ProfileService (skips vision and profile)", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
+      timetableRaw: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "CACHED_PROFILE",
     })
@@ -202,7 +150,7 @@ describe("runPlanningWorkflow", () => {
   it("saves updated analysis cache when timetable changes after invoke", async () => {
     const oldTimetable = { ...mockTimetable, filiere: "OLD" }
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: JSON.stringify(oldTimetable),
+      timetableRaw: JSON.stringify(oldTimetable),
       isValidTimetable: true,
       studentProfileContext: "SAME_PROFILE",
     })
@@ -220,7 +168,7 @@ describe("runPlanningWorkflow", () => {
 
   it("saves updated analysis cache when profile changes after invoke", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
+      timetableRaw: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "OLD_PROFILE",
     })
@@ -238,7 +186,7 @@ describe("runPlanningWorkflow", () => {
 
   it("does NOT save cache when neither timetable nor profile changed", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: JSON.stringify(mockTimetable),
+      timetableRaw: JSON.stringify(mockTimetable),
       isValidTimetable: true,
       studentProfileContext: "SAME",
     })
@@ -276,105 +224,6 @@ describe("runPlanningWorkflow", () => {
     await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
   })
 
-  it("fetches feedback data from HistoriqueService and passes to graph", async () => {
-    const ressentiMap = new Map([["MATH", 2.0]])
-    const dureeMap = new Map([["MATH", 40]])
-    mockGetRessentBySubject.mockResolvedValue(ressentiMap)
-    mockGetDureeReelleBySubject.mockResolvedValue(dureeMap)
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockGetRessentBySubject).toHaveBeenCalledWith("user-1")
-    expect(mockGetDureeReelleBySubject).toHaveBeenCalledWith("user-1")
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ressentBySubject: { MATH: 2.0 },
-        dureeReelleBySubject: { MATH: 40 },
-      })
-    )
-  })
-
-  it("handles feedback data fetch errors gracefully (does not propagate)", async () => {
-    mockGetRessentBySubject.mockRejectedValue(new Error("Feedback error"))
-    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      "Failed to fetch feedback data"
-    )
-  })
-
-  it("handles dureeReelleBySubject fetch errors gracefully", async () => {
-    mockGetDureeReelleBySubject.mockRejectedValue(new Error("Duration error"))
-    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      "Failed to fetch feedback data"
-    )
-  })
-
-  it("excludes Note moyenne line from weeklyStats when averageRating is null", async () => {
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 2,
-      totalMinutes: 60,
-      averageRating: null,
-      completedBySubject: { Maths: 1 },
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weeklyStats: expect.not.stringContaining("Note moyenne"),
-      })
-    )
-  })
-
-  it("excludes Répartition line from weeklyStats when completedBySubject is empty", async () => {
-    mockGetWeeklyStats.mockResolvedValue({
-      sessionCount: 2,
-      totalMinutes: 60,
-      averageRating: 4,
-      completedBySubject: {},
-    })
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weeklyStats: expect.not.stringContaining("Répartition"),
-      })
-    )
-  })
-
-  it("handles weekly stats fetch errors gracefully (does not propagate)", async () => {
-    mockGetWeeklyStats.mockRejectedValue(new Error("Stats error"))
-    await expect(runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)).resolves.toBeDefined()
-  })
-
-  it("fetches upcoming echeances and passes formatted string to graph", async () => {
-    mockGetUpcoming.mockResolvedValue([
-      { subject: "Maths", title: "Contrôle continu", echeance_type: "devoir", due_date: "2026-06-12" },
-    ])
-
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-
-    expect(mockGetUpcoming).toHaveBeenCalledWith("user-1", 7)
-    expect(mockInvoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        upcomingEcheances: expect.stringContaining("Maths"),
-      })
-    )
-  })
-
-  it("should log error when historiqueService.getDaysSinceLastRevisionBySubject throws", async () => {
-    mockGetDaysSinceLastRevisionBySubject.mockRejectedValue(new Error("DB error"))
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      "Failed to fetch days since last revision"
-    )
-  })
-
   it("should use cached Terminale S1 coefficients when class_id is null on second call", async () => {
     await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
     expect(mockGetCoefficientsByClassName).toHaveBeenCalledTimes(1)
@@ -382,15 +231,6 @@ describe("runPlanningWorkflow", () => {
     mockGetCoefficientsByClassName.mockClear()
     await runPlanningWorkflow(supabase, "user-2", buffer, onboardingData)
     expect(mockGetCoefficientsByClassName).not.toHaveBeenCalled()
-  })
-
-  it("should log error when echeanceService.getUpcoming throws", async () => {
-    mockGetUpcoming.mockRejectedValue(new Error("Echeance error"))
-    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ err: expect.any(Error) }),
-      "Failed to fetch upcoming echeances"
-    )
   })
 
   it("should log error when post-graph validatePlanning throws", async () => {
@@ -406,7 +246,7 @@ describe("runPlanningWorkflow", () => {
 
   it("should log warn when cached analysis JSON fails to parse", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "{broken json}",
+      timetableRaw: "{broken json}",
       isValidTimetable: true,
       studentProfileContext: "test",
     })
@@ -457,13 +297,28 @@ describe("runPlanningWorkflow", () => {
   it("handles null state.extractedTimetable in cache comparison (line 213 false branch)", async () => {
     mockInvoke.mockResolvedValue({
       extractedTimetable: null,
-      extractedTimetableMarkdown: "",
+      timetableSummary: "",
       studentProfileContext: "",
       isValidTimetable: true,
       generatedPlanning: [],
     })
     await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
     expect(mockSaveAnalysisCache).not.toHaveBeenCalled()
+  })
+
+  it("handles unknown academicPeriod in validatePostGraph", async () => {
+    const unknownPeriod = { weakSubjects: ["Maths"], bedtime: "22:00", blockedSlots: [], academicPeriod: "unknown" }
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, unknownPeriod)).resolves.toBeDefined()
+  })
+
+  it("handles valid academicPeriod in validatePostGraph", async () => {
+    const validPeriod = { weakSubjects: ["Maths"], bedtime: "22:00", blockedSlots: [], academicPeriod: "pre_exam" }
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, validPeriod)).resolves.toBeDefined()
+  })
+
+  it("handles onboarding without weakSubjects in validatePostGraph", async () => {
+    const noWeak = { bedtime: "22:00", blockedSlots: [] }
+    await expect(runPlanningWorkflow(supabase, "user-1", buffer, noWeak)).resolves.toBeDefined()
   })
 
   it("handles null profile (line 66 false branch)", async () => {
@@ -475,7 +330,7 @@ describe("runPlanningWorkflow", () => {
 
   it("skips JSON parse when cached timetable is not JSON (line 70 false branch)", async () => {
     mockGetCachedAnalysis.mockResolvedValue({
-      extractedTimetableMarkdown: "Markdown text not JSON",
+      timetableRaw: "Markdown text not JSON",
       isValidTimetable: true,
       studentProfileContext: "test context",
     })
@@ -484,7 +339,7 @@ describe("runPlanningWorkflow", () => {
       expect.objectContaining({
         extractedTimetable: null,
         studentProfileContext: "",
-        extractedTimetableMarkdown: "",
+        timetableSummary: "",
       })
     )
   })

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { plannerAgentOutputSchema } from "@/src/lib/langgraph/state"
 import type { PlanningGraphAnnotationState } from "@/src/lib/langgraph/state"
 
@@ -54,7 +54,7 @@ const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("img"),
   timetableImageMimeType: "image/jpeg",
   onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
-  extractedTimetableMarkdown: "LUNDI:\n- 08:00-09:30: Maths\n- 09:40-11:10: PC",
+  timetableSummary: "LUNDI:\n- 08:00-09:30: Maths\n- 09:40-11:10: PC",
   studentProfileContext: "- Weak in Maths",
   weeklyStats: "Total: 120 min (2 sessions)",
   isValidTimetable: true,
@@ -69,10 +69,6 @@ const baseState: PlanningGraphAnnotationState = {
 describe("plannerAgent", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    delete process.env.STOP_AT_AGENT
   })
 
   it("calls model.withStructuredOutput with plannerAgentOutputSchema", async () => {
@@ -98,31 +94,10 @@ describe("plannerAgent", () => {
     expect(result.generatedPlanning).toEqual([])
   })
 
-  it("skips model call and returns empty planning when STOP_AT_AGENT=vision", async () => {
-    process.env.STOP_AT_AGENT = "vision"
-    const result = await plannerAgent(baseState)
-    expect(mockModel.invoke).not.toHaveBeenCalled()
-    expect(result.generatedPlanning).toEqual([])
-  })
-
-  it("skips model call and returns empty planning when STOP_AT_AGENT=profile", async () => {
-    process.env.STOP_AT_AGENT = "profile"
-    const result = await plannerAgent(baseState)
-    expect(mockModel.invoke).not.toHaveBeenCalled()
-    expect(result.generatedPlanning).toEqual([])
-  })
-
-  it("runs normally when STOP_AT_AGENT=planner", async () => {
-    process.env.STOP_AT_AGENT = "planner"
-    const result = await plannerAgent(baseState)
-    expect(mockModel.invoke).toHaveBeenCalled()
-    expect(result.generatedPlanning).toHaveLength(2)
-  })
-
   it("includes all context fields in model input", async () => {
     await plannerAgent(baseState)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
-    expect(callArg.timetableSummary).toBe(baseState.extractedTimetableMarkdown)
+    expect(callArg.timetableSummary).toBe(baseState.timetableSummary)
     expect(callArg.studentProfileContext).toBe(baseState.studentProfileContext)
     expect(callArg.preplannerConstraints).toBe(baseState.preplannerConstraints)
   })
@@ -135,17 +110,6 @@ describe("plannerAgent", () => {
     await plannerAgent(state)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
     expect(callArg.preplannerConstraints).toBe("No constraints specified.")
-  })
-
-  it("passes modelOverrides to getModel", async () => {
-    const modelModule = await import("@/src/lib/langgraph/model")
-    const getModelSpy = vi.spyOn(modelModule, "getModel")
-
-    const overrides = { temperature: 0.3 }
-    await plannerAgent(baseState, overrides)
-    expect(getModelSpy).toHaveBeenCalledWith("planner", overrides)
-
-    getModelSpy.mockRestore()
   })
 
   it("includes scheduling rules in system prompt", async () => {

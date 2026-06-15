@@ -31,10 +31,8 @@ export async function POST(request: NextRequest) {
       timetableImage: buffer,
       timetableImageMimeType: file.type,
       onboardingData: null,
-      extractedTimetableMarkdown: "",
+      timetableSummary: "",
       studentProfileContext: "",
-      weeklyStats: "",
-      upcomingEcheances: "",
       extractedTimetable: null,
       coefficientTable: "",
       preplannerConstraints: "",
@@ -42,20 +40,18 @@ export async function POST(request: NextRequest) {
       validationErrorMessage: undefined,
       generatedPlanning: [],
       planningValidation: null,
-      ressentBySubject: {},
-      dureeReelleBySubject: {},
     })
 
     const profileService = new ProfileService(supabase)
     await profileService.saveVisionCache(
       user.id,
-      (result.extractedTimetableMarkdown as string) ?? "",
+      (result.timetableSummary as string) ?? "",
       (result.isValidTimetable as boolean) ?? true
     )
 
     return NextResponse.json(
       {
-        extractedTimetableMarkdown: result.extractedTimetableMarkdown as string,
+        timetableSummary: result.timetableSummary as string,
         isValidTimetable: result.isValidTimetable as boolean,
         validationErrorMessage: result.validationErrorMessage as string | undefined,
       },

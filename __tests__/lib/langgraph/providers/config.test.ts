@@ -52,13 +52,12 @@ describe("config", () => {
     expect(config.agents.planner!.maxTokens).toBe(12000)
   })
 
-  it("getModelConfigForAgent cannot bypass maxTokens via runtime overrides when NDIAYE_MAX_TOKENS is set", () => {
+  it("getModelConfigForAgent reads NDIAYE_MAX_TOKENS from env", () => {
     vi.stubEnv("NDIAYE_MAX_TOKENS", "12000")
     invalidateConfig()
 
-    const result = getModelConfigForAgent("planner", { maxTokens: 99999 })
-    expect(result.maxTokens).toBe(99999)
-    // mais Zod strip déjà maxTokens dans la route, donc cet appel ne vient jamais de l'API
+    const result = getModelConfigForAgent("planner")
+    expect(result.maxTokens).toBe(12000)
   })
 
   it("reads per-agent overrides from NDIAYE_VISION_* env vars", () => {
@@ -82,7 +81,7 @@ describe("config", () => {
     expect(config.agents.vision!.model).toBe("gemini-2.5-flash")
   })
 
-  it("getModelConfigForAgent returns merged config with overrides taking precedence", () => {
+  it("getModelConfigForAgent returns merged config", () => {
     vi.stubEnv("NDIAYE_DEFAULT_PROVIDER", "openai")
     vi.stubEnv("NDIAYE_DEFAULT_MODEL", "gpt-4")
     invalidateConfig()
@@ -90,28 +89,6 @@ describe("config", () => {
     const result = getModelConfigForAgent("vision")
     expect(result.provider).toBe("openai")
     expect(result.model).toBe("gpt-4")
-  })
-
-  it("getModelConfigForAgent applies runtime overrides on top of env config", () => {
-    vi.stubEnv("NDIAYE_DEFAULT_PROVIDER", "openai")
-    vi.stubEnv("NDIAYE_DEFAULT_MODEL", "gpt-4")
-    invalidateConfig()
-
-    const result = getModelConfigForAgent("planner", {
-      temperature: 0.8,
-      provider: "anthropic",
-    })
-    expect(result.provider).toBe("anthropic")
-    expect(result.model).toBe("gpt-4")
-    expect(result.temperature).toBe(0.8)
-  })
-
-  it("getModelConfigForAgent falls back through overrides -> agent -> default chain", () => {
-    const result = getModelConfigForAgent("profile", { baseUrl: "http://localhost" })
-    expect(result.provider).toBe("gemini")
-    expect(result.model).toBe("gemini-2.5-flash")
-    expect(result.temperature).toBe(0)
-    expect(result.baseUrl).toBe("http://localhost")
   })
 
   it("invalidates config cache so subsequent calls re-read env vars", () => {
@@ -144,14 +121,6 @@ describe("config", () => {
     const config = getConfig()
     expect(config.agents.profile!.model).toBe("gpt-3.5-turbo")
     expect(config.agents.planner!.temperature).toBe(0.7)
-  })
-
-  it("getModelConfigForAgent overrides model via runtime overrides", () => {
-    vi.stubEnv("NDIAYE_DEFAULT_MODEL", "gemini-2.5-flash")
-    invalidateConfig()
-
-    const result = getModelConfigForAgent("vision", { model: "gpt-4o" })
-    expect(result.model).toBe("gpt-4o")
   })
 
   it("getModelConfigForAgent uses agent-specific baseUrl from env vars", () => {

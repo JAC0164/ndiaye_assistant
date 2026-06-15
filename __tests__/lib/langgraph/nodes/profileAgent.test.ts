@@ -37,7 +37,7 @@ const baseState: PlanningGraphAnnotationState = {
   timetableImage: Buffer.from("img"),
   timetableImageMimeType: "image/jpeg",
   onboardingData: { weakSubjects: ["Maths"], blockedSlots: [], bedtime: "22:00" },
-  extractedTimetableMarkdown: "",
+  timetableSummary: "",
   studentProfileContext: "",
   weeklyStats: "",
   isValidTimetable: true,
@@ -92,17 +92,6 @@ describe("profileAgent", () => {
     expect(systemMessage).toContain("weakSubjects")
     expect(systemMessage).toContain("blockedSlots")
     expect(systemMessage).toContain("studentProfileContext")
-  })
-
-  it("passes modelOverrides to getModel", async () => {
-    const modelModule = await import("@/src/lib/langgraph/model")
-    const getModelSpy = vi.spyOn(modelModule, "getModel")
-
-    const overrides = { model: "gpt-4" }
-    await profileAgent(baseState, overrides)
-    expect(getModelSpy).toHaveBeenCalledWith("profile", overrides)
-
-    getModelSpy.mockRestore()
   })
 
   it("handles empty onboarding data gracefully", async () => {

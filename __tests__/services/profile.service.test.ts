@@ -176,7 +176,7 @@ describe("ProfileService", () => {
       const result = await service.getCachedAnalysis("user-1")
 
       expect(result).toEqual({
-        extractedTimetableMarkdown: "# Timetable markdown",
+        timetableRaw: "# Timetable markdown",
         isValidTimetable: true,
         studentProfileContext: "Student is in S1",
       })
@@ -223,7 +223,7 @@ describe("ProfileService", () => {
       const result = await service.getCachedAnalysis("user-1")
 
       expect(result).toEqual({
-        extractedTimetableMarkdown: "",
+        timetableRaw: "",
         isValidTimetable: true,
         studentProfileContext: "Only context present",
       })

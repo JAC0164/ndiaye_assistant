@@ -2,7 +2,6 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { getModel, createTokenLogger } from "../model"
 import { logger } from "@/src/lib/logger"
 import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, visionAgentOutputSchema } from "../state"
-import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 import { ExtractedTimetable } from "@/src/types/planning.types"
 
@@ -16,6 +15,41 @@ function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string 
   }
 
   return `data:image/jpeg;base64,${image}`
+}
+
+export function validateExtractedTimetable(timetable: ExtractedTimetable): { isValid: boolean; errorMessage?: string } {
+  for (const day of timetable.days) {
+    for (const slot of day.slots) {
+      if (slot.start < "08:00" || slot.end > "19:00") {
+        return { isValid: false, errorMessage: "Créneau en dehors des heures autorisées (08:00–19:00)." }
+      }
+    }
+  }
+
+  for (const day of timetable.days) {
+    let currentSubject = ""
+    let currentDuration = 0
+    for (const slot of day.slots) {
+      const [sh, sm] = slot.start.split(":").map(Number)
+      const [eh, em] = slot.end.split(":").map(Number)
+      const duration = eh * 60 + em - (sh * 60 + sm)
+      if (slot.subject === currentSubject) {
+        currentDuration += duration
+      } else {
+        currentSubject = slot.subject
+        currentDuration = duration
+      }
+      if (currentDuration > 180) {
+        return { isValid: false, errorMessage: `Même matière plus de 3h consécutives : ${currentSubject}.` }
+      }
+    }
+  }
+
+  if (timetable.days.length === 0 || timetable.days.every((d) => d.slots.length === 0)) {
+    return { isValid: false, errorMessage: "Aucun créneau extrait." }
+  }
+
+  return { isValid: true }
 }
 
 export function timetableToMarkdown(timetable: ExtractedTimetable): string {
@@ -38,21 +72,19 @@ export function timetableToMarkdown(timetable: ExtractedTimetable): string {
     .join("\n")
 }
 
-export async function visionAgent(
-  state: PlanningGraphAnnotationState,
-  modelOverrides?: Partial<ModelProviderConfig>
-): Promise<PlanningGraphAnnotationUpdate> {
+export async function visionAgent(state: PlanningGraphAnnotationState): Promise<PlanningGraphAnnotationUpdate> {
+  // If we already have a valid extracted timetable in the state (e.g. from cache), skip the vision agent
   if (state.extractedTimetable) {
     logger.info({ valid: state.isValidTimetable }, "[Skip] VISION")
     return {
       extractedTimetable: state.extractedTimetable,
-      extractedTimetableMarkdown: state.extractedTimetableMarkdown,
+      timetableSummary: state.timetableSummary,
       isValidTimetable: state.isValidTimetable,
       validationErrorMessage: state.validationErrorMessage,
     }
   }
 
-  const model = getModel("vision", modelOverrides)
+  const model = getModel("vision")
   const structuredModel = model.withStructuredOutput(visionAgentOutputSchema, {
     name: "validate_and_extract_senegalese_timetable",
   })
@@ -91,13 +123,6 @@ export async function visionAgent(
         "5. Classify each subject: scientific | literary | language | other.",
         "6. Only include weekdays (monday–friday). No weekend entries.",
         `7. Set filiere to "${filiere}".`,
-        "",
-        "VALIDATION (set isValid = false if):",
-        "- Classes on Sunday",
-        "- Same subject > 3h consecutive without break",
-        "- Hours outside 08:00–19:00",
-        "- Non-secondary subjects detected",
-        "- Document is not a school timetable",
       ].join("\n"),
     ],
     [
@@ -129,14 +154,15 @@ export async function visionAgent(
     "vision"
   )
 
-  const isValid = result.isValid
-  const extractedTimetable = isValid ? result.timetable : null
-  const extractedTimetableMarkdown = extractedTimetable ? timetableToMarkdown(extractedTimetable) : ""
+  const extractedTimetable = result.timetable
+  const validation = extractedTimetable
+    ? validateExtractedTimetable(extractedTimetable)
+    : { isValid: false, errorMessage: "Impossible d'extraire l'emploi du temps." }
 
   return {
-    extractedTimetable,
-    extractedTimetableMarkdown,
-    isValidTimetable: isValid,
-    validationErrorMessage: isValid ? undefined : "Emploi du temps invalide ou non conforme au système sénégalais.",
+    extractedTimetable: validation.isValid ? extractedTimetable : null,
+    timetableSummary: validation.isValid ? timetableToMarkdown(extractedTimetable!) : "",
+    isValidTimetable: validation.isValid,
+    validationErrorMessage: validation.isValid ? undefined : validation.errorMessage,
   }
 }

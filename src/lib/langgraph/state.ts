@@ -42,8 +42,7 @@ export const extractedTimetableSchema = z.object({
 })
 
 export const visionAgentOutputSchema = z.object({
-  isValid: z.boolean(),
-  timetable: extractedTimetableSchema,
+  timetable: extractedTimetableSchema.nullable(),
 })
 
 export const profileAgentOutputSchema = z.object({
@@ -63,19 +62,11 @@ export const PlanningGraphAnnotation = Annotation.Root({
     default: () => "image/jpeg",
   }),
   onboardingData: Annotation<unknown>(),
-  extractedTimetableMarkdown: Annotation<string>({
+  timetableSummary: Annotation<string>({
     value: (_current, update) => update,
     default: () => "",
   }),
   studentProfileContext: Annotation<string>({
-    value: (_current, update) => update,
-    default: () => "",
-  }),
-  weeklyStats: Annotation<string>({
-    value: (_current, update) => update,
-    default: () => "",
-  }),
-  upcomingEcheances: Annotation<string>({
     value: (_current, update) => update,
     default: () => "",
   }),
@@ -106,14 +97,6 @@ export const PlanningGraphAnnotation = Annotation.Root({
   planningValidation: Annotation<ValidationResult | null>({
     value: (_current, update) => update,
     default: () => null,
-  }),
-  ressentBySubject: Annotation<Record<string, number>>({
-    value: (_current, update) => update,
-    default: () => ({}),
-  }),
-  dureeReelleBySubject: Annotation<Record<string, number>>({
-    value: (_current, update) => update,
-    default: () => ({}),
   }),
 })
 

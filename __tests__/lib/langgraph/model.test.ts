@@ -27,18 +27,12 @@ describe("getModel", () => {
 
   it("uses default agent 'planner' when called without arguments", () => {
     getModel()
-    expect(getModelConfigForAgent).toHaveBeenCalledWith("planner", undefined)
+    expect(getModelConfigForAgent).toHaveBeenCalledWith("planner")
   })
 
   it("passes agentName to getModelConfigForAgent", () => {
     getModel("vision")
-    expect(getModelConfigForAgent).toHaveBeenCalledWith("vision", undefined)
-  })
-
-  it("passes overrides to getModelConfigForAgent", () => {
-    const overrides = { temperature: 0.5 }
-    getModel("planner", overrides)
-    expect(getModelConfigForAgent).toHaveBeenCalledWith("planner", overrides)
+    expect(getModelConfigForAgent).toHaveBeenCalledWith("vision")
   })
 
   it("returns a BaseChatModel from factory", () => {
@@ -67,9 +61,7 @@ describe("getModel", () => {
   it("creates separate model when maxTokens differs (cache key includes maxTokens)", () => {
     const baseConfig = { provider: "gemini", model: "test-model", temperature: 0, maxTokens: 8192 }
     const altConfig = { provider: "gemini", model: "test-model", temperature: 0, maxTokens: 500 }
-    vi.mocked(getModelConfigForAgent)
-      .mockReturnValueOnce(baseConfig)
-      .mockReturnValueOnce(altConfig)
+    vi.mocked(getModelConfigForAgent).mockReturnValueOnce(baseConfig).mockReturnValueOnce(altConfig)
 
     getModel("planner")
     getModel("planner")

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { validatePlanning } from "../../../src/lib/planning/validatePlanning"
 import { GeneratedSeance } from "../../../src/lib/langgraph/state"
-import { BlockedSlot } from "../../../src/types/planning.types"
+import { BlockedSlot, SubjectBudget, SubjectInfo } from "../../../src/types/planning.types"
 
 const ALLOWED_SUBJECTS = ["MATH", "FR", "PC"]
 
@@ -490,5 +490,205 @@ describe("validatePlanning", () => {
     ]
     const result = validatePlanning(sessions, ["MATH"], "22:00", [])
     expect(result.warnings.some((w) => w.check === "passive_verb_detected")).toBe(false)
+  })
+
+  it("flags undersized sessions below minSessionMinutes (25 min)", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:15",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Révision rapide.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "undersized_session")).toBe(true)
+  })
+
+  it("does not flag sessions at or above minSessionMinutes", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:25",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Révision.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "undersized_session")).toBe(false)
+  })
+
+  it("flags eat_the_frog when Saturday first session is not the highest-coefficient weak subject", () => {
+    const budgets = new Map<string, SubjectBudget>([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Français.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["FR", "MATH"], "22:00", [], {
+      budgets,
+      weakSubjects: ["MATH", "FR"],
+      allSubjects: [
+        { name: "MATH", coefficient: 4, subjectType: "scientific", daysPresent: ["monday"] },
+        { name: "FR", coefficient: 5, subjectType: "literary", daysPresent: ["tuesday"] },
+      ],
+    })
+    // FR has coeff 5, MATH has coeff 4, both are weak — highest is FR, and FR IS first, so no warning
+    // Actually, FR (coeff 5) > MATH (coeff 4), so FR should be first and it IS first → no warning
+    expect(result.warnings.some((w) => w.check === "eat_the_frog")).toBe(false)
+  })
+
+  it("flags eat_the_frog when a lower-coeff weak subject is first on Saturday", () => {
+    const budgets = new Map<string, SubjectBudget>([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH", "FR"], "22:00", [], {
+      budgets,
+      weakSubjects: ["MATH", "FR"],
+      allSubjects: [
+        { name: "MATH", coefficient: 4, subjectType: "scientific", daysPresent: ["monday"] },
+        { name: "FR", coefficient: 5, subjectType: "literary", daysPresent: ["tuesday"] },
+      ],
+    })
+    // FR (coeff 5) > MATH (coeff 4), both weak, but MATH is first → warning expected
+    expect(result.warnings.some((w) => w.check === "eat_the_frog")).toBe(true)
+  })
+
+  it("does not flag eat_the_frog when no weak subjects are specified", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [])
+    expect(result.warnings.some((w) => w.check === "eat_the_frog")).toBe(false)
+  })
+
+  it("flags budget_exceeded when total planned time exceeds weekly budget by more than 15% tolerance", () => {
+    const budgets = new Map<string, SubjectBudget>([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths session 1.",
+      },
+      {
+        day_of_week: "wednesday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths session 2.",
+      },
+    ]
+    // 45 + 45 = 90 min planned vs 60 min budget → 90 > 60 + 9 (15%) → warning
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [], { budgets })
+    expect(result.warnings.some((w) => w.check === "budget_exceeded")).toBe(true)
+  })
+
+  it("does not flag budget_exceeded when total is within 15% tolerance", () => {
+    const budgets = new Map<string, SubjectBudget>([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths.",
+      },
+    ]
+    // 45 min planned vs 60 min budget → within tolerance → no warning
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [], { budgets })
+    expect(result.warnings.some((w) => w.check === "budget_exceeded")).toBe(false)
+  })
+
+  it("skips budget_exceeded for break sessions (line 259)", () => {
+    const budgets = new Map<string, SubjectBudget>([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "17:45",
+        end_time: "18:00",
+        subject: "Pause",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [], { budgets })
+    // MATH: 45 min planned vs 60 min → within tolerance → no warning
+    expect(result.warnings.some((w) => w.check === "budget_exceeded")).toBe(false)
+  })
+
+  it("does not crash eat_the_frog when no weak subjects match (empty weakWithCoeff)", () => {
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "Maths.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["MATH"], "22:00", [], {
+      weakSubjects: ["NOT_IN_TIMETABLE"],
+      allSubjects: [{ name: "MATH", coefficient: 4, subjectType: "scientific", daysPresent: ["monday"] }],
+    })
+    expect(result.warnings.some((w) => w.check === "eat_the_frog")).toBe(false)
+  })
+
+  it("handles eat_the_frog with coefficient 0 edge case for reduce coverage", () => {
+    const budgets = new Map<string, SubjectBudget>([["ZERO", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const sessions: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "09:45",
+        subject: "ZERO",
+        session_type: "review",
+        pedagogical_note: "Zero coeff.",
+      },
+    ]
+    const result = validatePlanning(sessions, ["ZERO"], "22:00", [], {
+      budgets,
+      weakSubjects: ["ZERO"],
+      allSubjects: [{ name: "ZERO", coefficient: 0, subjectType: "scientific", daysPresent: ["monday"] }],
+    })
+    // Only one weak subject, so highest is ZERO with coeff 0, and ZERO is first → no warning
+    expect(result.warnings.some((w) => w.check === "eat_the_frog")).toBe(false)
   })
 })

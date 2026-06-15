@@ -16,12 +16,6 @@ export interface ProvidersConfig {
   agents?: Partial<Record<AgentName, Partial<ModelProviderConfig>>>
 }
 
-export interface ModelOverrides {
-  vision?: Partial<ModelProviderConfig>
-  profile?: Partial<ModelProviderConfig>
-  planner?: Partial<ModelProviderConfig>
-}
-
 export function getProviderLabel(provider: ModelProvider): string {
   const labels: Record<ModelProvider, string> = {
     gemini: "Google Gemini",

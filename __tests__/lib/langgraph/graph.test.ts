@@ -99,13 +99,12 @@ describe("createPlanningGraph", () => {
     expect(typeof compiledGraph.invoke).toBe("function")
   })
 
-  it("has exactly 5 nodes: vision, profile, visionValidated, prePlanner, planner", () => {
+  it("has exactly 4 nodes: vision, profile, prePlanner, planner", () => {
     expect(compiledGraph.nodeNames).toContain("vision")
     expect(compiledGraph.nodeNames).toContain("profile")
-    expect(compiledGraph.nodeNames).toContain("visionValidated")
     expect(compiledGraph.nodeNames).toContain("prePlanner")
     expect(compiledGraph.nodeNames).toContain("planner")
-    expect(compiledGraph.nodeNames).toHaveLength(5)
+    expect(compiledGraph.nodeNames).toHaveLength(4)
   })
 
   it("connects START to both vision and profile (parallel execution)", () => {
@@ -117,14 +116,13 @@ describe("createPlanningGraph", () => {
     expect(destinations).toContain("profile")
   })
 
-  it("has conditional edges from vision routing to visionValidated or END", () => {
+  it("has conditional edges from vision routing to prePlanner or END", () => {
     expect(compiledGraph.condEdges).toHaveLength(1)
     const visionEdge = compiledGraph.condEdges[0]
     expect(visionEdge.from).toBe("vision")
     expect(visionEdge.mappings).toEqual({
-      valid: "visionValidated",
+      valid: "prePlanner",
       invalid: "__end__",
-      stop: "__end__",
     })
   })
 
@@ -140,23 +138,11 @@ describe("createPlanningGraph", () => {
     expect(result).toBe("invalid")
   })
 
-  it("routes to stop when STOP_AT_AGENT=vision", () => {
-    vi.stubEnv("STOP_AT_AGENT", "vision")
-    const conditionFn = compiledGraph.condEdges[0].condition
-    const result = conditionFn({ isValidTimetable: true })
-    expect(result).toBe("stop")
-    vi.unstubAllEnvs()
-  })
-
-  it("has edge from [visionValidated, profile] to prePlanner", () => {
-    const mergeEdge = compiledGraph.edgeFromTo.find(
-      (e: { from: string | string[]; to: string }) =>
-        Array.isArray(e.from) &&
-        e.from.includes("visionValidated") &&
-        e.from.includes("profile") &&
-        e.to === "prePlanner"
+  it("has edge from profile to prePlanner", () => {
+    const profileEdge = compiledGraph.edgeFromTo.find(
+      (e: { from: string | string[]; to: string }) => e.from === "profile" && e.to === "prePlanner"
     )
-    expect(mergeEdge).toBeDefined()
+    expect(profileEdge).toBeDefined()
   })
 
   it("has edge from prePlanner to planner", () => {
@@ -178,118 +164,22 @@ describe("createPlanningGraph", () => {
     expect(instance.compile).toHaveBeenCalledTimes(1)
   })
 
-  it("accepts modelOverrides and passes them to node functions", () => {
-    const visionOverride = { temperature: 0.5 }
-    const profileOverride = { model: "gpt-4" }
-    const plannerOverride = { provider: "anthropic" as const }
-
-    const overrides = {
-      vision: visionOverride,
-      profile: profileOverride,
-      planner: plannerOverride,
-    }
-
-    vi.mocked(StateGraph).mockClear()
-
-    createPlanningGraph(overrides)
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    expect(instance.addNode).toHaveBeenCalledWith("vision", expect.any(Function))
-    expect(instance.addNode).toHaveBeenCalledWith("profile", expect.any(Function))
-    expect(instance.addNode).toHaveBeenCalledWith("planner", expect.any(Function))
-  })
-
-  it("lambda wrapper for vision passes modelOverrides.vision to visionAgent", () => {
-    vi.mocked(StateGraph).mockClear()
-    vi.clearAllMocks()
-
-    const overrides = { vision: { temperature: 0.3 } }
-    createPlanningGraph(overrides)
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    const visionFn = instance._nodeFns["vision"]
-    const state = { isValidTimetable: true }
-
-    visionFn(state)
-
-    expect(visionAgent).toHaveBeenCalledWith(state, overrides.vision)
-  })
-
-  it("lambda wrapper for profile passes modelOverrides.profile to profileAgent", () => {
-    vi.mocked(StateGraph).mockClear()
-    vi.clearAllMocks()
-
-    const overrides = { profile: { model: "gpt-4" } }
-    createPlanningGraph(overrides)
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    const profileFn = instance._nodeFns["profile"]
-    const state = { studentProfileContext: "test" }
-
-    profileFn(state)
-
-    expect(profileAgent).toHaveBeenCalledWith(state, overrides.profile)
-  })
-
-  it("lambda wrapper for planner passes modelOverrides.planner to plannerAgent", () => {
-    vi.mocked(StateGraph).mockClear()
-    vi.clearAllMocks()
-
-    const overrides = { planner: { provider: "anthropic" } }
-    createPlanningGraph(overrides)
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    const plannerFn = instance._nodeFns["planner"]
-    const state = { isValidTimetable: true }
-
-    plannerFn(state)
-
-    expect(plannerAgent).toHaveBeenCalledWith(state, overrides.planner)
-  })
-
-  it("lambda wrappers call agents with undefined when no overrides provided", () => {
+  it("lambda wrappers delegate to visionAgent and profileAgent", () => {
     vi.mocked(StateGraph).mockClear()
     vi.clearAllMocks()
 
     createPlanningGraph()
-
     const instance = vi.mocked(StateGraph).mock.results[0].value
     const state = { isValidTimetable: true }
 
     instance._nodeFns["vision"](state)
+    expect(visionAgent).toHaveBeenCalledWith(state)
+
     instance._nodeFns["profile"](state)
+    expect(profileAgent).toHaveBeenCalledWith(state)
+
     instance._nodeFns["planner"](state)
-
-    expect(visionAgent).toHaveBeenCalledWith(state, undefined)
-    expect(profileAgent).toHaveBeenCalledWith(state, undefined)
-    expect(plannerAgent).toHaveBeenCalledWith(state, undefined)
-  })
-
-  it("passValidatedVision returns empty object", () => {
-    vi.mocked(StateGraph).mockClear()
-
-    createPlanningGraph()
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    const validatedFn = instance._nodeFns["visionValidated"]
-
-    const result = validatedFn()
-    expect(result).toEqual({})
-  })
-
-  it("routeAfterVision returns stop when STOP_AT_AGENT=vision", () => {
-    vi.mocked(StateGraph).mockClear()
-
-    createPlanningGraph()
-
-    const instance = vi.mocked(StateGraph).mock.results[0].value
-    const snapshot = instance.compile()
-    const conditionFn = snapshot.condEdges[0].condition
-
-    vi.stubEnv("STOP_AT_AGENT", "vision")
-    const result = conditionFn({ isValidTimetable: true })
-    expect(result).toBe("stop")
-    vi.unstubAllEnvs()
+    expect(plannerAgent).toHaveBeenCalledWith(state)
   })
 
   describe("prePlannerNode", () => {
@@ -321,7 +211,6 @@ describe("createPlanningGraph", () => {
           bedtime: "22:00",
           blockedSlots: [],
           academicPeriod: "milieu_trimestre",
-          daysSinceLastRevision: [["MATH", 3]],
           weakSubjects: ["MATH"],
         },
       }

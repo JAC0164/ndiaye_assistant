@@ -12,6 +12,7 @@ export interface OnboardingForm {
   weakSubjects: string[]
   bedtime: string
   blockedSlots: BlockedSlot[]
+  academicPeriod?: string
 }
 
 export interface ProfileMetadata {
@@ -87,7 +88,7 @@ export interface ValidationResult {
 
 export type ApiResponse = {
   isValidTimetable: boolean
-  extractedTimetableMarkdown?: string // kept for backward compat / display
+  timetableSummary?: string
   extractedTimetable?: ExtractedTimetable // new structured format
   studentProfileContext?: string
   generatedPlanning: GeneratedSeance[]

@@ -124,22 +124,22 @@ describe("visionAgentOutputSchema", () => {
     ],
   }
 
-  it("accepts valid output", () => {
-    const result = visionAgentOutputSchema.parse({
-      isValid: true,
-      timetable: validTimetable,
-    })
-    expect(result.isValid).toBe(true)
-    expect(result.timetable.filiere).toBe("L2")
+  it("accepts valid timetable", () => {
+    const result = visionAgentOutputSchema.parse({ timetable: validTimetable })
+    expect(result.timetable?.filiere).toBe("L2")
   })
 
-  it("rejects missing fields", () => {
-    expect(() => visionAgentOutputSchema.parse({ isValid: true })).toThrow()
+  it("accepts null timetable", () => {
+    const result = visionAgentOutputSchema.parse({ timetable: null })
+    expect(result.timetable).toBeNull()
+  })
+
+  it("rejects missing timetable", () => {
+    expect(() => visionAgentOutputSchema.parse({})).toThrow()
+  })
+
+  it("rejects invalid timetable shape", () => {
     expect(() => visionAgentOutputSchema.parse({ timetable: {} })).toThrow()
-  })
-
-  it("rejects non-boolean isValid", () => {
-    expect(() => visionAgentOutputSchema.parse({ isValid: "true", timetable: validTimetable })).toThrow()
   })
 })
 
@@ -233,9 +233,8 @@ describe("PlanningGraphAnnotation", () => {
       timetableImage: PLACEHOLDER,
       timetableImageMimeType: PLACEHOLDER,
       onboardingData: PLACEHOLDER,
-      extractedTimetableMarkdown: PLACEHOLDER,
+      timetableSummary: PLACEHOLDER,
       studentProfileContext: PLACEHOLDER,
-      weeklyStats: PLACEHOLDER,
       isValidTimetable: PLACEHOLDER,
       validationErrorMessage: PLACEHOLDER,
       generatedPlanning: PLACEHOLDER,
@@ -247,9 +246,8 @@ describe("PlanningGraphAnnotation", () => {
     expect(stateShape).toHaveProperty("timetableImage")
     expect(stateShape).toHaveProperty("timetableImageMimeType")
     expect(stateShape).toHaveProperty("onboardingData")
-    expect(stateShape).toHaveProperty("extractedTimetableMarkdown")
+    expect(stateShape).toHaveProperty("timetableSummary")
     expect(stateShape).toHaveProperty("studentProfileContext")
-    expect(stateShape).toHaveProperty("weeklyStats")
     expect(stateShape).toHaveProperty("isValidTimetable")
     expect(stateShape).toHaveProperty("validationErrorMessage")
     expect(stateShape).toHaveProperty("generatedPlanning")
@@ -270,10 +268,8 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("timetableImage")
     expect(keys).toContain("timetableImageMimeType")
     expect(keys).toContain("onboardingData")
-    expect(keys).toContain("extractedTimetableMarkdown")
+    expect(keys).toContain("timetableSummary")
     expect(keys).toContain("studentProfileContext")
-    expect(keys).toContain("weeklyStats")
-    expect(keys).toContain("upcomingEcheances")
     expect(keys).toContain("isValidTimetable")
     expect(keys).toContain("validationErrorMessage")
     expect(keys).toContain("generatedPlanning")
@@ -281,9 +277,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("coefficientTable")
     expect(keys).toContain("preplannerConstraints")
     expect(keys).toContain("planningValidation")
-    expect(keys).toContain("ressentBySubject")
-    expect(keys).toContain("dureeReelleBySubject")
-    expect(keys).toHaveLength(16)
+    expect(keys).toHaveLength(12)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -307,7 +301,7 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields use value reducer that replaces old with new", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "weeklyStats"]
+    const stringFields = ["timetableSummary", "studentProfileContext"]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.operator).toBe("function")
@@ -317,7 +311,7 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields default to empty string", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["extractedTimetableMarkdown", "studentProfileContext", "weeklyStats"]
+    const stringFields = ["timetableSummary", "studentProfileContext"]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.initialValueFactory).toBe("function")
@@ -378,17 +372,6 @@ describe("PlanningGraphAnnotation", () => {
     expect(entry.value).toEqual([])
   })
 
-  it("upcomingEcheances replaces with update and defaults to empty string", () => {
-    const spec = (PlanningGraphAnnotation as any).spec
-    const entry = spec.upcomingEcheances
-    expect(typeof entry.operator).toBe("function")
-    expect(entry.operator("old", "new")).toBe("new")
-    expect(entry.operator("", "échéances")).toBe("échéances")
-    expect(typeof entry.initialValueFactory).toBe("function")
-    expect(entry.initialValueFactory()).toBe("")
-    expect(entry.value).toBe("")
-  })
-
   it("extractedTimetable replaces with update and defaults to null", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const entry = spec.extractedTimetable
@@ -433,28 +416,6 @@ describe("PlanningGraphAnnotation", () => {
     expect(typeof entry.initialValueFactory).toBe("function")
     expect(entry.initialValueFactory()).toBeNull()
     expect(entry.value).toBeNull()
-  })
-
-  it("ressentBySubject replaces with update and defaults to empty object", () => {
-    const spec = (PlanningGraphAnnotation as any).spec
-    const entry = spec.ressentBySubject
-    expect(typeof entry.operator).toBe("function")
-    expect(entry.operator({}, { FR: 2.5 })).toEqual({ FR: 2.5 })
-    expect(entry.operator({ FR: 3.0 }, { FR: 2.0 })).toEqual({ FR: 2.0 })
-    expect(typeof entry.initialValueFactory).toBe("function")
-    expect(entry.initialValueFactory()).toEqual({})
-    expect(entry.value).toEqual({})
-  })
-
-  it("dureeReelleBySubject replaces with update and defaults to empty object", () => {
-    const spec = (PlanningGraphAnnotation as any).spec
-    const entry = spec.dureeReelleBySubject
-    expect(typeof entry.operator).toBe("function")
-    expect(entry.operator({}, { MATH: 45 })).toEqual({ MATH: 45 })
-    expect(entry.operator({ MATH: 45 }, { MATH: 50 })).toEqual({ MATH: 50 })
-    expect(typeof entry.initialValueFactory).toBe("function")
-    expect(entry.initialValueFactory()).toEqual({})
-    expect(entry.value).toEqual({})
   })
 
   describe("type exports", () => {

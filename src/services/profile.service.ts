@@ -6,7 +6,7 @@ import { BaseService } from "./base.service"
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 
 export type CachedAnalysis = {
-  extractedTimetableMarkdown: string
+  timetableRaw: string
   isValidTimetable: boolean
   studentProfileContext: string
 }
@@ -69,7 +69,7 @@ export class ProfileService extends BaseService<Profile> {
     if (typeof timetable !== "string" && typeof profileCtx !== "string") return null
 
     return {
-      extractedTimetableMarkdown: typeof timetable === "string" ? timetable : "",
+      timetableRaw: typeof timetable === "string" ? timetable : "",
       isValidTimetable: meta.cachedTimetableValid !== false,
       studentProfileContext: typeof profileCtx === "string" ? profileCtx : "",
     }

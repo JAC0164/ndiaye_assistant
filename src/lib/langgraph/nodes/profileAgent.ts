@@ -3,13 +3,10 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { getModel, createTokenLogger } from "../model"
 import { logger } from "@/src/lib/logger"
 import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, profileAgentOutputSchema } from "../state"
-import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 
-export async function profileAgent(
-  state: PlanningGraphAnnotationState,
-  modelOverrides?: Partial<ModelProviderConfig>
-): Promise<PlanningGraphAnnotationUpdate> {
+export async function profileAgent(state: PlanningGraphAnnotationState): Promise<PlanningGraphAnnotationUpdate> {
+  // If we already have a valid student profile context in the state (e.g. from cache), skip the profile agent
   if (state.studentProfileContext) {
     logger.info({ contextLength: state.studentProfileContext.length }, "[Skip] PROFILE")
     return {
@@ -17,7 +14,7 @@ export async function profileAgent(
     }
   }
 
-  const model = getModel("profile", modelOverrides)
+  const model = getModel("profile")
   const structuredModel = model.withStructuredOutput(profileAgentOutputSchema, {
     name: "analyze_student_learning_profile",
   })

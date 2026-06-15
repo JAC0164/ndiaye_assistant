@@ -1,32 +1,17 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { getModel, createTokenLogger } from "../model"
-import { logger } from "@/src/lib/logger"
 import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate, plannerAgentOutputSchema } from "../state"
-import type { ModelProviderConfig } from "../providers"
 import { withRetry } from "./withRetry"
 import { PLANNING_CONFIG } from "../../planning/planningConfig"
 
-export async function plannerAgent(
-  state: PlanningGraphAnnotationState,
-  modelOverrides?: Partial<ModelProviderConfig>
-): Promise<PlanningGraphAnnotationUpdate> {
+export async function plannerAgent(state: PlanningGraphAnnotationState): Promise<PlanningGraphAnnotationUpdate> {
   if (!state.isValidTimetable) {
     return {
       generatedPlanning: [],
     }
   }
 
-  if (
-    process.env.NODE_ENV !== "production" &&
-    (process.env.STOP_AT_AGENT === "vision" || process.env.STOP_AT_AGENT === "profile")
-  ) {
-    logger.info({ stopAtAgent: process.env.STOP_AT_AGENT }, "[Stop] PLANNER")
-    return {
-      generatedPlanning: [],
-    }
-  }
-
-  const model = getModel("planner", modelOverrides)
+  const model = getModel("planner")
   const structuredModel = model.withStructuredOutput(plannerAgentOutputSchema, {
     name: "generate_weekly_study_sessions",
   })
@@ -53,7 +38,7 @@ export async function plannerAgent(
         "",
         "PEDAGOGICAL GUIDELINES (use these to decide placement, not hard rules):",
         "FREE SLOT PRIORITY ORDER ON SCHOOL DAYS (strict hierarchy):",
-        "1. Subjects taught TODAY (same-day consolidation) — always first",
+        "1. Subjects taught TODAY (same-day consolidation) — always first, ordered by coefficient descending (highest coefficient first)",
         "2. Subjects marked weak that appear in TOMORROW's timetable (pre-class anticipation) — only after today's subjects are covered",
         "3. General revision of any subject with remaining weekly budget — fills leftover slots",
         "Never place a weak-subject anticipation session before a same-day consolidation session.",
@@ -97,7 +82,7 @@ export async function plannerAgent(
       chain.invoke(
         {
           studentProfileContext: state.studentProfileContext,
-          timetableSummary: state.extractedTimetableMarkdown,
+          timetableSummary: state.timetableSummary,
           preplannerConstraints: state.preplannerConstraints || "No constraints specified.",
         },
         createTokenLogger("planner")

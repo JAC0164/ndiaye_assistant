@@ -1,4 +1,4 @@
-import type { AgentName, ModelProvider, ModelProviderConfig, ProvidersConfig } from "./types"
+import type { AgentName, ModelProviderConfig, ProvidersConfig } from "./types"
 
 const AGENT_KEYS: AgentName[] = ["vision", "profile", "planner"]
 
@@ -66,18 +66,15 @@ export function invalidateConfig(): void {
   cachedConfig = null
 }
 
-export function getModelConfigForAgent(
-  agentName: AgentName,
-  overrides?: Partial<ModelProviderConfig>
-): ModelProviderConfig {
+export function getModelConfigForAgent(agentName: AgentName): ModelProviderConfig {
   const config = getConfig()
   const agentCfg = config.agents?.[agentName] ?? {}
   const merged: ModelProviderConfig = {
-    provider: overrides?.provider ?? agentCfg.provider ?? config.default.provider,
-    model: overrides?.model ?? agentCfg.model ?? config.default.model,
-    temperature: overrides?.temperature ?? agentCfg.temperature ?? config.default.temperature,
-    maxTokens: overrides?.maxTokens ?? agentCfg.maxTokens ?? config.default.maxTokens,
-    baseUrl: overrides?.baseUrl ?? agentCfg.baseUrl ?? config.default.baseUrl,
+    provider: agentCfg.provider ?? config.default.provider,
+    model: agentCfg.model ?? config.default.model,
+    temperature: agentCfg.temperature ?? config.default.temperature,
+    maxTokens: agentCfg.maxTokens ?? config.default.maxTokens,
+    baseUrl: agentCfg.baseUrl ?? config.default.baseUrl,
   }
   return merged
 }
