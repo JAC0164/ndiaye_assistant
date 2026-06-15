@@ -48,6 +48,7 @@ describe("createModel", () => {
     expect(mockChatGoogleGenerativeAI).toHaveBeenCalledWith({
       model: "gemini-2.5-flash",
       temperature: 0,
+      maxOutputTokens: 8192,
     })
     expect(mockChatOpenAI).not.toHaveBeenCalled()
     expect(mockChatAnthropic).not.toHaveBeenCalled()
@@ -68,6 +69,7 @@ describe("createModel", () => {
     expect(mockChatOpenAI).toHaveBeenCalledWith({
       model: "gpt-4",
       temperature: 0.7,
+      maxTokens: 8192,
       timeout: 15000,
       configuration: { baseURL: "https://api.openai.com/v1/custom" },
     })
@@ -86,6 +88,7 @@ describe("createModel", () => {
     expect(mockChatOpenAI).toHaveBeenCalledWith({
       model: "gpt-4",
       temperature: 0,
+      maxTokens: 8192,
       timeout: 30000,
       configuration: undefined,
     })
@@ -103,6 +106,7 @@ describe("createModel", () => {
     expect(mockChatAnthropic).toHaveBeenCalledWith({
       model: "claude-3-opus-20240229",
       temperature: 0.3,
+      maxTokens: 8192,
     })
   })
 
@@ -119,6 +123,7 @@ describe("createModel", () => {
     expect(mockChatOpenAI).toHaveBeenCalledWith({
       model: "deepseek-chat",
       temperature: 0.5,
+      maxTokens: 8192,
       timeout: 60000,
       configuration: {
         baseURL: "https://api.deepseek.com/v1",
@@ -171,6 +176,7 @@ describe("createModel", () => {
     expect(mockChatOllama).toHaveBeenCalledWith({
       model: "llama3",
       temperature: 0.8,
+      numPredict: 8192,
       baseUrl: "http://localhost:11434",
     })
   })
@@ -188,6 +194,7 @@ describe("createModel", () => {
     expect(mockChatOllama).toHaveBeenCalledWith({
       model: "mistral",
       temperature: 0,
+      numPredict: 8192,
       baseUrl: "http://localhost:11434/custom",
     })
   })
@@ -204,6 +211,7 @@ describe("createModel", () => {
     expect(mockChatGoogleGenerativeAI).toHaveBeenCalledWith({
       model: "some-model",
       temperature: 0.1,
+      maxOutputTokens: 8192,
     })
   })
 
@@ -231,6 +239,7 @@ describe("createModel", () => {
     expect(mockChatGoogleGenerativeAI).toHaveBeenCalledWith({
       model: "gemini-2.5-flash",
       temperature: 0,
+      maxOutputTokens: 8192,
     })
     expect(mockChatGoogleGenerativeAI.mock.calls[0][0]).not.toHaveProperty("timeout")
   })
@@ -247,6 +256,7 @@ describe("createModel", () => {
     expect(mockChatOpenAI).toHaveBeenCalledWith({
       model: "gpt-4",
       temperature: 0,
+      maxTokens: 8192,
       timeout: 30000,
       configuration: undefined,
     })
@@ -269,6 +279,7 @@ describe("createModel", () => {
     expect(mockChatOpenAI).toHaveBeenCalledWith({
       model: "gpt-4",
       temperature: 0,
+      maxTokens: 8192,
       timeout: 30000,
       configuration: undefined,
     })

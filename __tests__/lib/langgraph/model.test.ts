@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 vi.mock("@/src/lib/langgraph/providers", () => ({
-  getModelConfigForAgent: vi.fn(() => ({ provider: "gemini", model: "test-model", temperature: 0 })),
+  getModelConfigForAgent: vi.fn(() => ({ provider: "gemini", model: "test-model", temperature: 0, maxTokens: 8192 })),
 }))
 
 vi.mock("@/src/lib/langgraph/providers/factory", () => ({
@@ -49,7 +49,7 @@ describe("getModel", () => {
   })
 
   it("passes config from getModelConfigForAgent to createModel", () => {
-    const mockConfig = { provider: "gemini", model: "test-model", temperature: 0 }
+    const mockConfig = { provider: "gemini", model: "test-model", temperature: 0, maxTokens: 8192 }
     vi.mocked(getModelConfigForAgent).mockReturnValue(mockConfig)
     getModel("planner")
     expect(createModel).toHaveBeenCalledWith(mockConfig)
@@ -62,6 +62,21 @@ describe("getModel", () => {
     const second = getModel("planner")
     expect(second).toBe(first)
     expect(createModel).toHaveBeenCalledTimes(1)
+  })
+
+  it("creates separate model when maxTokens differs (cache key includes maxTokens)", () => {
+    const baseConfig = { provider: "gemini", model: "test-model", temperature: 0, maxTokens: 8192 }
+    const altConfig = { provider: "gemini", model: "test-model", temperature: 0, maxTokens: 500 }
+    vi.mocked(getModelConfigForAgent)
+      .mockReturnValueOnce(baseConfig)
+      .mockReturnValueOnce(altConfig)
+
+    getModel("planner")
+    getModel("planner")
+
+    expect(createModel).toHaveBeenCalledTimes(2)
+    expect(createModel).toHaveBeenNthCalledWith(1, baseConfig)
+    expect(createModel).toHaveBeenNthCalledWith(2, altConfig)
   })
 })
 

@@ -27,17 +27,20 @@ function safeBaseUrl(url: string | undefined): string | undefined {
 
 export function createModel(config: ModelProviderConfig): BaseChatModel {
   const timeout = config.timeout ?? 30_000
+  const maxTokens = config.maxTokens ?? 8192
 
   switch (config.provider) {
     case "gemini":
       return new ChatGoogleGenerativeAI({
         model: config.model,
         temperature: config.temperature,
+        maxOutputTokens: maxTokens,
       })
     case "openai":
       return new ChatOpenAI({
         model: config.model,
         temperature: config.temperature,
+        maxTokens,
         timeout,
         configuration: safeBaseUrl(config.baseUrl) ? { baseURL: safeBaseUrl(config.baseUrl) } : undefined,
       })
@@ -45,11 +48,13 @@ export function createModel(config: ModelProviderConfig): BaseChatModel {
       return new ChatAnthropic({
         model: config.model,
         temperature: config.temperature,
+        maxTokens,
       })
     case "deepseek":
       return new ChatOpenAI({
         model: config.model || "deepseek-chat",
         temperature: config.temperature,
+        maxTokens,
         timeout,
         configuration: {
           baseURL: safeBaseUrl(config.baseUrl) || "https://api.deepseek.com/v1",
@@ -59,12 +64,14 @@ export function createModel(config: ModelProviderConfig): BaseChatModel {
       return new ChatOllama({
         model: config.model,
         temperature: config.temperature,
+        numPredict: maxTokens,
         baseUrl: safeBaseUrl(config.baseUrl) || "http://localhost:11434",
       })
     default:
       return new ChatGoogleGenerativeAI({
         model: config.model,
         temperature: config.temperature,
+        maxOutputTokens: maxTokens,
       })
   }
 }

@@ -10,6 +10,8 @@
 !.yarn/releases
 !.yarn/versions
 emploi_*
+test-planning.sh
+planning-response.json
 
 # testing
 /coverage

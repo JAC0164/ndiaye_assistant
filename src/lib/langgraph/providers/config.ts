@@ -16,6 +16,8 @@ function resolveProviderConfig(prefix: string): Partial<ModelProviderConfig> {
   if (temp) cfg.temperature = Number(temp)
   const baseUrl = env(`${prefix}_BASE_URL`)
   if (baseUrl) cfg.baseUrl = baseUrl
+  const maxTokens = env(`NDIAYE_MAX_TOKENS`)
+  if (maxTokens) cfg.maxTokens = Number(maxTokens)
   return cfg
 }
 
@@ -25,6 +27,7 @@ function loadDefaultConfig(): ModelProviderConfig {
     provider: overrides.provider ?? "gemini",
     model: overrides.model ?? "gemini-2.5-flash",
     temperature: overrides.temperature ?? 0,
+    maxTokens: overrides.maxTokens ?? 8192,
     baseUrl: overrides.baseUrl,
   }
 }
@@ -36,6 +39,7 @@ function loadAgentConfig(name: AgentName, defaults: ModelProviderConfig): ModelP
     provider: overrides.provider ?? defaults.provider,
     model: overrides.model ?? defaults.model,
     temperature: overrides.temperature ?? defaults.temperature,
+    maxTokens: overrides.maxTokens ?? defaults.maxTokens,
     baseUrl: overrides.baseUrl ?? defaults.baseUrl,
   }
 }
@@ -72,6 +76,7 @@ export function getModelConfigForAgent(
     provider: overrides?.provider ?? agentCfg.provider ?? config.default.provider,
     model: overrides?.model ?? agentCfg.model ?? config.default.model,
     temperature: overrides?.temperature ?? agentCfg.temperature ?? config.default.temperature,
+    maxTokens: overrides?.maxTokens ?? agentCfg.maxTokens ?? config.default.maxTokens,
     baseUrl: overrides?.baseUrl ?? agentCfg.baseUrl ?? config.default.baseUrl,
   }
   return merged

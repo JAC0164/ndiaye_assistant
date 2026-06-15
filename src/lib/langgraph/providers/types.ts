@@ -6,6 +6,7 @@ export interface ModelProviderConfig {
   provider: ModelProvider
   model: string
   temperature: number
+  maxTokens?: number
   baseUrl?: string
   timeout?: number
 }

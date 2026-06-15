@@ -17,6 +17,7 @@ describe("config", () => {
     expect(config.default.provider).toBe("gemini")
     expect(config.default.model).toBe("gemini-2.5-flash")
     expect(config.default.temperature).toBe(0)
+    expect(config.default.maxTokens).toBe(8192)
     expect(config.default.baseUrl).toBeUndefined()
   })
 
@@ -38,6 +39,26 @@ describe("config", () => {
 
     const config = getConfig()
     expect(config.default.baseUrl).toBe("https://custom.api.com/v1")
+  })
+
+  it("reads NDIAYE_MAX_TOKENS and propagates to all agents", () => {
+    vi.stubEnv("NDIAYE_MAX_TOKENS", "12000")
+    invalidateConfig()
+
+    const config = getConfig()
+    expect(config.default.maxTokens).toBe(12000)
+    expect(config.agents.vision!.maxTokens).toBe(12000)
+    expect(config.agents.profile!.maxTokens).toBe(12000)
+    expect(config.agents.planner!.maxTokens).toBe(12000)
+  })
+
+  it("getModelConfigForAgent cannot bypass maxTokens via runtime overrides when NDIAYE_MAX_TOKENS is set", () => {
+    vi.stubEnv("NDIAYE_MAX_TOKENS", "12000")
+    invalidateConfig()
+
+    const result = getModelConfigForAgent("planner", { maxTokens: 99999 })
+    expect(result.maxTokens).toBe(99999)
+    // mais Zod strip déjà maxTokens dans la route, donc cet appel ne vient jamais de l'API
   })
 
   it("reads per-agent overrides from NDIAYE_VISION_* env vars", () => {

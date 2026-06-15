@@ -9,7 +9,7 @@ const modelCache = new Map<string, BaseChatModel>()
 
 export function getModel(agentName?: AgentName, overrides?: Partial<ModelProviderConfig>): BaseChatModel {
   const config = getModelConfigForAgent(agentName ?? "planner", overrides)
-  const cacheKey = `${agentName ?? "planner"}:${config.provider}:${config.model}:${config.temperature}`
+  const cacheKey = `${agentName ?? "planner"}:${config.provider}:${config.model}:${config.temperature}:${config.maxTokens}:${config.baseUrl ?? ""}`
   const cached = modelCache.get(cacheKey)
   if (cached) return cached
   const model = createModel(config)
