@@ -159,9 +159,6 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
   lines.push("4) Max 35min/slot. Split long windows with 10min breaks.")
 
   const result = lines.join("\n")
-  console.log("=== PREPLANNER CONSTRAINTS ===")
-  console.log(result)
-  console.log("===============================")
 
   const updatedSummary = timetableToMarkdown(updatedTimetable)
 
