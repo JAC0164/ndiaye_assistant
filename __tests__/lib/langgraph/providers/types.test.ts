@@ -22,6 +22,10 @@ describe("getProviderLabel", () => {
     expect(getProviderLabel("ollama")).toBe("Ollama (local)")
   })
 
+  it('returns "Groq" for groq', () => {
+    expect(getProviderLabel("groq")).toBe("Groq")
+  })
+
   it("returns undefined for unknown provider", () => {
     expect(getProviderLabel("unknown" as any)).toBeUndefined()
   })

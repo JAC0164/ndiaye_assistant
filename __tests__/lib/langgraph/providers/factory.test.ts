@@ -5,6 +5,7 @@ const mockChatGoogleGenerativeAI = vi.hoisted(() => vi.fn())
 const mockChatOpenAI = vi.hoisted(() => vi.fn())
 const mockChatAnthropic = vi.hoisted(() => vi.fn())
 const mockChatOllama = vi.hoisted(() => vi.fn())
+const mockChatGroq = vi.hoisted(() => vi.fn())
 
 vi.mock("@langchain/google-genai", () => ({
   ChatGoogleGenerativeAI: mockChatGoogleGenerativeAI,
@@ -20,6 +21,10 @@ vi.mock("@langchain/anthropic", () => ({
 
 vi.mock("@langchain/ollama", () => ({
   ChatOllama: mockChatOllama,
+}))
+
+vi.mock("@langchain/groq", () => ({
+  ChatGroq: mockChatGroq,
 }))
 
 import { createModel } from "@/src/lib/langgraph/providers/factory"
@@ -197,6 +202,41 @@ describe("createModel", () => {
       numPredict: 8192,
       baseUrl: "http://localhost:11434/custom",
     })
+  })
+
+  it("returns ChatGroq for 'groq' provider", () => {
+    const config = makeConfig({
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.5,
+    })
+
+    createModel(config)
+
+    expect(mockChatGroq).toHaveBeenCalledWith({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.5,
+      maxTokens: 8192,
+      apiKey: process.env.GROQ_API_KEY,
+      baseUrl: undefined,
+    })
+  })
+
+  it("uses custom base URL for Groq when provided", () => {
+    const config = makeConfig({
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      temperature: 0,
+      baseUrl: "https://api.groq.com/v1/custom",
+    })
+
+    createModel(config)
+
+    expect(mockChatGroq).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: "https://api.groq.com/v1/custom",
+      })
+    )
   })
 
   it("falls back to ChatGoogleGenerativeAI for unknown provider", () => {

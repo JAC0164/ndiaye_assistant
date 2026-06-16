@@ -3,11 +3,12 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { ChatOpenAI } from "@langchain/openai"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama } from "@langchain/ollama"
+import { ChatGroq } from "@langchain/groq"
 import { logger } from "@/src/lib/logger"
 
 import type { ModelProviderConfig } from "./types"
 
-const ALLOWED_BASE_URLS = ["api.openai.com", "api.deepseek.com", "localhost", "127.0.0.1"]
+const ALLOWED_BASE_URLS = ["api.openai.com", "api.deepseek.com", "api.groq.com", "localhost", "127.0.0.1"]
 
 function isAllowedBaseUrl(url: string): boolean {
   try {
@@ -66,6 +67,14 @@ export function createModel(config: ModelProviderConfig): BaseChatModel {
         temperature: config.temperature,
         numPredict: maxTokens,
         baseUrl: safeBaseUrl(config.baseUrl) || "http://localhost:11434",
+      })
+    case "groq":
+      return new ChatGroq({
+        model: config.model,
+        temperature: config.temperature,
+        maxTokens,
+        apiKey: process.env.GROQ_API_KEY,
+        baseUrl: safeBaseUrl(config.baseUrl),
       })
     default:
       return new ChatGoogleGenerativeAI({

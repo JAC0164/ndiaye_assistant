@@ -1,4 +1,4 @@
-export type ModelProvider = "gemini" | "openai" | "anthropic" | "ollama" | "deepseek"
+export type ModelProvider = "gemini" | "openai" | "anthropic" | "ollama" | "deepseek" | "groq"
 
 export type AgentName = "vision" | "profile" | "planner"
 
@@ -23,6 +23,7 @@ export function getProviderLabel(provider: ModelProvider): string {
     anthropic: "Anthropic Claude",
     deepseek: "DeepSeek",
     ollama: "Ollama (local)",
+    groq: "Groq",
   }
   return labels[provider]
 }
