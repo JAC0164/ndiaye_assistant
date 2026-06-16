@@ -282,5 +282,26 @@ describe("profileAgent (Deterministic)", () => {
       const result = await profileAgent(state)
       expect(result.studentProfileContext).toContain("- **Track**: Science (S1/S2 assumed)")
     })
+
+    it("correctly identifies SECONDE L as Humanities and does not invalidate Humanities cache", async () => {
+      const state: PlanningGraphAnnotationState = {
+        ...baseState,
+        studentProfileContext: "- **Track**: Humanities (L1/L2 assumed)",
+        classSeriesName: "SECONDE L",
+      }
+      const result = await profileAgent(state)
+      expect(result.studentProfileContext).toBe("- **Track**: Humanities (L1/L2 assumed)")
+    })
+
+    it("correctly identifies SECONDE L as Humanities when profiling deterministically", async () => {
+      const state: PlanningGraphAnnotationState = {
+        ...baseState,
+        onboardingData: {
+          class_name: "SECONDE L",
+        },
+      }
+      const result = await profileAgent(state)
+      expect(result.studentProfileContext).toContain("- **Track**: Humanities (L1/L2 assumed)")
+    })
   })
 })

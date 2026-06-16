@@ -24,9 +24,13 @@ export async function profileAgent(state: PlanningGraphAnnotationState): Promise
       classSeriesName.includes("L1") ||
       classSeriesName.includes("L2") ||
       classSeriesName.includes("L'") ||
-      classSeriesName.startsWith("L")
+      classSeriesName.startsWith("L") ||
+      /\bL\b/.test(classSeriesName)
     const dbIsScience =
-      classSeriesName.includes("S1") || classSeriesName.includes("S2") || classSeriesName.startsWith("S")
+      classSeriesName.includes("S1") ||
+      classSeriesName.includes("S2") ||
+      /\bS\b/.test(classSeriesName) ||
+      (classSeriesName.startsWith("S") && !classSeriesName.startsWith("SEC"))
 
     // If the DB series contradicts the cached profile context, regenerate
     if ((dbIsHumanities && cachedHasScience) || (dbIsScience && cachedHasHumanities)) {
@@ -125,22 +129,27 @@ export async function profileAgent(state: PlanningGraphAnnotationState): Promise
     coeffTable.includes("L1") ||
     coeffTable.includes("L2") ||
     coeffTable.includes("L'") ||
+    /\bL\b/.test(coeffTable) ||
     className.includes("L1") ||
     className.includes("L2") ||
     className.includes("L'") ||
     className.startsWith("L") ||
+    /\bL\b/.test(className) ||
     seriesName.includes("L1") ||
     seriesName.includes("L2") ||
     seriesName.includes("L'") ||
     seriesName.startsWith("L") ||
+    /\bL\b/.test(seriesName) ||
     rawSerie.includes("L1") ||
     rawSerie.includes("L2") ||
     rawSerie.includes("L'") ||
     rawSerie.startsWith("L") ||
+    /\bL\b/.test(rawSerie) ||
     classSeriesName.includes("L1") ||
     classSeriesName.includes("L2") ||
     classSeriesName.includes("L'") ||
     classSeriesName.startsWith("L") ||
+    /\bL\b/.test(classSeriesName) ||
     isHumanitiesByCoeffs
 
   const trackStr = isHumanities ? "Humanities (L1/L2 assumed)" : "Science (S1/S2 assumed)"

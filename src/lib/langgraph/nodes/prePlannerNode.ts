@@ -5,6 +5,7 @@ import { computePriority } from "../../planning/computePriority"
 import { parseCoefficientTable } from "../../planning/constants"
 import { extractSubjects } from "../../planning/extractSubjects"
 import { PLANNING_CONFIG, type AcademicPeriod } from "../../planning/planningConfig"
+import { buildDraftPlanning } from "../../planning/buildDraftPlanning"
 import { PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate } from "../state"
 import { timetableToMarkdown } from "./visionAgent"
 
@@ -119,51 +120,22 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
     )
   })
 
-  lines.push("")
-  lines.push("#SLOTS")
-
-  const periodShort: Record<string, string> = {
-    pre_exam: "pre_exam",
-    post_exam: "post_exam",
-    debut_trimestre: "term_start",
-  }
-  const slotMetaParts: string[] = []
-  if (onboarding.academicPeriod) slotMetaParts.push(`period=${periodShort[period]}`)
-  if (onboarding.bedtime) slotMetaParts.push(`curfew=${bedtime}`)
-  slotMetaParts.push(`total=${totalAvailableMinutes}min`)
-  lines.push(slotMetaParts.join(" "))
-
-  if (freeSlots.length === 0) {
-    lines.push("none")
-  } else {
-    const slotsByDay = new Map<string, FreeSlot[]>()
-    for (const slot of freeSlots) {
-      const key = slot.day.toLowerCase()
-      if (!slotsByDay.has(key)) slotsByDay.set(key, [])
-      slotsByDay.get(key)!.push(slot)
-    }
-
-    for (const [day, slots] of slotsByDay) {
-      const slotsStr = slots.map((s) => `${s.start}-${s.end}(${s.durationMinutes})`).join(", ")
-      lines.push(`${dayAbbr[day]}: ${slotsStr}`)
-    }
-  }
-
-  lines.push("")
-  lines.push("#RULES")
-  lines.push("1) MAX 3 study sessions per weekday evening(Mon-Fri). Never fill until curfew. If 3 sessions done, stop.")
-  lines.push(
-    "2) Ideal evening: Session1(weak subject, 35-45min TD) -> Break(10-15min) -> Session2(review, 35-45min) -> Break(10min) -> Session3(30min optional)"
-  )
-  lines.push("3) Weekend: 4-5 sessions/day max. Weak subjects MUST occupy 50%+ of weekend study time.")
-  lines.push("4) Max 35min/slot. Split long windows with 10min breaks.")
-
   const result = lines.join("\n")
+
+  const draftPlanning = buildDraftPlanning(
+    subjects,
+    budgets,
+    priorities,
+    freeSlots,
+    onboarding,
+    updatedTimetable
+  )
 
   const updatedSummary = timetableToMarkdown(updatedTimetable)
 
   return {
     preplannerConstraints: result,
+    draftPlanning,
     extractedTimetable: updatedTimetable,
     timetableSummary: updatedSummary,
   }

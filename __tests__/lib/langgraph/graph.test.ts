@@ -221,7 +221,8 @@ describe("createPlanningGraph", () => {
       expect(result).toHaveProperty("preplannerConstraints")
       expect(result.preplannerConstraints).toContain("#SUBJECTS")
       expect(result.preplannerConstraints).toContain("MATH")
-      expect(result.preplannerConstraints).toContain("#SLOTS")
+      expect(result).toHaveProperty("draftPlanning")
+      expect(result.draftPlanning).toBeInstanceOf(Array)
     })
 
     it("should return 'No timetable available.' when extractedTimetable is null", () => {
@@ -293,7 +294,7 @@ describe("createPlanningGraph", () => {
         },
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("none")
+      expect(result.draftPlanning).toEqual([])
     })
 
     it("should display correct period label for pre_exam", () => {
@@ -316,7 +317,8 @@ describe("createPlanningGraph", () => {
         },
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("pre_exam")
+      expect(result.preplannerConstraints).toContain("MATH")
+      expect(result.draftPlanning).toBeInstanceOf(Array)
     })
 
     it("should handle null days in timetable (line 45 false branch)", () => {
@@ -362,7 +364,7 @@ describe("createPlanningGraph", () => {
       }
       const result = prePlannerNode(state as any)
       expect(result.preplannerConstraints).toContain("#SUBJECTS")
-      expect(result.preplannerConstraints).toContain("#SLOTS")
+      expect(result.draftPlanning).toBeInstanceOf(Array)
     })
 
     it("should fall back to ?? 0 when priority not found for a subject (line 92)", () => {

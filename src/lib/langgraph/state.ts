@@ -97,6 +97,10 @@ export const PlanningGraphAnnotation = Annotation.Root({
     value: (_current, update) => update,
     default: () => "",
   }),
+  draftPlanning: Annotation<GeneratedSeance[]>({
+    value: (_current, update) => update,
+    default: () => [] satisfies GeneratedSeance[],
+  }),
   planningValidation: Annotation<ValidationResult | null>({
     value: (_current, update) => update,
     default: () => null,

@@ -68,6 +68,15 @@ export interface FreeSlot {
   durationMinutes: number
 }
 
+export interface BudgetTracker {
+  subject: string
+  totalBudget: number
+  usedMinutes: number
+  reviewUsed: number
+  tdUsed: number
+  remainingMinutes: number
+}
+
 // --- Post-validator output ---
 
 export interface ValidationError {

@@ -27,6 +27,7 @@ export function validatePostGraph(state: PlanningGraphAnnotationState, onboardin
       budgets,
       weakSubjects: onboarding?.weakSubjects || [],
       allSubjects: subjects,
+      draftPlanning: state.draftPlanning,
     })
     state.planningValidation = validation
     state.generatedPlanning = validation.validatedPlanning

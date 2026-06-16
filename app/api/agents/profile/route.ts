@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       isValidTimetable: true,
       validationErrorMessage: undefined,
       generatedPlanning: [],
+      draftPlanning: [],
       planningValidation: null,
     })
 

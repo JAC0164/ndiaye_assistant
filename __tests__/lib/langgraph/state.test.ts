@@ -240,6 +240,7 @@ describe("PlanningGraphAnnotation", () => {
       extractedTimetable: PLACEHOLDER,
       coefficientTable: PLACEHOLDER,
       preplannerConstraints: PLACEHOLDER,
+      draftPlanning: PLACEHOLDER,
       planningValidation: PLACEHOLDER,
     }
     expect(stateShape).toHaveProperty("timetableImage")
@@ -253,6 +254,7 @@ describe("PlanningGraphAnnotation", () => {
     expect(stateShape).toHaveProperty("extractedTimetable")
     expect(stateShape).toHaveProperty("coefficientTable")
     expect(stateShape).toHaveProperty("preplannerConstraints")
+    expect(stateShape).toHaveProperty("draftPlanning")
     expect(stateShape).toHaveProperty("planningValidation")
   })
 
@@ -275,9 +277,10 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("extractedTimetable")
     expect(keys).toContain("coefficientTable")
     expect(keys).toContain("preplannerConstraints")
+    expect(keys).toContain("draftPlanning")
     expect(keys).toContain("planningValidation")
     expect(keys).toContain("classSeriesName")
-    expect(keys).toHaveLength(13)
+    expect(keys).toHaveLength(14)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -357,6 +360,36 @@ describe("PlanningGraphAnnotation", () => {
   it("generatedPlanning replaces with update and defaults to empty array", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const entry = spec.generatedPlanning
+    expect(typeof entry.operator).toBe("function")
+    const old = [
+      {
+        day_of_week: "monday" as const,
+        start_time: "08:00",
+        end_time: "09:00",
+        subject: "MATH",
+        session_type: "td" as const,
+        pedagogical_note: "",
+      },
+    ]
+    const updated = [
+      {
+        day_of_week: "tuesday" as const,
+        start_time: "09:00",
+        end_time: "10:00",
+        subject: "PC",
+        session_type: "td" as const,
+        pedagogical_note: "",
+      },
+    ]
+    expect(entry.operator(old, updated)).toBe(updated)
+    expect(typeof entry.initialValueFactory).toBe("function")
+    expect(entry.initialValueFactory()).toEqual([])
+    expect(entry.value).toEqual([])
+  })
+
+  it("draftPlanning replaces with update and defaults to empty array", () => {
+    const spec = (PlanningGraphAnnotation as any).spec
+    const entry = spec.draftPlanning
     expect(typeof entry.operator).toBe("function")
     const old = [
       {

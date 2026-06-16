@@ -56,13 +56,12 @@ const baseState: PlanningGraphAnnotationState = {
   onboardingData: { weakSubjects: [], bedtime: "22:00", blockedSlots: [] },
   timetableSummary: "LUNDI:\n- 08:00-09:30: Maths\n- 09:40-11:10: PC",
   studentProfileContext: "- Weak in Maths",
-  weeklyStats: "Total: 120 min (2 sessions)",
   isValidTimetable: true,
-  upcomingEcheances: "",
   generatedPlanning: [],
   extractedTimetable: null,
   coefficientTable: "",
   preplannerConstraints: "ALLOWLIST & BUDGETS:\n1. Maths",
+  draftPlanning: [],
   planningValidation: null,
 }
 
@@ -100,6 +99,7 @@ describe("plannerAgent", () => {
     expect(callArg.timetableSummary).toBe(baseState.timetableSummary)
     expect(callArg.studentProfileContext).toBe(baseState.studentProfileContext)
     expect(callArg.preplannerConstraints).toBe(baseState.preplannerConstraints)
+    expect(callArg.draftPlanning).toBe("[]")
   })
 
   it("uses empty string when preplannerConstraints is empty", async () => {
@@ -117,10 +117,17 @@ describe("plannerAgent", () => {
     const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
     expect(systemMessage).toContain("mentor")
-    expect(systemMessage).toContain("allowlist")
-    expect(systemMessage).toContain("same-day consolidation")
-    expect(systemMessage).toContain("COGNITIVE RULE (Interleaving)")
-    expect(systemMessage).toContain("WEEKEND RULE (Eat the Frog)")
-    expect(systemMessage).toContain("Active Recall")
+    expect(systemMessage).toContain("planning hebdomadaire")
+    expect(systemMessage).toContain("brouillon")
+    expect(systemMessage).toContain("pedagogical_note")
+    expect(systemMessage).toContain("ACTIVE RECALL")
+    expect(systemMessage).toContain("Relire")
+  })
+
+  it("uses fallback empty array when draftPlanning is undefined", async () => {
+    const { draftPlanning: _, ...stateWithoutDraft } = baseState as any
+    await plannerAgent(stateWithoutDraft)
+    const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
+    expect(callArg.draftPlanning).toBe("[]")
   })
 })

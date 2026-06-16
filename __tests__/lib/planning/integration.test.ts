@@ -132,9 +132,9 @@ describe("Study Planner Redesign Integration Test (L2 reference case)", () => {
     })
 
     expect(resultState).toHaveProperty("preplannerConstraints")
+    expect(resultState).toHaveProperty("draftPlanning")
     const constraints = resultState.preplannerConstraints!
     expect(constraints).toContain("#SUBJECTS")
-    expect(constraints).toContain("#SLOTS")
 
     // Verify constraints string contains all 8 subject names and zero others
     for (const name of subjectNames) {

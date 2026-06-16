@@ -29,6 +29,7 @@ export async function plannerAgent(state: PlanningGraphAnnotationState): Promise
           studentProfileContext: state.studentProfileContext,
           timetableSummary: state.timetableSummary,
           preplannerConstraints: state.preplannerConstraints || "",
+          draftPlanning: JSON.stringify(state.draftPlanning || [], null, 2),
         },
         createTokenLogger("planner")
       ),
