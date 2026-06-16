@@ -11,11 +11,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov", "html"],
       include: ["src/lib/**", "src/services/**", "app/api/**", "proxy.ts"],
-      exclude: [
-        "src/lib/langgraph/providers/index.ts",
-        "src/lib/langgraph/prompts/index.ts",
-        "node_modules/**"
-      ],
+      exclude: ["src/lib/langgraph/providers/index.ts", "src/lib/langgraph/prompts/index.ts", "node_modules/**"],
     },
   },
   resolve: {

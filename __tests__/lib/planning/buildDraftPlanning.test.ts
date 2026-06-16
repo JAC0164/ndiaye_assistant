@@ -65,16 +65,18 @@ describe("buildDraftPlanning", () => {
     // Expected: Study (17:40-18:15), Break (18:15-18:25), Study (18:25-19:00), Break (19:00-19:10), Study (19:10-19:45)
     expect(result).toHaveLength(5)
     expect(result[0]).toEqual(expect.objectContaining({ start_time: "17:40", end_time: "18:15", session_type: "td" }))
-    expect(result[1]).toEqual(expect.objectContaining({ start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break" }))
+    expect(result[1]).toEqual(
+      expect.objectContaining({ start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break" })
+    )
     expect(result[2]).toEqual(expect.objectContaining({ start_time: "18:25", end_time: "19:00" }))
-    expect(result[3]).toEqual(expect.objectContaining({ start_time: "19:00", end_time: "19:10", subject: "Break", session_type: "break" }))
+    expect(result[3]).toEqual(
+      expect.objectContaining({ start_time: "19:00", end_time: "19:10", subject: "Break", session_type: "break" })
+    )
     expect(result[4]).toEqual(expect.objectContaining({ start_time: "19:10", end_time: "19:45" }))
   })
 
   it("should respect weekday same-day consolidation rule", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:40", end: "19:45", durationMinutes: 125 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:40", end: "19:45", durationMinutes: 125 }]
 
     const result = buildDraftPlanning(mockSubjects, mockBudgets, mockPriorities, freeSlots, {}, mockTimetable)
 
@@ -93,9 +95,7 @@ describe("buildDraftPlanning", () => {
   it("should respect weekday next-day anticipation for weak subjects", () => {
     // Let's say PC is weak, taught on Tuesday. Monday has slots.
     // Monday consolidation subjects will be used first, then Monday should anticipate PC (which is weak and taught on Tuesday).
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:40", end: "19:45", durationMinutes: 125 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:40", end: "19:45", durationMinutes: 125 }]
 
     const onboarding = { weakSubjects: ["PC"] }
     const result = buildDraftPlanning(mockSubjects, mockBudgets, mockPriorities, freeSlots, onboarding, mockTimetable)
@@ -143,13 +143,8 @@ describe("buildDraftPlanning", () => {
     expect(pcSlots.length).toBeGreaterThanOrEqual(2)
   })
 
-  it("should fall back to any subject on weekend when all candidates list is empty or budget exhausted", () => {
-    // Weekend slots
-    const freeSlots: FreeSlot[] = [
-      { day: "saturday", start: "09:00", end: "09:45", durationMinutes: 45 },
-    ]
-
-    // All budgets 0, no weak subjects
+  it("should NOT fall back to any subject on weekend when all candidates list is empty or budget exhausted", () => {
+    const freeSlots: FreeSlot[] = [{ day: "saturday", start: "14:00", end: "14:45", durationMinutes: 45 }]
     const zeroBudgets = new Map<string, SubjectBudget>([
       ["MATH", { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }],
       ["PC", { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }],
@@ -159,14 +154,11 @@ describe("buildDraftPlanning", () => {
 
     const result = buildDraftPlanning(mockSubjects, zeroBudgets, mockPriorities, freeSlots, {}, mockTimetable)
     const studySessions = result.filter((s) => s.session_type !== "break")
-    expect(studySessions).toHaveLength(1)
-    expect(studySessions[0].subject).toBeDefined()
+    expect(studySessions).toHaveLength(0)
   })
 
-  it("should fall back to general/budget-exhausted subjects on weekdays when standard candidates are not available", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:40", end: "18:15", durationMinutes: 35 },
-    ]
+  it("should NOT fall back to general/budget-exhausted subjects on weekdays when standard candidates are not available", () => {
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:40", end: "18:15", durationMinutes: 35 }]
 
     // Empty budgets
     const zeroBudgets = new Map<string, SubjectBudget>([
@@ -181,8 +173,7 @@ describe("buildDraftPlanning", () => {
 
     const result = buildDraftPlanning(mockSubjects, zeroBudgets, mockPriorities, freeSlots, {}, emptyTimetable)
     const studySessions = result.filter((s) => s.session_type !== "break")
-    expect(studySessions).toHaveLength(1)
-    expect(studySessions[0].subject).toBeDefined()
+    expect(studySessions).toHaveLength(0)
   })
 
   it("should trigger fallback on weekend when only a single subject is provided and multiple slots are available", () => {
@@ -200,15 +191,13 @@ describe("buildDraftPlanning", () => {
 
     const result = buildDraftPlanning(singleSubject, singleBudget, singlePriority, freeSlots, {}, { days: [] })
     const studySessions = result.filter((s) => s.session_type !== "break")
-    expect(studySessions).toHaveLength(2)
+    // Strict interleaving prevents scheduling the same subject consecutively
+    expect(studySessions).toHaveLength(1)
     expect(studySessions[0].subject).toBe("MATH")
-    expect(studySessions[1].subject).toBe("MATH")
   })
 
   it("should trigger weekday fallback to only available subject with budget when interleaving candidates are empty", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:00", end: "19:00", durationMinutes: 120 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:00", end: "19:00", durationMinutes: 120 }]
     // Only MATH has budget. MATH will be scheduled for consolidation or general.
     // If it's scheduled once, then for the next slot, we try to interleave, but ONLY MATH has budget.
     // So the category filter will fail, leading to the fallback choosing MATH again.
@@ -221,15 +210,13 @@ describe("buildDraftPlanning", () => {
 
     const result = buildDraftPlanning(mockSubjects, customBudgets, mockPriorities, freeSlots, {}, mockTimetable)
     const studySessions = result.filter((s) => s.session_type !== "break")
-    expect(studySessions.length).toBeGreaterThanOrEqual(2)
+    // Strict interleaving prevents scheduling the same subject consecutively
+    expect(studySessions).toHaveLength(1)
     expect(studySessions[0].subject).toBe("MATH")
-    expect(studySessions[1].subject).toBe("MATH")
   })
 
   it("should sort candidates alphabetically on priority tie-breaker", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "saturday", start: "09:00", end: "09:45", durationMinutes: 45 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "saturday", start: "09:00", end: "09:45", durationMinutes: 45 }]
     const customPriorities = new Map<string, number>([
       ["PC", 8.0],
       ["MATH", 8.0],
@@ -253,18 +240,14 @@ describe("buildDraftPlanning", () => {
   })
 
   it("should handle empty subjects list gracefully", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:40", end: "18:15", durationMinutes: 35 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:40", end: "18:15", durationMinutes: 35 }]
     const result = buildDraftPlanning([], new Map(), new Map(), freeSlots, {}, { days: [] })
     expect(result).toHaveLength(0)
   })
 
   it("should break ties alphabetically when weak subjects have the same coefficient", () => {
     const onboarding = { weakSubjects: ["FR", "MATH"] }
-    const freeSlots: FreeSlot[] = [
-      { day: "saturday", start: "09:00", end: "09:45", durationMinutes: 45 },
-    ]
+    const freeSlots: FreeSlot[] = [{ day: "saturday", start: "09:00", end: "09:45", durationMinutes: 45 }]
     const result = buildDraftPlanning(mockSubjects, mockBudgets, mockPriorities, freeSlots, onboarding, mockTimetable)
     const studySessions = result.filter((s) => s.session_type !== "break")
     expect(studySessions[0].subject).toBe("FR")
@@ -280,17 +263,11 @@ describe("buildDraftPlanning", () => {
     expect(breakSessions).toHaveLength(0)
   })
 
-  it("should break ties alphabetically in fallback sort when all budgets are exhausted and priorities are equal", () => {
-    const freeSlots: FreeSlot[] = [
-      { day: "monday", start: "17:40", end: "18:15", durationMinutes: 35 },
-    ]
+  it("should not break ties because no sessions should be scheduled when budgets are exhausted", () => {
+    const freeSlots: FreeSlot[] = [{ day: "monday", start: "17:00", end: "17:45", durationMinutes: 45 }]
     const zeroBudgets = new Map<string, SubjectBudget>([
       ["PC", { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }],
       ["MATH", { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }],
-    ])
-    const customPriorities = new Map<string, number>([
-      ["PC", 8.0],
-      ["MATH", 8.0],
     ])
     const result = buildDraftPlanning(
       [
@@ -298,12 +275,15 @@ describe("buildDraftPlanning", () => {
         { name: "MATH", coefficient: 4, subjectType: "scientific", daysPresent: [] },
       ],
       zeroBudgets,
-      customPriorities,
+      new Map([
+        ["PC", 8.0],
+        ["MATH", 8.0],
+      ]),
       freeSlots,
       {},
       { days: [] }
     )
     const studySessions = result.filter((s) => s.session_type !== "break")
-    expect(studySessions[0].subject).toBe("MATH")
+    expect(studySessions).toHaveLength(0)
   })
 })

@@ -1,4 +1,10 @@
-import type { ExtractedTimetable, FreeSlot, SubjectInfo, SubjectBudget, BudgetTracker } from "@/src/types/planning.types"
+import type {
+  ExtractedTimetable,
+  FreeSlot,
+  SubjectInfo,
+  SubjectBudget,
+  BudgetTracker,
+} from "@/src/types/planning.types"
 import type { GeneratedSeance } from "../langgraph/state"
 import { PLANNING_CONFIG } from "./planningConfig"
 import { formatTime, parseTime } from "./buildFreeSlots"
@@ -37,18 +43,17 @@ export function buildDraftPlanning(
   const weakSubjectsList = (onboarding.weakSubjects || []).map((s) => s.trim().toUpperCase())
   const weakSubjectsSet = new Set(weakSubjectsList)
 
-  const frogSubject = subjects
-    .filter((s) => weakSubjectsSet.has(s.name))
-    .sort((a, b) => b.coefficient - a.coefficient || a.name.localeCompare(b.name))[0]?.name || null
+  const frogSubject =
+    subjects
+      .filter((s) => weakSubjectsSet.has(s.name))
+      .sort((a, b) => b.coefficient - a.coefficient || a.name.localeCompare(b.name))[0]?.name || null
 
   // 3. For weekday same-day consolidation and anticipation, map subjects taught on each day
   const subjectsTaughtOnDay = new Map<string, string[]>()
   for (const day of DAYS) {
     const dayEntry = timetable.days?.find((d) => d.day.toLowerCase() === day)
     const daySubjects =
-      dayEntry?.slots
-        ?.map((s) => s.subject.trim().toUpperCase())
-        .filter((v, i, self) => self.indexOf(v) === i) || []
+      dayEntry?.slots?.map((s) => s.subject.trim().toUpperCase()).filter((v, i, self) => self.indexOf(v) === i) || []
     subjectsTaughtOnDay.set(day, daySubjects)
   }
 
@@ -57,8 +62,11 @@ export function buildDraftPlanning(
     return DAYS[(idx + 1) % 7]
   }
 
-  // 4. Generate draft sessions for each day of the week
-  for (const day of DAYS) {
+  // 4. Generate draft sessions for each day.
+  // We process weekends FIRST so that "Eat the Frog" (weak/critical subjects)
+  // gets priority access to the weekly budgets before weekdays consume them.
+  const processingOrder = ["saturday", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday"] as const
+  for (const day of processingOrder) {
     const isWeekend = day === "saturday" || day === "sunday"
 
     // Find free slots for this day
@@ -69,14 +77,20 @@ export function buildDraftPlanning(
 
     if (!isWeekend) {
       // For weekdays, free slots are large windows. Split them into study slots and breaks.
+      let sessionsAddedToday = 0
+
       for (const slot of dayFreeSlots) {
         const slotStart = parseTime(slot.start)
         const slotEnd = parseTime(slot.end)
         let cursor = slotStart
-        let sessionsAdded = 0
+        let sessionsAddedBlock = 0
 
-        while (cursor + PLANNING_CONFIG.minSessionMinutes <= slotEnd && sessionsAdded < 3) {
-          if (sessionsAdded > 0) {
+        while (
+          cursor + PLANNING_CONFIG.minSessionMinutes <= slotEnd &&
+          sessionsAddedBlock < 3 &&
+          sessionsAddedToday < PLANNING_CONFIG.maxSessionsPerSchoolDay
+        ) {
+          if (sessionsAddedBlock > 0) {
             // Add break session
             sessions.push({
               day_of_week: day,
@@ -93,7 +107,8 @@ export function buildDraftPlanning(
           // If this is the last session we can fit, extend it to absorb remaining window up to 45 min
           const isLastPossible =
             cursor + 35 + PLANNING_CONFIG.betweenSessionBreakMinutes + PLANNING_CONFIG.minSessionMinutes > slotEnd ||
-            sessionsAdded === 2
+            sessionsAddedBlock === 2 ||
+            sessionsAddedToday === PLANNING_CONFIG.maxSessionsPerSchoolDay - 1
           if (isLastPossible) {
             duration = Math.min(slotEnd - cursor, PLANNING_CONFIG.maxSessionMinutes)
           }
@@ -105,7 +120,8 @@ export function buildDraftPlanning(
           })
 
           cursor += duration
-          sessionsAdded++
+          sessionsAddedBlock++
+          sessionsAddedToday++
         }
       }
     } else {
@@ -153,8 +169,8 @@ export function buildDraftPlanning(
 
       if (isWeekend) {
         // Weekend placement logic
-        if (slotIdx === 0 && frogSubject) {
-          // "Eat the frog": first session of weekend is the frog subject
+        if (slotIdx === 0 && frogSubject && (budgetTracker.get(frogSubject)?.remainingMinutes || 0) > 0) {
+          // "Eat the frog": first session of weekend is the frog subject if it has budget
           selectedSubject = frogSubject
         } else {
           // General weekend placement: prioritize weak subjects if we need to hit the 50% threshold,
@@ -163,8 +179,10 @@ export function buildDraftPlanning(
           const halfWeekend = Math.ceil(totalWeekendSlots / 2)
           const needsWeak = weekendWeakCount < halfWeekend
 
-          // Get candidates
-          let candidates = subjects.filter((s) => s.name !== lastSubject)
+          // Get candidates that still have budget and enforce strict interleaving (never same subject twice in a row)
+          let candidates = subjects.filter(
+            (s) => s.name !== lastSubject && (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+          )
 
           if (needsWeak) {
             // Filter candidates to weak subjects first
@@ -174,42 +192,24 @@ export function buildDraftPlanning(
             }
           }
 
-          // Sort candidates:
-          // 1. Alternate cognitive type if possible
-          // 2. Remaining budget first
-          // 3. High priority score
-          candidates.sort((a, b) => {
-            const trackerA = budgetTracker.get(a.name)!
-            const trackerB = budgetTracker.get(b.name)!
-            const hasBudgetA = trackerA.remainingMinutes > 0 ? 1 : 0
-            const hasBudgetB = trackerB.remainingMinutes > 0 ? 1 : 0
-            if (hasBudgetA !== hasBudgetB) {
-              return hasBudgetB - hasBudgetA
-            }
-            const typeAltA = a.subjectType !== lastSubjectType ? 1 : 0
-            const typeAltB = b.subjectType !== lastSubjectType ? 1 : 0
-            if (typeAltA !== typeAltB) {
-              return typeAltB - typeAltA
-            }
-            const prioA = priorities.get(a.name)!
-            const prioB = priorities.get(b.name)!
-            return prioB - prioA || a.name.localeCompare(b.name)
-          })
-
           if (candidates.length > 0) {
+            // Sort candidates:
+            // 1. Alternate cognitive type if possible
+            // 2. High priority score
+            candidates.sort((a, b) => {
+              const typeAltA = a.subjectType !== lastSubjectType ? 1 : 0
+              const typeAltB = b.subjectType !== lastSubjectType ? 1 : 0
+              if (typeAltA !== typeAltB) {
+                return typeAltB - typeAltA
+              }
+              const prioA = priorities.get(a.name)!
+              const prioB = priorities.get(b.name)!
+              return prioB - prioA || a.name.localeCompare(b.name)
+            })
             selectedSubject = candidates[0].name
           } else {
-            // Fallback: relax interleaving - pick highest priority
-            let best: SubjectInfo | null = null
-            let bestPrio = -1
-            for (const s of subjects) {
-              const prio = priorities.get(s.name)!
-              if (prio > bestPrio) {
-                bestPrio = prio
-                best = s
-              }
-            }
-            selectedSubject = best?.name || null
+            // No budget left anywhere
+            selectedSubject = null
           }
         }
 
@@ -224,7 +224,10 @@ export function buildDraftPlanning(
         const tomorrowWeakSubjects = tomorrowSubjects.filter((s) => weakSubjectsSet.has(s))
 
         // Get candidates for each category, preferring to alternate cognitive type (lastSubjectType)
-        const getBestFromCategory = (candidatesFilter: (s: SubjectInfo) => boolean, checkScheduled = true): string | null => {
+        const getBestFromCategory = (
+          candidatesFilter: (s: SubjectInfo) => boolean,
+          checkScheduled = true
+        ): string | null => {
           let list = subjects.filter(
             (s) =>
               s.name !== lastSubject &&
@@ -289,14 +292,16 @@ export function buildDraftPlanning(
 
         // Fallbacks
         if (!selectedSubject) {
-          const anyWithBudget = subjects.filter((s) => (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0)
+          const anyWithBudget = subjects.filter(
+            (s) => s.name !== lastSubject && (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+          )
           if (anyWithBudget.length > 0) {
-            selectedSubject = anyWithBudget[0].name
-          } else {
-            const anySubject = [...subjects].sort(
+            anyWithBudget.sort(
               (a, b) => priorities.get(b.name)! - priorities.get(a.name)! || a.name.localeCompare(b.name)
             )
-            selectedSubject = anySubject[0]?.name || null
+            selectedSubject = anyWithBudget[0].name
+          } else {
+            selectedSubject = null
           }
         }
       }
@@ -349,9 +354,34 @@ export function buildDraftPlanning(
     sunday: 6,
   }
 
-  return sessions.sort((a, b) => {
+  const sortedSessions = sessions.sort((a, b) => {
     const dayDiff = dayOrder[a.day_of_week] - dayOrder[b.day_of_week]
     if (dayDiff !== 0) return dayDiff
     return parseTime(a.start_time) - parseTime(b.start_time)
   })
+
+  // Clean up orphaned breaks that could be created by leaving budget-exhausted slots empty
+  const cleanedSessions: GeneratedSeance[] = []
+  for (let i = 0; i < sortedSessions.length; i++) {
+    const s = sortedSessions[i]
+    if (s.session_type === "break") {
+      const prev = i > 0 ? sortedSessions[i - 1] : null
+      const next = i < sortedSessions.length - 1 ? sortedSessions[i + 1] : null
+
+      const isOrphan =
+        !prev ||
+        !next ||
+        prev.day_of_week !== s.day_of_week ||
+        next.day_of_week !== s.day_of_week ||
+        prev.session_type === "break" ||
+        next.session_type === "break"
+
+      if (isOrphan) {
+        continue
+      }
+    }
+    cleanedSessions.push(s)
+  }
+
+  return cleanedSessions
 }

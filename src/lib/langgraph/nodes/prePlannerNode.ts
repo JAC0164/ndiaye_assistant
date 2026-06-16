@@ -122,14 +122,7 @@ export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGra
 
   const result = lines.join("\n")
 
-  const draftPlanning = buildDraftPlanning(
-    subjects,
-    budgets,
-    priorities,
-    freeSlots,
-    onboarding,
-    updatedTimetable
-  )
+  const draftPlanning = buildDraftPlanning(subjects, budgets, priorities, freeSlots, onboarding, updatedTimetable)
 
   const updatedSummary = timetableToMarkdown(updatedTimetable)
 

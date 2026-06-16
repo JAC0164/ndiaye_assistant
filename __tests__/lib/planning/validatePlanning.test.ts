@@ -5,9 +5,30 @@ import { BlockedSlot } from "@/src/types/planning.types"
 
 describe("validatePlanning with draftPlanning", () => {
   const mockDraft: GeneratedSeance[] = [
-    { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "" },
-    { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-    { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "" },
+    {
+      day_of_week: "monday",
+      start_time: "17:40",
+      end_time: "18:15",
+      subject: "MATH",
+      session_type: "td",
+      pedagogical_note: "",
+    },
+    {
+      day_of_week: "monday",
+      start_time: "18:15",
+      end_time: "18:25",
+      subject: "Break",
+      session_type: "break",
+      pedagogical_note: "",
+    },
+    {
+      day_of_week: "monday",
+      start_time: "18:25",
+      end_time: "19:00",
+      subject: "FR",
+      session_type: "review",
+      pedagogical_note: "",
+    },
   ]
 
   it("should handle empty or undefined draft planning", () => {
@@ -22,9 +43,30 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should pass through valid matching planning", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "Résous 3 exercices." },
-      { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "Explique le concept." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Résous 3 exercices.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:15",
+        end_time: "18:25",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:25",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Explique le concept.",
+      },
     ]
 
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: mockDraft })
@@ -37,7 +79,14 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should restore missing sessions from draft", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "Résous 3 exercices." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Résous 3 exercices.",
+      },
       // FR is missing
     ]
 
@@ -53,11 +102,39 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should discard extra sessions", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "Résous 3 exercices." },
-      { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "Explique." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Résous 3 exercices.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:15",
+        end_time: "18:25",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:25",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Explique.",
+      },
       // Extra session
-      { day_of_week: "monday", start_time: "19:00", end_time: "19:35", subject: "PC", session_type: "td", pedagogical_note: "Extra." },
+      {
+        day_of_week: "monday",
+        start_time: "19:00",
+        end_time: "19:35",
+        subject: "PC",
+        session_type: "td",
+        pedagogical_note: "Extra.",
+      },
     ]
 
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: mockDraft })
@@ -72,9 +149,30 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should warn on passive verbs in notes", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "Relire le cours de maths." },
-      { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "Explique." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Relire le cours de maths.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:15",
+        end_time: "18:25",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:25",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Explique.",
+      },
     ]
 
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: mockDraft })
@@ -86,9 +184,30 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should correct invalid session type", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "break" as any, pedagogical_note: "Invalid type." },
-      { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "Explique." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "break" as any,
+        pedagogical_note: "Invalid type.",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:15",
+        end_time: "18:25",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:25",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Explique.",
+      },
     ]
 
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: mockDraft })
@@ -101,9 +220,30 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should repair empty pedagogical notes with a default recall note", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "17:40", end_time: "18:15", subject: "MATH", session_type: "td", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:15", end_time: "18:25", subject: "Break", session_type: "break", pedagogical_note: "" },
-      { day_of_week: "monday", start_time: "18:25", end_time: "19:00", subject: "FR", session_type: "review", pedagogical_note: "Explique." },
+      {
+        day_of_week: "monday",
+        start_time: "17:40",
+        end_time: "18:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:15",
+        end_time: "18:25",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "monday",
+        start_time: "18:25",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "review",
+        pedagogical_note: "Explique.",
+      },
     ]
 
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: mockDraft })
@@ -114,7 +254,14 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should detect and report bedtime curfew violations", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "21:30", end_time: "22:15", subject: "MATH", session_type: "td", pedagogical_note: "Exos." },
+      {
+        day_of_week: "monday",
+        start_time: "21:30",
+        end_time: "22:15",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Exos.",
+      },
     ]
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: [] })
     expect(result.errors).toHaveLength(1)
@@ -123,7 +270,14 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should detect and report blocked slot overlaps", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "18:00", end_time: "18:45", subject: "MATH", session_type: "td", pedagogical_note: "Exos." },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "18:45",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Exos.",
+      },
     ]
     const blocked: BlockedSlot[] = [
       { id: "1", day: "monday", startTime: "18:30", endTime: "20:00", reason: "Cours particulier" },
@@ -135,7 +289,14 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should not report error when blocked slots do not overlap", () => {
     const generated: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "18:00", end_time: "18:45", subject: "MATH", session_type: "td", pedagogical_note: "Exos." },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "18:45",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Exos.",
+      },
     ]
     const blocked: BlockedSlot[] = [
       { id: "1", day: "monday", startTime: "16:00", endTime: "17:00", reason: "Before" },
@@ -147,19 +308,61 @@ describe("validatePlanning with draftPlanning", () => {
 
   it("should cover all logical branch conditions of findIndex matching", () => {
     const draft: GeneratedSeance[] = [
-      { day_of_week: "monday", start_time: "18:00", end_time: "19:00", subject: "MATH", session_type: "td", pedagogical_note: "" }
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "19:00",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
     ]
     const generated: GeneratedSeance[] = [
       // 1. Day of week is different
-      { day_of_week: "tuesday", start_time: "18:00", end_time: "19:00", subject: "MATH", session_type: "td", pedagogical_note: "" },
+      {
+        day_of_week: "tuesday",
+        start_time: "18:00",
+        end_time: "19:00",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
       // 2. Start time is different
-      { day_of_week: "monday", start_time: "18:30", end_time: "19:00", subject: "MATH", session_type: "td", pedagogical_note: "" },
+      {
+        day_of_week: "monday",
+        start_time: "18:30",
+        end_time: "19:00",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
       // 3. End time is different
-      { day_of_week: "monday", start_time: "18:00", end_time: "19:30", subject: "MATH", session_type: "td", pedagogical_note: "" },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "19:30",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
       // 4. Subject is different
-      { day_of_week: "monday", start_time: "18:00", end_time: "19:00", subject: "FR", session_type: "td", pedagogical_note: "" },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "19:00",
+        subject: "FR",
+        session_type: "td",
+        pedagogical_note: "",
+      },
       // 5. Perfect match
-      { day_of_week: "monday", start_time: "18:00", end_time: "19:00", subject: "MATH", session_type: "td", pedagogical_note: "Perfect match" },
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "19:00",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "Perfect match",
+      },
     ]
     const result = validatePlanning(generated, "22:00", [], { draftPlanning: draft })
     expect(result.wasRepaired).toBe(true)

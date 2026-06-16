@@ -103,7 +103,17 @@ export function validatePlanning(
       let note = (match.pedagogical_note || "").trim()
       const passiveVerbs = ["relire", "lire", "revoir", "regarder", "faire des fiches"]
       const lowerNote = note.toLowerCase()
-      const hasPassive = passiveVerbs.some((verb) => lowerNote.includes(verb))
+
+      // Filter out exceptions like "sans regarder" or "sans relire" before matching
+      // We allow up to 3 words between 'sans' and the verb to catch 'sans jamais regarder', 'sans les relire', etc.
+      const noteWithoutSans = lowerNote.replace(
+        /sans(?:\s+\w+){0,3}\s+(?:relire|lire|revoir|regarder|faire\s+des\s+fiches)/g,
+        ""
+      )
+      const hasPassive = passiveVerbs.some((verb) => {
+        const regex = new RegExp(`\\b${verb}\\b`, "i")
+        return regex.test(noteWithoutSans)
+      })
 
       if (hasPassive) {
         warnings.push({
@@ -160,8 +170,146 @@ export function validatePlanning(
     }
   }
 
+  const finalValidated: GeneratedSeance[] = []
+  const usedMinutes = new Map<string, number>()
+
+  if (options?.budgets) {
+    for (const session of validated) {
+      if (session.session_type === "break") {
+        finalValidated.push(session)
+        continue
+      }
+
+      const subj = session.subject.trim().toUpperCase()
+      const budgetObj =
+        options.budgets.get(session.subject) ||
+        Array.from(options.budgets.entries()).find(([k]) => k.trim().toUpperCase() === subj)?.[1]
+
+      if (budgetObj) {
+        const currentlyUsed = usedMinutes.get(subj) || 0
+        const sStart = parseTime(session.start_time)
+        const sEnd = parseTime(session.end_time)
+        const duration = sEnd - sStart
+
+        // Allow up to a 15-minute overrun to account for slight rounding, but completely prune if well over.
+        if (currentlyUsed > 0 && currentlyUsed + duration > budgetObj.totalMinutes + 15) {
+          wasRepaired = true
+          removedSessions.push(session)
+          errors.push({
+            check: "budget_exceeded",
+            severity: "error",
+            message: `Session supprimée : le budget pour ${session.subject} a explosé (${
+              currentlyUsed + duration
+            } min > ${budgetObj.totalMinutes} min)`,
+            session,
+          })
+          continue
+        }
+
+        usedMinutes.set(subj, currentlyUsed + duration)
+      }
+
+      finalValidated.push(session)
+    }
+  } else {
+    finalValidated.push(...validated)
+  }
+
+  // Interleaving repair pass: fix consecutive sessions of the same subject on the same day
+  if (options?.budgets && options?.allSubjects) {
+    let lastStudySubject: string | null = null
+    let lastStudyDay: string | null = null
+
+    for (let i = 0; i < finalValidated.length; i++) {
+      const s = finalValidated[i]
+      if (s.session_type !== "break") {
+        if (s.day_of_week === lastStudyDay && s.subject === lastStudySubject) {
+          // Interleaving violation found!
+          const sStart = parseTime(s.start_time)
+          const sEnd = parseTime(s.end_time)
+          const duration = sEnd - sStart
+
+          // Find candidate subjects with enough budget
+          const candidates = options.allSubjects
+            .filter((sub) => sub.name !== lastStudySubject)
+            .map((sub) => {
+              const budgetObj = options.budgets!.get(sub.name)
+              const used = usedMinutes.get(sub.name) || 0
+              const remaining = budgetObj ? budgetObj.totalMinutes - used : 0
+              return { name: sub.name, remaining }
+            })
+            .filter((sub) => sub.remaining >= duration)
+            .sort((a, b) => b.remaining - a.remaining) // Prefer subjects with most remaining budget
+
+          if (candidates.length > 0) {
+            const replacement = candidates[0].name
+
+            // Adjust used budgets
+            const currentlyUsed = usedMinutes.get(replacement) || 0
+            usedMinutes.set(replacement, currentlyUsed + duration)
+            const oldUsed = usedMinutes.get(lastStudySubject) || 0
+            usedMinutes.set(lastStudySubject, Math.max(0, oldUsed - duration))
+
+            s.subject = replacement
+            wasRepaired = true
+            warnings.push({
+              check: "interleaving",
+              severity: "warning",
+              message: `Interleaving corrigé : ${lastStudySubject} a été remplacé par ${replacement} pour éviter deux sessions consécutives.`,
+              session: { ...s }, // clone to avoid mutation reference issues in logs
+            })
+            lastStudySubject = s.subject // Update last study subject to the replacement
+          } else {
+            // Cannot replace, so we must drop it to respect interleaving
+            removedSessions.push({ ...s })
+
+            const oldUsed = usedMinutes.get(lastStudySubject) || 0
+            usedMinutes.set(lastStudySubject, Math.max(0, oldUsed - duration))
+
+            errors.push({
+              check: "interleaving",
+              severity: "error",
+              message: `Session supprimée : ${lastStudySubject} apparaissait deux fois de suite et aucune autre matière n'avait le budget nécessaire.`,
+              session: { ...s },
+            })
+
+            finalValidated.splice(i, 1)
+            i-- // Adjust index
+            wasRepaired = true
+            continue // Do not update lastStudySubject because this session is removed
+          }
+        } else {
+          lastStudySubject = s.subject
+          lastStudyDay = s.day_of_week
+        }
+      }
+    }
+  }
+
+  const cleanedValidated: GeneratedSeance[] = []
+  for (let i = 0; i < finalValidated.length; i++) {
+    const s = finalValidated[i]
+    if (s.session_type === "break") {
+      const prev = i > 0 ? finalValidated[i - 1] : null
+      const next = i < finalValidated.length - 1 ? finalValidated[i + 1] : null
+
+      const isOrphan =
+        !prev ||
+        !next ||
+        prev.day_of_week !== s.day_of_week ||
+        next.day_of_week !== s.day_of_week ||
+        prev.session_type === "break" ||
+        next.session_type === "break"
+
+      if (isOrphan) {
+        continue
+      }
+    }
+    cleanedValidated.push(s)
+  }
+
   return {
-    validatedPlanning: validated,
+    validatedPlanning: cleanedValidated,
     wasRepaired,
     errors,
     warnings,

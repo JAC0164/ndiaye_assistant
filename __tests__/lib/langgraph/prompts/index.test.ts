@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { buildPlannerSystemPrompt, PLANNER_HUMAN_TEMPLATE, buildVisionSystemPrompt, VISION_HUMAN_CONTENT } from "@/src/lib/langgraph/prompts"
+import {
+  buildPlannerSystemPrompt,
+  PLANNER_HUMAN_TEMPLATE,
+  buildVisionSystemPrompt,
+  VISION_HUMAN_CONTENT,
+} from "@/src/lib/langgraph/prompts"
 
 describe("prompts index", () => {
   it("exports all prompt helpers and constants correctly", () => {
