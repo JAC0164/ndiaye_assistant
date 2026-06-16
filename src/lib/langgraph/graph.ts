@@ -1,110 +1,13 @@
 import { END, START, StateGraph } from "@langchain/langgraph"
 
 import { plannerAgent } from "./nodes/plannerAgent"
+import { prePlannerNode } from "./nodes/prePlannerNode"
 import { profileAgent } from "./nodes/profileAgent"
 import { visionAgent } from "./nodes/visionAgent"
-import { PlanningGraphAnnotation, PlanningGraphAnnotationState, PlanningGraphAnnotationUpdate } from "./state"
-import { extractSubjects } from "../planning/extractSubjects"
-import { buildFreeSlots } from "../planning/buildFreeSlots"
-import { computeBudgets } from "../planning/computeBudgets"
-import { computePriority } from "../planning/computePriority"
-import { PLANNING_CONFIG, type AcademicPeriod } from "../planning/planningConfig"
-import { parseCoefficientTable } from "../planning/constants"
-import type { BlockedSlot } from "@/src/types/planning.types"
-
-interface GraphOnboarding {
-  bedtime?: string
-  blockedSlots?: BlockedSlot[]
-  academicPeriod?: string
-  weakSubjects?: string[]
-}
+import { PlanningGraphAnnotation, PlanningGraphAnnotationState } from "./state"
 
 function routeAfterVision(state: PlanningGraphAnnotationState) {
   return state.isValidTimetable ? "valid" : "invalid"
-}
-
-export function prePlannerNode(state: PlanningGraphAnnotationState): PlanningGraphAnnotationUpdate {
-  const timetable = state.extractedTimetable
-  if (!timetable) {
-    return {
-      preplannerConstraints: "No timetable available.",
-    }
-  }
-
-  // Normalize subjects and enrich coefficients in the timetable
-  const coeffMap = parseCoefficientTable(state.coefficientTable)
-  if (timetable.days) {
-    for (const day of timetable.days) {
-      if (day.slots) {
-        for (const slot of day.slots) {
-          slot.subject = slot.subject.trim().toUpperCase()
-          const normKey = slot.subject
-          if (coeffMap.has(normKey)) {
-            slot.coefficient = coeffMap.get(normKey)!
-          }
-        }
-      }
-    }
-  }
-
-  const onboarding = (state.onboardingData || {}) as GraphOnboarding
-  const bedtime = onboarding.bedtime || "22:00"
-  const blockedSlots = onboarding.blockedSlots || []
-  const period: AcademicPeriod = (
-    ["debut_trimestre", "milieu_trimestre", "pre_exam", "post_exam"].includes(onboarding.academicPeriod ?? "")
-      ? onboarding.academicPeriod
-      : "milieu_trimestre"
-  ) as AcademicPeriod
-
-  // 1. extractSubjects
-  const subjects = extractSubjects(timetable)
-
-  // 2. buildFreeSlots
-  const freeSlots = buildFreeSlots(timetable, bedtime, blockedSlots)
-  const totalAvailableMinutes = freeSlots.reduce((sum, slot) => sum + slot.durationMinutes, 0)
-
-  // 3. computeBudgets — exclude non-revision subjects (DEV-PERSO, etc.)
-  const excludedUpper = PLANNING_CONFIG.subjectExclusionList.map((s) => s.trim().toUpperCase())
-  const filteredForBudgets = subjects.filter((s) => !excludedUpper.includes(s.name))
-  const budgets = computeBudgets(filteredForBudgets, totalAvailableMinutes, period)
-
-  // 4. computePriority
-  const performanceLevels = new Map<string, "weak">()
-  if (onboarding.weakSubjects && Array.isArray(onboarding.weakSubjects)) {
-    for (const subj of onboarding.weakSubjects) {
-      performanceLevels.set(subj.trim().toUpperCase(), "weak")
-    }
-  }
-  const priorities = computePriority(subjects, new Map(), performanceLevels)
-
-  // 5. Format preplannerConstraints
-  const lines: string[] = ["ALLOWLIST & BUDGETS:"]
-  subjects.forEach((subject, idx) => {
-    const budget = budgets.get(subject.name)
-    const priority = priorities.get(subject.name) ?? 0
-    if (budget) {
-      lines.push(
-        `${idx + 1}. ${subject.name} — budget: ${budget.totalMinutes} min (review: ${budget.reviewMinutes} min, td: ${budget.tdMinutes} min) — priority: ${priority}`
-      )
-    } else {
-      lines.push(`${idx + 1}. ${subject.name} — budget: 0 min — priority: ${priority}`)
-    }
-  })
-
-  lines.push("\nFREE SLOTS:")
-  if (freeSlots.length === 0) {
-    lines.push("(No free slots available. Adjust bedtime or blocked slots.)")
-  } else {
-    for (const slot of freeSlots) {
-      const capitalizedDay = slot.day.charAt(0).toUpperCase() + slot.day.slice(1)
-      lines.push(`- ${capitalizedDay} ${slot.start}–${slot.end} (${slot.durationMinutes} min)`)
-    }
-  }
-
-  return {
-    preplannerConstraints: lines.join("\n"),
-    extractedTimetable: timetable,
-  }
 }
 
 export function createPlanningGraph() {

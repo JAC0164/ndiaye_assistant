@@ -43,8 +43,7 @@ export interface TimetableDay {
 }
 
 export interface ExtractedTimetable {
-  filiere: string
-  days: TimetableDay[]
+  days: TimetableDay[] | null
 }
 
 // --- Pre-planner engine outputs ---

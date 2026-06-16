@@ -18,35 +18,50 @@ function toBase64Image(image: Buffer | string, mimeType = "image/jpeg"): string 
 }
 
 export function validateExtractedTimetable(timetable: ExtractedTimetable): { isValid: boolean; errorMessage?: string } {
+  if (!timetable.days) return { isValid: false, errorMessage: "No slots extracted." }
   for (const day of timetable.days) {
     for (const slot of day.slots) {
       if (slot.start < "08:00" || slot.end > "19:00") {
-        return { isValid: false, errorMessage: "Créneau en dehors des heures autorisées (08:00–19:00)." }
+        return { isValid: false, errorMessage: "Slot outside allowed hours (08:00–19:00)." }
       }
     }
   }
 
   for (const day of timetable.days) {
+    const sortedSlots = [...day.slots].sort((a, b) => {
+      const [ah, am] = a.start.split(":").map(Number)
+      const [bh, bm] = b.start.split(":").map(Number)
+      return ah * 60 + am - (bh * 60 + bm)
+    })
+
     let currentSubject = ""
     let currentDuration = 0
-    for (const slot of day.slots) {
+    let lastEndMin = -1
+
+    for (const slot of sortedSlots) {
       const [sh, sm] = slot.start.split(":").map(Number)
       const [eh, em] = slot.end.split(":").map(Number)
-      const duration = eh * 60 + em - (sh * 60 + sm)
-      if (slot.subject === currentSubject) {
+      const startMin = sh * 60 + sm
+      const endMin = eh * 60 + em
+      const duration = endMin - startMin
+
+      if (slot.subject === currentSubject && lastEndMin !== -1 && startMin - lastEndMin <= 20) {
         currentDuration += duration
       } else {
         currentSubject = slot.subject
         currentDuration = duration
       }
+
+      lastEndMin = endMin
+
       if (currentDuration > 180) {
-        return { isValid: false, errorMessage: `Même matière plus de 3h consécutives : ${currentSubject}.` }
+        return { isValid: false, errorMessage: `Same subject for more than 3 consecutive hours: ${currentSubject}.` }
       }
     }
   }
 
   if (timetable.days.length === 0 || timetable.days.every((d) => d.slots.length === 0)) {
-    return { isValid: false, errorMessage: "Aucun créneau extrait." }
+    return { isValid: false, errorMessage: "No slots extracted." }
   }
 
   return { isValid: true }
@@ -54,20 +69,20 @@ export function validateExtractedTimetable(timetable: ExtractedTimetable): { isV
 
 export function timetableToMarkdown(timetable: ExtractedTimetable): string {
   if (!timetable || !timetable.days) return ""
-  const daysInFrench: Record<string, string> = {
-    monday: "LUNDI",
-    tuesday: "MARDI",
-    wednesday: "MERCREDI",
-    thursday: "JEUDI",
-    friday: "VENDREDI",
-    saturday: "SAMEDI",
-    sunday: "DIMANCHE",
+  const dayAbbr: Record<string, string> = {
+    monday: "Mon",
+    tuesday: "Tue",
+    wednesday: "Wed",
+    thursday: "Thu",
+    friday: "Fri",
+    saturday: "Sat",
+    sunday: "Sun",
   }
   return timetable.days
     .map((d) => {
-      const dayName = daysInFrench[d.day.toLowerCase()] || d.day.toUpperCase()
-      const slotsStr = d.slots.map((s) => `  - ${s.start}-${s.end} : ${s.subject}`).join("\n")
-      return `  ${dayName} :\n${slotsStr}`
+      const day = dayAbbr[d.day.toLowerCase()] || d.day.slice(0, 3)
+      const slots = d.slots.map((s) => `${s.start}-${s.end}(${s.subject})`).join(", ")
+      return `${day}: ${slots}`
     })
     .join("\n")
 }
@@ -90,47 +105,48 @@ export async function visionAgent(state: PlanningGraphAnnotationState): Promise<
   })
 
   const onboarding = state.onboardingData as Record<string, unknown> | null
-  const filiere = (onboarding?.serie as string) || "S1"
-  const coefficientTableStr = state.coefficientTable || "No coefficient table provided."
+  const coeffTable = state.coefficientTable || ""
+
+  const systemParts = [
+    "Role: Vision Agent. Extract the school timetable from the image as structured JSON.",
+    "",
+    ...(coeffTable ? ["COEFFICIENT TABLE (allowed subject codes and coefficients):", coeffTable, ""] : []),
+    "INSTRUCTIONS:",
+    "1. For each time slot in the image, extract: start time (HH:MM), end time (HH:MM), subject.",
+    ...(coeffTable
+      ? [
+          "2. STRICTOR MAPPING: Map identified subjects to one of the strict subject codes in the coefficient table above.",
+        ]
+      : ["2. Map subjects to standard codes (MATH, FR, PC, SVT, HG, ANG, ESP, PHILO, ECO, TQG, CIV, EPS)."]),
+    "   Examples in the image:",
+    '   - "Maths" or "Mathématiques" or "Algèbre" → "MATH"',
+    '   - "PC" or "Physique-Chimie" or "Physique" or "Chimie" → "PC"',
+    '   - "SVT" or "Sciences de la Vie et de la Terre" or "Bio" → "SVT"',
+    '   - "Français" or "Fr" or "Lecture" → "FR"',
+    '   - "Hist-Géo" or "HG" or "Histoire" or "Géographie" → "HG"',
+    '   - "Anglais" or "Ang" or "English" → "ANG"',
+    '   - "Philo" or "Philosophie" → "PHILO"',
+    '   - "Espagnol" or "Esp" or "Spanish" → "ESP"',
+    '   - "Économie" or "Economie" or "Eco" → "ECO"',
+    '   - "TQG" or "Techniques Quantitatives" → "TQG"',
+    '   - "Civique" or "Instruction Civique" → "CIV"',
+    '   - "EPS" or "Sport" or "Gym" → "EPS"',
+    '3. Set the parsed slot\'s subject to the strict uppercase code (e.g. "MATH", "PC").',
+    ...(coeffTable
+      ? ["4. For each subject, look up its coefficient from the table. Set null if not found."]
+      : ["4. Set coefficient to null for all subjects."]),
+    "5. Classify each subject: scientific | literary | language | other.",
+    "6. Only include weekdays (monday–friday). No weekend entries.",
+  ]
 
   const prompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      [
-        "Role: Vision Agent. Extract the school timetable from the image as structured JSON.",
-        "",
-        "COEFFICIENT TABLE (allowed subject codes and coefficients for this student's filière):",
-        coefficientTableStr,
-        "",
-        "INSTRUCTIONS:",
-        "1. For each time slot in the image, extract: start time (HH:MM), end time (HH:MM), subject.",
-        "2. STRICTOR MAPPING: Map identified subjects to one of the strict subject codes in the coefficient table above.",
-        "   Examples in the image:",
-        '   - "Maths" or "Mathématiques" or "Algèbre" → "MATH"',
-        '   - "PC" or "Physique-Chimie" or "Physique" or "Chimie" → "PC"',
-        '   - "SVT" or "Sciences de la Vie et de la Terre" or "Bio" → "SVT"',
-        '   - "Français" or "Fr" or "Lecture" → "FR"',
-        '   - "Hist-Géo" or "HG" or "Histoire" or "Géographie" → "HG"',
-        '   - "Anglais" or "Ang" or "English" → "ANG"',
-        '   - "Philo" or "Philosophie" → "PHILO"',
-        '   - "Espagnol" or "Esp" or "Spanish" → "ESP"',
-        '   - "Économie" or "Economie" or "Eco" → "ECO"',
-        '   - "TQG" or "Techniques Quantitatives" → "TQG"',
-        '   - "Civique" or "Instruction Civique" → "CIV"',
-        '   - "EPS" or "Sport" or "Gym" → "EPS"',
-        '3. Set the parsed slot\'s subject to the strict uppercase code (e.g. "MATH", "PC").',
-        "4. For each subject, look up its coefficient from the table. Set null if not found.",
-        "5. Classify each subject: scientific | literary | language | other.",
-        "6. Only include weekdays (monday–friday). No weekend entries.",
-        `7. Set filiere to "${filiere}".`,
-      ].join("\n"),
-    ],
+    ["system", systemParts.join("\n")],
     [
       "human",
       [
         {
           type: "text",
-          text: "Analyse cette image et extrais l'emploi du temps complet sous forme de JSON structuré.",
+          text: "Analyze this image and extract the complete timetable as structured JSON.",
         },
         {
           type: "image_url",
@@ -157,7 +173,7 @@ export async function visionAgent(state: PlanningGraphAnnotationState): Promise<
   const extractedTimetable = result.timetable
   const validation = extractedTimetable
     ? validateExtractedTimetable(extractedTimetable)
-    : { isValid: false, errorMessage: "Impossible d'extraire l'emploi du temps." }
+    : { isValid: false, errorMessage: "Failed to extract the timetable." }
 
   return {
     extractedTimetable: validation.isValid ? extractedTimetable : null,

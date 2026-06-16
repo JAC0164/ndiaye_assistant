@@ -4,7 +4,6 @@ import type { PlanningGraphAnnotationState } from "@/src/lib/langgraph/state"
 
 const { mockTimetable, mockModel } = vi.hoisted(() => {
   const timetable = {
-    filiere: "S1",
     days: [
       {
         day: "monday" as const,
@@ -79,13 +78,12 @@ describe("visionAgent", () => {
     }
 
     it("returns isValid:true for a valid timetable", () => {
-      const result = validateExtractedTimetable({ filiere: "S1", days: [validDay] })
+      const result = validateExtractedTimetable({ days: [validDay] })
       expect(result.isValid).toBe(true)
     })
 
     it("returns invalid when a slot starts before 08:00", () => {
       const result = validateExtractedTimetable({
-        filiere: "S1",
         days: [
           {
             day: "monday" as const,
@@ -101,7 +99,6 @@ describe("visionAgent", () => {
 
     it("returns invalid when a slot ends after 19:00", () => {
       const result = validateExtractedTimetable({
-        filiere: "S1",
         days: [
           {
             day: "monday" as const,
@@ -117,7 +114,6 @@ describe("visionAgent", () => {
 
     it("returns invalid when same subject exceeds 3h consecutively", () => {
       const result = validateExtractedTimetable({
-        filiere: "S1",
         days: [
           {
             day: "monday" as const,
@@ -130,27 +126,37 @@ describe("visionAgent", () => {
         ],
       })
       expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toContain("3h")
+      expect(result.errorMessage).toContain("3 consecutive hours")
     })
 
     it("returns invalid when all days have no slots", () => {
       const result = validateExtractedTimetable({
-        filiere: "S1",
         days: [{ day: "monday" as const, slots: [] }],
       })
       expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toContain("Aucun créneau")
+      expect(result.errorMessage).toContain("No slots extracted.")
     })
 
     it("returns invalid when days array is empty", () => {
-      const result = validateExtractedTimetable({ filiere: "S1", days: [] })
+      const result = validateExtractedTimetable({ days: [] })
       expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toContain("Aucun créneau")
+      expect(result.errorMessage).toContain("No slots extracted.")
+    })
+
+    it("returns invalid when days is undefined", () => {
+      const result = validateExtractedTimetable({})
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("No slots extracted.")
+    })
+
+    it("returns invalid when days is null", () => {
+      const result = validateExtractedTimetable({ days: null as unknown as [] })
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toContain("No slots extracted.")
     })
 
     it("passes consecutive same-subject slots within 3h (exercise line 38)", () => {
       const result = validateExtractedTimetable({
-        filiere: "S1",
         days: [
           {
             day: "monday" as const,
@@ -178,7 +184,7 @@ describe("visionAgent", () => {
     expect(result.extractedTimetable).toEqual(mockTimetable)
     expect(result.isValidTimetable).toBe(true)
     expect(result.validationErrorMessage).toBeUndefined()
-    expect(result.timetableSummary).toContain("LUNDI")
+    expect(result.timetableSummary).toContain("Mon")
     expect(result.timetableSummary).toContain("MATH")
   })
 
@@ -188,7 +194,7 @@ describe("visionAgent", () => {
     })
     const result = await visionAgent(baseState)
     expect(result.isValidTimetable).toBe(false)
-    expect(result.validationErrorMessage).toBe("Impossible d'extraire l'emploi du temps.")
+    expect(result.validationErrorMessage).toBe("Failed to extract the timetable.")
   })
 
   it("returns validationErrorMessage when timetable fails code validation", async () => {
@@ -207,7 +213,7 @@ describe("visionAgent", () => {
     })
     const result = await visionAgent(baseState)
     expect(result.isValidTimetable).toBe(false)
-    expect(result.validationErrorMessage).toContain("3h")
+    expect(result.validationErrorMessage).toContain("3 consecutive hours")
   })
 
   it("skips model call when extractedTimetable already exists in state", async () => {
@@ -276,15 +282,7 @@ describe("visionAgent", () => {
     const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
     const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
     expect(systemMessage).toContain("Vision Agent")
-    expect(systemMessage).toContain("filière")
     expect(systemMessage).toContain("coefficient")
-  })
-
-  it("uses fallback filiere S1 when onboarding has no serie", async () => {
-    await visionAgent(baseState)
-    const messages = mockFromMessages.mock.calls[0][0] as Array<[string, string]>
-    const systemMessage = messages.find(([role]) => role === "system")?.[1] ?? ""
-    expect(systemMessage).toContain('Set filiere to "S1"')
   })
 })
 
@@ -294,10 +292,10 @@ describe("timetableToMarkdown", () => {
   })
 
   it("returns empty string for timetable without days", () => {
-    expect(timetableToMarkdown({ filiere: "S1" } as any)).toBe("")
+    expect(timetableToMarkdown({} as any)).toBe("")
   })
 
-  it("falls back to uppercase day name for unknown day (line 34)", () => {
+  it("falls back to first 3 chars for unknown day", () => {
     const timetable = {
       filiere: "S1",
       days: [
@@ -310,12 +308,12 @@ describe("timetableToMarkdown", () => {
       ],
     }
     const result = timetableToMarkdown(timetable)
-    expect(result).toContain("FUNDAY")
+    expect(result).toContain("fun")
   })
 })
 
 describe("visionAgent coefficientTable fallback", () => {
-  it("uses fallback text when coefficientTable is empty (line 62)", async () => {
+  it("skips COEFFICIENT TABLE section when coefficientTable is empty", async () => {
     vi.clearAllMocks()
     const stateWithoutCoeffs: PlanningGraphAnnotationState = {
       ...baseState,
@@ -324,6 +322,6 @@ describe("visionAgent coefficientTable fallback", () => {
     await visionAgent(stateWithoutCoeffs)
     const lastCall = mockFromMessages.mock.calls[mockFromMessages.mock.calls.length - 1][0] as Array<[string, string]>
     const systemMessage = lastCall.find(([role]) => role === "system")?.[1] ?? ""
-    expect(systemMessage).toContain("No coefficient table provided.")
+    expect(systemMessage).not.toContain("COEFFICIENT TABLE")
   })
 })

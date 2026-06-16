@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       studentProfileContext: "",
       extractedTimetable: null,
       coefficientTable: "",
+      classSeriesName: "",
       preplannerConstraints: "",
       isValidTimetable: true,
       validationErrorMessage: undefined,

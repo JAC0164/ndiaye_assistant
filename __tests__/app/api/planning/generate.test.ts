@@ -35,8 +35,8 @@ import { runPlanningWorkflow } from "@/src/lib/langgraph/orchestrator"
 const validWorkflowResult = {
   isValidTimetable: true,
   extractedTimetable: { filiere: "S1", days: [] },
-  timetableSummary: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
-  studentProfileContext: "Élève de Terminale S",
+  timetableSummary: "| Day | Time | Subject |\n| MONDAY | 8h | Maths |",
+  studentProfileContext: "Student in Terminale S",
   generatedPlanning: [
     {
       day_of_week: "monday" as const,

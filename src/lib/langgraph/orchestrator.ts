@@ -35,7 +35,7 @@ export async function runPlanningWorkflow(
 
   const classId = profile?.class_id
 
-  const coefficientTable = await fetchCoefficientTable(supabase, classId)
+  const { coefficientTable, classSeriesName } = await fetchCoefficientTable(supabase, classId)
 
   const graph = createPlanningGraph()
   const state = await graph.invoke({
@@ -43,6 +43,7 @@ export async function runPlanningWorkflow(
     timetableImageMimeType: imageMimeType,
     onboardingData,
     coefficientTable,
+    classSeriesName,
     timetableSummary,
     isValidTimetable,
     studentProfileContext,

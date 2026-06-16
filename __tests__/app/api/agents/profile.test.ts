@@ -88,7 +88,7 @@ describe("POST /api/agents/profile", () => {
 
   describe("Success path", () => {
     it("runs profile agent and returns student profile", async () => {
-      const mockResult = { studentProfileContext: "Élève en Terminale S, série scientifique" }
+      const mockResult = { studentProfileContext: "Student in Terminale S, scientific track" }
       vi.mocked(profileAgent).mockResolvedValue(mockResult as never)
 
       const onboardingData = { class_name: "Terminale S", series_name: "S" }
@@ -102,7 +102,7 @@ describe("POST /api/agents/profile", () => {
 
     it("saves profile cache after successful analysis", async () => {
       vi.mocked(profileAgent).mockResolvedValue({
-        studentProfileContext: "Profil élève scientifique",
+        studentProfileContext: "Scientific student profile",
       } as never)
 
       const mockSaveProfileCache = vi.fn().mockResolvedValue(null)
@@ -115,7 +115,7 @@ describe("POST /api/agents/profile", () => {
       })
       await POST(request)
 
-      expect(mockSaveProfileCache).toHaveBeenCalledWith(userId, "Profil élève scientifique")
+      expect(mockSaveProfileCache).toHaveBeenCalledWith(userId, "Scientific student profile")
     })
 
     it("defaults onboardingData to empty object when not provided", async () => {

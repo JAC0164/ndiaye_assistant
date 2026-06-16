@@ -63,6 +63,7 @@ vi.mock("@langchain/langgraph", () => {
 
 vi.mock("@/src/lib/langgraph/nodes/visionAgent", () => ({
   visionAgent: vi.fn(),
+  timetableToMarkdown: vi.fn(() => ""),
 }))
 
 vi.mock("@/src/lib/langgraph/nodes/profileAgent", () => ({
@@ -79,7 +80,8 @@ vi.mock("@/src/lib/planning/computePriority", () => ({
   computePriority: mockComputePriority,
 }))
 
-import { createPlanningGraph, prePlannerNode } from "@/src/lib/langgraph/graph"
+import { createPlanningGraph } from "@/src/lib/langgraph/graph"
+import { prePlannerNode } from "@/src/lib/langgraph/nodes/prePlannerNode"
 import { StateGraph } from "@langchain/langgraph"
 import { visionAgent } from "@/src/lib/langgraph/nodes/visionAgent"
 import { profileAgent } from "@/src/lib/langgraph/nodes/profileAgent"
@@ -217,9 +219,9 @@ describe("createPlanningGraph", () => {
 
       const result = prePlannerNode(state)
       expect(result).toHaveProperty("preplannerConstraints")
-      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+      expect(result.preplannerConstraints).toContain("#SUBJECTS")
       expect(result.preplannerConstraints).toContain("MATH")
-      expect(result.preplannerConstraints).toContain("FREE SLOTS")
+      expect(result.preplannerConstraints).toContain("#SLOTS")
     })
 
     it("should return 'No timetable available.' when extractedTimetable is null", () => {
@@ -249,7 +251,7 @@ describe("createPlanningGraph", () => {
       }
       const result = prePlannerNode(state)
       expect(result.preplannerConstraints).toContain("MATH")
-      expect(state.extractedTimetable.days[0].slots[0].coefficient).toBe(6)
+      expect(result.extractedTimetable?.days[0]?.slots[0]?.coefficient).toBe(6)
     })
 
     it("should handle subject with zero budget", () => {
@@ -269,7 +271,7 @@ describe("createPlanningGraph", () => {
         onboardingData: {},
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("budget: 0 min")
+      expect(result.preplannerConstraints).toContain("MATH|0|")
     })
 
     it("should handle no free slots available", () => {
@@ -286,12 +288,35 @@ describe("createPlanningGraph", () => {
           ],
         },
         onboardingData: {
-          bedtime: "00:00",
+          bedtime: "07:00",
           blockedSlots: [],
         },
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("(No free slots available.")
+      expect(result.preplannerConstraints).toContain("none")
+    })
+
+    it("should display correct period label for pre_exam", () => {
+      const state = {
+        extractedTimetable: {
+          filiere: "S1",
+          days: [
+            {
+              day: "monday" as const,
+              slots: [
+                { start: "08:00", end: "09:30", subject: "MATH", coefficient: 4, subject_type: "scientific" as const },
+              ],
+            },
+          ],
+        },
+        onboardingData: {
+          bedtime: "22:00",
+          blockedSlots: [],
+          academicPeriod: "pre_exam",
+        },
+      }
+      const result = prePlannerNode(state)
+      expect(result.preplannerConstraints).toContain("pre_exam")
     })
 
     it("should handle null days in timetable (line 45 false branch)", () => {
@@ -304,7 +329,7 @@ describe("createPlanningGraph", () => {
         onboardingData: {},
       }
       const result = prePlannerNode(state as any)
-      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+      expect(result.preplannerConstraints).toContain("#SUBJECTS")
     })
 
     it("should handle day with null slots (line 47 false branch)", () => {
@@ -316,7 +341,7 @@ describe("createPlanningGraph", () => {
         onboardingData: {},
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
+      expect(result.preplannerConstraints).toContain("#SUBJECTS")
     })
 
     it("should handle null onboardingData (line 59 fallback)", () => {
@@ -336,8 +361,8 @@ describe("createPlanningGraph", () => {
         onboardingData: null,
       }
       const result = prePlannerNode(state as any)
-      expect(result.preplannerConstraints).toContain("ALLOWLIST & BUDGETS")
-      expect(result.preplannerConstraints).toContain("FREE SLOTS")
+      expect(result.preplannerConstraints).toContain("#SUBJECTS")
+      expect(result.preplannerConstraints).toContain("#SLOTS")
     })
 
     it("should fall back to ?? 0 when priority not found for a subject (line 92)", () => {
@@ -358,7 +383,7 @@ describe("createPlanningGraph", () => {
         onboardingData: {},
       }
       const result = prePlannerNode(state)
-      expect(result.preplannerConstraints).toContain("priority: 0")
+      expect(result.preplannerConstraints).toContain("0.0|LOW|")
     })
   })
 })

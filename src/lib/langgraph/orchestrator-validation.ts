@@ -11,7 +11,6 @@ export function validatePostGraph(state: PlanningGraphAnnotationState, onboardin
   if (!state.isValidTimetable || !state.extractedTimetable) return
   try {
     const subjects = extractSubjects(state.extractedTimetable)
-    const allowedSubjects = subjects.map((s) => s.name)
     const onboarding = onboardingData as OnboardingForm
     const bedtime = onboarding?.bedtime || "22:00"
     const blockedSlots = onboarding?.blockedSlots || []
@@ -24,7 +23,7 @@ export function validatePostGraph(state: PlanningGraphAnnotationState, onboardin
     const freeSlots = buildFreeSlots(state.extractedTimetable, bedtime, blockedSlots)
     const totalAvailableMinutes = freeSlots.reduce((sum, slot) => sum + slot.durationMinutes, 0)
     const budgets = computeBudgets(subjects, totalAvailableMinutes, period)
-    const validation = validatePlanning(state.generatedPlanning, allowedSubjects, bedtime, blockedSlots, {
+    const validation = validatePlanning(state.generatedPlanning, bedtime, blockedSlots, {
       budgets,
       weakSubjects: onboarding?.weakSubjects || [],
       allSubjects: subjects,

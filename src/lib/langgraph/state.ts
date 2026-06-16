@@ -37,7 +37,6 @@ export const timetableDaySchema = z.object({
 })
 
 export const extractedTimetableSchema = z.object({
-  filiere: z.string(),
   days: z.array(timetableDaySchema),
 })
 
@@ -87,6 +86,10 @@ export const PlanningGraphAnnotation = Annotation.Root({
     default: () => null,
   }),
   coefficientTable: Annotation<string>({
+    value: (_current, update) => update,
+    default: () => "",
+  }),
+  classSeriesName: Annotation<string>({
     value: (_current, update) => update,
     default: () => "",
   }),

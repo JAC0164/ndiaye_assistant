@@ -100,13 +100,12 @@ describe("buildFreeSlots", () => {
     const freeSlots = buildFreeSlots({ filiere: "L2", days: [] }, "22:00", [])
     const saturdaySlots = freeSlots.filter((s) => s.day === "saturday")
 
-    expect(saturdaySlots).toHaveLength(6) // maxSessionsPerFreeDay
+    expect(saturdaySlots).toHaveLength(5) // maxSessionsPerFreeDay
     expect(saturdaySlots[0].start).toBe("09:00")
     expect(saturdaySlots[0].end).toBe("09:45")
     expect(saturdaySlots[0].durationMinutes).toBe(45)
-    // Last two slots fall in the afternoon
+    // Last slot falls in the afternoon
     expect(saturdaySlots[4].start).toBe("14:00")
-    expect(saturdaySlots[5].start).toBe("14:55")
   })
 
   it("extracts school day intra-day gaps >= 2 hours", () => {

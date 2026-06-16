@@ -65,6 +65,7 @@ const mockTimetable = {
 describe("runPlanningWorkflow", () => {
   let runPlanningWorkflow: any
   let supabase: ReturnType<typeof createMockSupabase>["supabase"]
+  let setSupabaseResult: (data: unknown, error?: unknown) => void
   const buffer = Buffer.from("test-image")
   const onboardingData = { weakSubjects: ["Maths"], bedtime: "22:00", blockedSlots: [] }
 
@@ -75,6 +76,7 @@ describe("runPlanningWorkflow", () => {
     runPlanningWorkflow = orchestratorModule.runPlanningWorkflow
     const mockSupabase = createMockSupabase()
     supabase = mockSupabase.supabase
+    setSupabaseResult = mockSupabase.setResult
 
     mockGetByUserId.mockImplementation(async (uid: string) => {
       if (uid === "user-2") {
@@ -342,5 +344,27 @@ describe("runPlanningWorkflow", () => {
         timetableSummary: "",
       })
     )
+  })
+
+  it("fetches series name from classes table and passes classSeriesName to graph", async () => {
+    setSupabaseResult({ series_id: "series-1" })
+    mockGetByClassId.mockResolvedValue([
+      { subject: "FR", coefficient: 4 },
+      { subject: "MATH", coefficient: 2 },
+    ])
+
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        classSeriesName: expect.any(String),
+      })
+    )
+  })
+
+  it("handles classes query returning null series_id gracefully", async () => {
+    setSupabaseResult({ series_id: null })
+    await runPlanningWorkflow(supabase, "user-1", buffer, onboardingData)
+    expect(mockInvoke).toHaveBeenCalled()
   })
 })

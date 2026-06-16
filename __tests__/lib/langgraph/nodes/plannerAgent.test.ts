@@ -102,14 +102,14 @@ describe("plannerAgent", () => {
     expect(callArg.preplannerConstraints).toBe(baseState.preplannerConstraints)
   })
 
-  it("uses default fallback when preplannerConstraints is empty", async () => {
+  it("uses empty string when preplannerConstraints is empty", async () => {
     const state: PlanningGraphAnnotationState = {
       ...baseState,
       preplannerConstraints: "",
     }
     await plannerAgent(state)
     const callArg = mockModel.invoke.mock.calls[0][0] as Record<string, string>
-    expect(callArg.preplannerConstraints).toBe("No constraints specified.")
+    expect(callArg.preplannerConstraints).toBe("")
   })
 
   it("includes scheduling rules in system prompt", async () => {

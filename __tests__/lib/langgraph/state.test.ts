@@ -113,7 +113,6 @@ describe("generatedSeanceSchema", () => {
 
 describe("visionAgentOutputSchema", () => {
   const validTimetable = {
-    filiere: "L2",
     days: [
       {
         day: "monday" as const,
@@ -126,7 +125,7 @@ describe("visionAgentOutputSchema", () => {
 
   it("accepts valid timetable", () => {
     const result = visionAgentOutputSchema.parse({ timetable: validTimetable })
-    expect(result.timetable?.filiere).toBe("L2")
+    expect(result.timetable?.days).toHaveLength(1)
   })
 
   it("accepts null timetable", () => {
@@ -277,7 +276,8 @@ describe("PlanningGraphAnnotation", () => {
     expect(keys).toContain("coefficientTable")
     expect(keys).toContain("preplannerConstraints")
     expect(keys).toContain("planningValidation")
-    expect(keys).toHaveLength(12)
+    expect(keys).toContain("classSeriesName")
+    expect(keys).toHaveLength(13)
   })
 
   it("timetableImage uses simple Annotation (no operator, no initialValueFactory)", () => {
@@ -301,7 +301,13 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields use value reducer that replaces old with new", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["timetableSummary", "studentProfileContext"]
+    const stringFields = [
+      "timetableSummary",
+      "studentProfileContext",
+      "coefficientTable",
+      "preplannerConstraints",
+      "classSeriesName",
+    ]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.operator).toBe("function")
@@ -311,7 +317,13 @@ describe("PlanningGraphAnnotation", () => {
 
   it("string fields default to empty string", () => {
     const spec = (PlanningGraphAnnotation as any).spec
-    const stringFields = ["timetableSummary", "studentProfileContext"]
+    const stringFields = [
+      "timetableSummary",
+      "studentProfileContext",
+      "coefficientTable",
+      "preplannerConstraints",
+      "classSeriesName",
+    ]
     for (const field of stringFields) {
       const entry = spec[field]
       expect(typeof entry.initialValueFactory).toBe("function")
@@ -376,7 +388,7 @@ describe("PlanningGraphAnnotation", () => {
     const spec = (PlanningGraphAnnotation as any).spec
     const entry = spec.extractedTimetable
     expect(typeof entry.operator).toBe("function")
-    const timetable = { filiere: "S1", days: [] }
+    const timetable = { days: [] }
     expect(entry.operator(null, timetable)).toBe(timetable)
     expect(entry.operator(timetable, null)).toBe(null)
     expect(typeof entry.initialValueFactory).toBe("function")

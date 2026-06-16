@@ -1,4 +1,4 @@
-import type { AgentName, ModelProviderConfig, ProvidersConfig } from "./types"
+import type { AgentName, ModelProvider, ModelProviderConfig, ProvidersConfig } from "./types"
 
 const AGENT_KEYS: AgentName[] = ["vision", "profile", "planner"]
 

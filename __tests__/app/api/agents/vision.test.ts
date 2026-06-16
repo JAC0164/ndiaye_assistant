@@ -114,7 +114,7 @@ describe("POST /api/agents/vision", () => {
   describe("Success path", () => {
     it("runs vision agent and returns extracted timetable", async () => {
       const mockResult = {
-        timetableSummary: "| Jour | Heure | Matière |\n| Lundi | 8h | Maths |",
+        timetableSummary: "| Day | Time | Subject |\n| MONDAY | 8h | Maths |",
         isValidTimetable: true,
         validationErrorMessage: undefined,
       }
@@ -134,7 +134,7 @@ describe("POST /api/agents/vision", () => {
 
     it("saves vision cache after successful extraction", async () => {
       vi.mocked(visionAgent).mockResolvedValue({
-        timetableSummary: "| Lundi | 8h | Maths |",
+        timetableSummary: "| MONDAY | 8h | Maths |",
         isValidTimetable: true,
         validationErrorMessage: undefined,
       } as never)
@@ -147,7 +147,7 @@ describe("POST /api/agents/vision", () => {
       const request = createMockRequest("POST", { formData: createImageFormData() })
       await POST(request)
 
-      expect(mockSaveVisionCache).toHaveBeenCalledWith(userId, "| Lundi | 8h | Maths |", true)
+      expect(mockSaveVisionCache).toHaveBeenCalledWith(userId, "| MONDAY | 8h | Maths |", true)
     })
   })
 

@@ -3,7 +3,7 @@ import { extractSubjects } from "../../../src/lib/planning/extractSubjects"
 import { buildFreeSlots } from "../../../src/lib/planning/buildFreeSlots"
 import { computeBudgets } from "../../../src/lib/planning/computeBudgets"
 import { computePriority } from "../../../src/lib/planning/computePriority"
-import { prePlannerNode } from "../../../src/lib/langgraph/graph"
+import { prePlannerNode } from "../../../src/lib/langgraph/nodes/prePlannerNode"
 import { ExtractedTimetable, OnboardingForm } from "../../../src/types/planning.types"
 
 const TEST_TIMETABLE: ExtractedTimetable = {
@@ -133,8 +133,8 @@ describe("Study Planner Redesign Integration Test (L2 reference case)", () => {
 
     expect(resultState).toHaveProperty("preplannerConstraints")
     const constraints = resultState.preplannerConstraints!
-    expect(constraints).toContain("ALLOWLIST & BUDGETS")
-    expect(constraints).toContain("FREE SLOTS")
+    expect(constraints).toContain("#SUBJECTS")
+    expect(constraints).toContain("#SLOTS")
 
     // Verify constraints string contains all 8 subject names and zero others
     for (const name of subjectNames) {
