@@ -368,4 +368,169 @@ describe("validatePlanning with draftPlanning", () => {
     expect(result.wasRepaired).toBe(true)
     expect(result.errors).toHaveLength(4)
   })
+
+  it("should replace consecutive identical subject if another subject has enough budget", () => {
+    const generated: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "10:00",
+        subject: "PC",
+        session_type: "review",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "saturday",
+        start_time: "10:00",
+        end_time: "10:10",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "saturday",
+        start_time: "10:10",
+        end_time: "11:10",
+        subject: "PC",
+        session_type: "td",
+        pedagogical_note: "",
+      },
+    ]
+    const budgets = new Map([
+      ["PC", { totalMinutes: 120, reviewMinutes: 60, tdMinutes: 60 }],
+      ["FR", { totalMinutes: 120, reviewMinutes: 60, tdMinutes: 60 }],
+      ["HG", { totalMinutes: 120, reviewMinutes: 60, tdMinutes: 60 }],
+    ])
+    const allSubjects = [
+      { name: "PC", coefficient: 4, subjectType: "scientific" as const, daysPresent: [] },
+      { name: "FR", coefficient: 4, subjectType: "literary" as const, daysPresent: [] },
+      { name: "HG", coefficient: 2, subjectType: "literary" as const, daysPresent: [] },
+    ]
+    const draftPlanning = [...generated] // Pass identical draft to pass the findIndex
+    const result = validatePlanning(generated, "22:00", [], { budgets, allSubjects, draftPlanning })
+
+    // The second PC session should be replaced by FR or HG (FR should win due to tie, or whichever is sorted first)
+    expect(result.wasRepaired).toBe(true)
+    expect(result.warnings).toHaveLength(1)
+    expect(result.warnings[0].check).toBe("interleaving")
+    expect(result.validatedPlanning).toHaveLength(3) // The two sessions + 1 break
+    expect(result.validatedPlanning[2].subject).toBe("FR")
+  })
+
+  it("should drop consecutive identical subject if no other subject has budget", () => {
+    const generated: GeneratedSeance[] = [
+      {
+        day_of_week: "saturday",
+        start_time: "09:00",
+        end_time: "10:00",
+        subject: "PC",
+        session_type: "review",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "saturday",
+        start_time: "10:00",
+        end_time: "11:00",
+        subject: "PC",
+        session_type: "td",
+        pedagogical_note: "",
+      },
+    ]
+    const budgets = new Map([
+      ["PC", { totalMinutes: 120, reviewMinutes: 60, tdMinutes: 60 }],
+      ["FR", { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }], // No budget for FR
+    ])
+    const allSubjects = [
+      { name: "PC", coefficient: 4, subjectType: "scientific" as const, daysPresent: [] },
+      { name: "FR", coefficient: 4, subjectType: "literary" as const, daysPresent: [] },
+    ]
+    const draftPlanning = [...generated] // Pass identical draft
+    const result = validatePlanning(generated, "22:00", [], { budgets, allSubjects, draftPlanning })
+
+    // The second PC session should be dropped entirely
+    expect(result.wasRepaired).toBe(true)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].check).toBe("interleaving")
+    expect(result.validatedPlanning).toHaveLength(1) // Only the first PC session remains
+    expect(result.validatedPlanning[0].subject).toBe("PC")
+  })
+
+  it("should remove sessions that exceed budget by more than 15 minutes", () => {
+    const generated: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "18:00",
+        subject: "MATH",
+        session_type: "review",
+        pedagogical_note: "",
+      }, // 60 min
+      {
+        day_of_week: "monday",
+        start_time: "18:00",
+        end_time: "19:00",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      }, // +60 min = 120 min
+    ]
+    const budgets = new Map([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    const result = validatePlanning(generated, "22:00", [], { budgets, draftPlanning: [...generated] })
+
+    expect(result.wasRepaired).toBe(true)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].check).toBe("budget_exceeded")
+    expect(result.validatedPlanning).toHaveLength(1) // Only first session is kept
+  })
+
+  it("should remove orphan breaks", () => {
+    const generated: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "17:10",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      }, // Orphan at start
+      {
+        day_of_week: "monday",
+        start_time: "17:10",
+        end_time: "18:10",
+        subject: "MATH",
+        session_type: "td",
+        pedagogical_note: "",
+      },
+      {
+        day_of_week: "tuesday",
+        start_time: "17:00",
+        end_time: "17:10",
+        subject: "Break",
+        session_type: "break",
+        pedagogical_note: "",
+      }, // Orphan on different day
+    ]
+    const result = validatePlanning(generated, "22:00", [], { draftPlanning: [...generated] })
+    expect(result.validatedPlanning).toHaveLength(1)
+    expect(result.validatedPlanning[0].subject).toBe("MATH")
+  })
+
+  it("should match budgets case-insensitively and ignore whitespace", () => {
+    const generated: GeneratedSeance[] = [
+      {
+        day_of_week: "monday",
+        start_time: "17:00",
+        end_time: "18:00",
+        subject: " MATH ",
+        session_type: "review",
+        pedagogical_note: "",
+      },
+    ]
+    const budgets = new Map([["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }]])
+    // The subject in generated is " MATH ". The map has "MATH".
+    // This will trigger the Array.from fallback.
+    const result = validatePlanning(generated, "22:00", [], { budgets, draftPlanning: [...generated] })
+    expect(result.errors).toHaveLength(0)
+    expect(result.removedSessions).toHaveLength(0)
+  })
 })

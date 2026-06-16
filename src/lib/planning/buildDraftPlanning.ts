@@ -169,7 +169,7 @@ export function buildDraftPlanning(
 
       if (isWeekend) {
         // Weekend placement logic
-        if (slotIdx === 0 && frogSubject && (budgetTracker.get(frogSubject)?.remainingMinutes || 0) > 0) {
+        if (slotIdx === 0 && frogSubject && budgetTracker.get(frogSubject)!.remainingMinutes > 0) {
           // "Eat the frog": first session of weekend is the frog subject if it has budget
           selectedSubject = frogSubject
         } else {
@@ -181,7 +181,7 @@ export function buildDraftPlanning(
 
           // Get candidates that still have budget and enforce strict interleaving (never same subject twice in a row)
           let candidates = subjects.filter(
-            (s) => s.name !== lastSubject && (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+            (s) => s.name !== lastSubject && budgetTracker.get(s.name)!.remainingMinutes > 0
           )
 
           if (needsWeak) {
@@ -234,7 +234,7 @@ export function buildDraftPlanning(
               s.subjectType !== lastSubjectType &&
               candidatesFilter(s) &&
               (!checkScheduled || !subjectsScheduledToday.has(s.name)) &&
-              (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+              budgetTracker.get(s.name)!.remainingMinutes > 0
           )
           if (list.length === 0) {
             // Relax cognitive alternation
@@ -243,7 +243,7 @@ export function buildDraftPlanning(
                 s.name !== lastSubject &&
                 candidatesFilter(s) &&
                 (!checkScheduled || !subjectsScheduledToday.has(s.name)) &&
-                (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+                budgetTracker.get(s.name)!.remainingMinutes > 0
             )
           }
           if (list.length === 0) return null
@@ -268,40 +268,23 @@ export function buildDraftPlanning(
               s.name !== lastSubject &&
               s.subjectType !== lastSubjectType &&
               !subjectsScheduledToday.has(s.name) &&
-              (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+              budgetTracker.get(s.name)!.remainingMinutes > 0
           )
           if (list.length === 0) {
             list = subjects.filter(
               (s) =>
                 s.name !== lastSubject &&
                 !subjectsScheduledToday.has(s.name) &&
-                (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
+                budgetTracker.get(s.name)!.remainingMinutes > 0
             )
           }
           if (list.length === 0) {
             // Relax scheduled today check
-            list = subjects.filter(
-              (s) => s.name !== lastSubject && (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
-            )
+            list = subjects.filter((s) => s.name !== lastSubject && budgetTracker.get(s.name)!.remainingMinutes > 0)
           }
           if (list.length > 0) {
             list.sort((a, b) => priorities.get(b.name)! - priorities.get(a.name)! || a.name.localeCompare(b.name))
             selectedSubject = list[0].name
-          }
-        }
-
-        // Fallbacks
-        if (!selectedSubject) {
-          const anyWithBudget = subjects.filter(
-            (s) => s.name !== lastSubject && (budgetTracker.get(s.name)?.remainingMinutes || 0) > 0
-          )
-          if (anyWithBudget.length > 0) {
-            anyWithBudget.sort(
-              (a, b) => priorities.get(b.name)! - priorities.get(a.name)! || a.name.localeCompare(b.name)
-            )
-            selectedSubject = anyWithBudget[0].name
-          } else {
-            selectedSubject = null
           }
         }
       }
@@ -318,7 +301,7 @@ export function buildDraftPlanning(
         tracker.remainingMinutes = Math.max(0, tracker.totalBudget - tracker.usedMinutes)
 
         // Choose session type: td vs review based on remaining ratios
-        const budget = budgets.get(selectedSubject) || { totalMinutes: 0, reviewMinutes: 0, tdMinutes: 0 }
+        const budget = budgets.get(selectedSubject)!
         let sessionType: "td" | "review" = "review"
         const remainingTd = budget.tdMinutes - tracker.tdUsed
         const remainingReview = budget.reviewMinutes - tracker.reviewUsed

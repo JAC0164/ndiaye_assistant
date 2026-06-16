@@ -286,4 +286,30 @@ describe("buildDraftPlanning", () => {
     const studySessions = result.filter((s) => s.session_type !== "break")
     expect(studySessions).toHaveLength(0)
   })
+  it("should select the highest priority subject with remaining budget on fallback", () => {
+    // 2 slots on Wednesday.
+    // Wed class = HG (0 budget). Thu class = MATH (budget 60).
+    const freeSlots: FreeSlot[] = [
+      { day: "wednesday", start: "17:00", end: "18:00", durationMinutes: 60 },
+      { day: "wednesday", start: "18:00", end: "19:00", durationMinutes: 60 },
+    ]
+    const customBudgets = new Map<string, SubjectBudget>([
+      ["MATH", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }], // Exact 1 slot
+      ["PC", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }],
+      ["FR", { totalMinutes: 60, reviewMinutes: 30, tdMinutes: 30 }],
+    ])
+    const customPriorities = new Map<string, number>([
+      ["MATH", 10.0],
+      ["PC", 8.0],
+      ["FR", 8.0], // Exact same priority to trigger localeCompare fallback
+    ])
+
+    // First slot picks MATH. Second slot falls back to `anyWithBudget` and should sort and pick FR.
+    const result = buildDraftPlanning(mockSubjects, customBudgets, customPriorities, freeSlots, {}, { days: [] })
+    const studySessions = result.filter((s) => s.session_type !== "break")
+
+    expect(studySessions).toHaveLength(2)
+    expect(studySessions[0].subject).toBe("MATH")
+    expect(studySessions[1].subject).toBe("FR")
+  })
 })

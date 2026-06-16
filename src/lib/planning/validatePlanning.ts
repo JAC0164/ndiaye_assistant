@@ -233,9 +233,9 @@ export function validatePlanning(
           const candidates = options.allSubjects
             .filter((sub) => sub.name !== lastStudySubject)
             .map((sub) => {
-              const budgetObj = options.budgets!.get(sub.name)
+              const budgetObj = options.budgets!.get(sub.name)!
               const used = usedMinutes.get(sub.name) || 0
-              const remaining = budgetObj ? budgetObj.totalMinutes - used : 0
+              const remaining = budgetObj.totalMinutes - used
               return { name: sub.name, remaining }
             })
             .filter((sub) => sub.remaining >= duration)
@@ -247,7 +247,7 @@ export function validatePlanning(
             // Adjust used budgets
             const currentlyUsed = usedMinutes.get(replacement) || 0
             usedMinutes.set(replacement, currentlyUsed + duration)
-            const oldUsed = usedMinutes.get(lastStudySubject) || 0
+            const oldUsed = usedMinutes.get(lastStudySubject)!
             usedMinutes.set(lastStudySubject, Math.max(0, oldUsed - duration))
 
             s.subject = replacement
@@ -263,7 +263,7 @@ export function validatePlanning(
             // Cannot replace, so we must drop it to respect interleaving
             removedSessions.push({ ...s })
 
-            const oldUsed = usedMinutes.get(lastStudySubject) || 0
+            const oldUsed = usedMinutes.get(lastStudySubject)!
             usedMinutes.set(lastStudySubject, Math.max(0, oldUsed - duration))
 
             errors.push({
